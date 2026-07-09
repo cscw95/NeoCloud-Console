@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NeoCloud Biz — Business Portal</title>
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/shell.css">
+<style>
+/* ── 비즈 콘솔 화면 고유 스타일 (공통 셸: ../shared/shell.css) ── */
+.content section{max-width:1340px}
+.pd{display:flex;gap:4px;margin-left:6px}
+.pd .p{background:none;color:var(--muted);border:1px solid var(--line);border-radius:5px;
+  padding:3px 11px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit}
+.pd .p.act{background:var(--green);color:var(--on-green);border-color:var(--green)}
+.tb-note{color:var(--muted);font-size:11px;white-space:nowrap}
+.soft{color:var(--soft)}.mut{color:var(--muted)}.mut2{color:var(--muted2)}.amber{color:var(--amber)}
+.fr{margin-left:auto;flex:none}
+/* 딜 카드 */
+.deal{background:var(--card-sub);border:1px solid #2a3848;border-left:3px solid var(--line);
+  border-radius:8px;padding:10px 13px;margin-bottom:8px}
+.deal:last-child{margin-bottom:0}
+.deal.green{border-left-color:var(--green-text)}
+.deal.amber{border-left-color:var(--amber)}
+.deal.blue{border-left-color:var(--blue)}
+.deal.done{border-left-color:var(--green-line)}
+.deal .hd{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.deal .hd b{color:var(--strong);font-size:12.5px}
+.deal .hd .amt{margin-left:auto;font-family:Menlo,monospace;font-size:11px;color:var(--strong)}
+.deal .sub{color:var(--muted);font-size:11px;margin-top:2px}
+/* 퍼널 스트립 */
+.funnel{display:flex;gap:2px;margin-bottom:12px;font-size:10px;text-align:center;font-weight:700}
+.funnel>div{padding:6px 4px}
+.funnel b{color:var(--strong);display:block;font-size:13px}
+/* 스테이지 보드 */
+.lanes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.lane{background:var(--card-sub);border:1px solid var(--line);border-radius:9px;padding:12px}
+.lane .lh{display:flex;gap:7px;margin-bottom:9px;font-size:11px;font-weight:800;letter-spacing:.06em}
+.lane .lh .n{margin-left:auto;font-family:Menlo,monospace;font-size:10.5px;color:var(--muted2);
+  font-weight:400;letter-spacing:0}
+.lane .lc{background:var(--strip);border:1px solid var(--line);border-radius:7px;
+  padding:9px 11px;margin-bottom:7px}
+.lane .lc:last-child{margin-bottom:0}
+.lane .lc b{font-size:12px;color:var(--strong)}
+.lane .lc .s{color:var(--muted);font-size:10.5px}
+.lane .lc.blue{border-color:#1c2f4a}
+.lane .lc.amber{border-color:var(--amber-bg)}
+.lane .lc.green{border-color:var(--green-line)}
+/* 리스트 행 */
+.list{display:flex;flex-direction:column;gap:9px;font-size:11.5px}
+.list .li{display:flex;gap:10px;align-items:center}
+.list .li .rt{margin-left:auto;flex:none;font-size:10.5px}
+.list.div{gap:10px}
+.list.div .li{border-bottom:1px solid var(--line-soft);padding-bottom:10px;align-items:flex-start}
+.list.div .li:last-child{border-bottom:0;padding-bottom:0}
+.list.div .li .dot{margin-top:5px}
+/* 체크리스트 */
+.ckl{display:flex;flex-direction:column;gap:7px;font-size:11.5px}
+.ckl .ck{display:flex;gap:9px;align-items:center}
+/* 패널용 kv 테이블 */
+.kv2{width:100%;border-collapse:collapse;font-size:11.5px;font-variant-numeric:tabular-nums}
+.kv2 td{padding:5px 8px;border-bottom:1px solid var(--line-soft)}
+.kv2 tr:last-child td{border-bottom:0}
+.kv2 td:first-child{color:var(--muted);width:120px;white-space:nowrap}
+/* 활동 로그 */
+.alog{background:var(--card-sub);border:1px solid var(--line);border-radius:8px;padding:11px 13px}
+.alog .h{color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em;margin-bottom:6px}
+.alog .b{font-family:Menlo,monospace;font-size:10.5px;color:var(--muted);line-height:2}
+/* 차트 */
+.legend{font-size:11px;color:var(--muted);margin-bottom:6px;display:flex;gap:12px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;vertical-align:-1px}
+.chart-x{display:flex;justify-content:space-between;color:var(--muted2);font-size:10px;
+  font-family:Menlo,monospace;margin-top:2px}
+/* 견적 산정 입력 칩 */
+.qchips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.qchip{background:var(--card-sub);border:1px solid var(--line);border-radius:7px;
+  padding:7px 12px;color:var(--soft);font-size:11.5px}
+/* P2 프리뷰 배너 */
+.p2-banner{display:flex;gap:7px;align-items:center;margin-bottom:16px;background:var(--strip);
+  border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:11.5px;color:var(--muted)}
+.p2-tag{color:var(--blue-text);font-weight:800;border:1px solid #1f4a6a;background:#0e2438;
+  border-radius:4px;padding:1px 8px;font-size:10px;flex:none}
+/* 버튼 보조 */
+.btn-plain{background:none;color:var(--muted);border:1px solid var(--line);border-radius:7px;
+  padding:6px 13px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+.btn-plain:hover{color:var(--strong);border-color:var(--muted2)}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.sm{padding:4px 12px;font-size:11px}
+.btn-danger.sm{padding:4px 12px;font-size:11px}
+/* 3열 그리드 */
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+/* 파일 업로드 필드 */
+.file-drop{background:var(--card-sub);border:1px dashed var(--dot-off);border-radius:7px;
+  padding:7px 12px;color:var(--muted2);font-size:12px}
+/* 비즈 사용자 아바타 */
+.sb-user .av{background:#13314f;color:var(--blue-text)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ══ 사이드바 ══ -->
+  <aside class="sb">
+    <div class="sb-brand">
+      <span class="lg">N</span>
+      <div>
+        <div class="t">NeoCloud <span style="color:var(--green)">Biz</span></div>
+        <div class="s">BUSINESS PORTAL · 영업 / 경영</div>
+      </div>
+    </div>
+    <nav>
+      <a class="mi" data-route="dashboard" href="#/dashboard"><span class="dot"></span>임원 대시보드</a>
+      <div class="sb-grp">영업</div>
+      <a class="mi" data-route="pipeline" href="#/pipeline"><span class="dot"></span>파이프라인 · CRM<span class="bd amber" id="bd-pipeline">2</span></a>
+      <a class="mi" data-route="rfq" href="#/rfq"><span class="dot"></span>견적 · RFQ</a>
+      <a class="mi" data-route="contracts" href="#/contracts"><span class="dot"></span>계약 관리<span class="bd amber">1</span></a>
+      <div class="sb-grp">재무</div>
+      <a class="mi" data-route="revenue" href="#/revenue"><span class="dot"></span>매출 · 수익 분석</a>
+      <a class="mi" data-route="pricing" href="#/pricing"><span class="dot"></span>가격 정책</a>
+      <div class="sb-grp">계획</div>
+      <a class="mi" data-route="planning" href="#/planning"><span class="dot"></span>수요 · 공급 계획</a>
+      <a class="mi" data-route="partners" href="#/partners"><span class="dot"></span>파트너 · 공급망</a>
+      <a class="mi" data-route="compliance" href="#/compliance"><span class="dot"></span>컴플라이언스<span class="bd red">1</span></a>
+      <a class="mi" data-route="market" href="#/market"><span class="dot"></span>시장 · 경쟁 분석<span class="bd p2">P2</span></a>
+      <a class="mi" data-route="channel" href="#/channel"><span class="dot"></span>채널 · 리셀러<span class="bd p2">P2</span></a>
+    </nav>
+    <div class="sb-user">
+      <span class="av">SP</span>
+      <div><div class="nm">박서연</div><div class="rl">사업총괄 · 전체 열람</div></div>
+    </div>
+  </aside>
+
+  <!-- ══ 본문 ══ -->
+  <div class="main">
+    <div class="topbar">
+      <span class="crumb">Biz<span class="sep">/</span><span class="cur">임원 대시보드</span></span>
+      <span class="pd">
+        <button class="p act" type="button">월간</button>
+        <button class="p" type="button">분기</button>
+        <button class="p" type="button">연간</button>
+      </span>
+      <span class="tb-right">
+        <span class="tb-note">2026-07 · 데이터 기준 오늘 06:00</span>
+        <button class="btn-ghost" data-notif type="button" title="알림 · 이벤트">알림</button>
+        <button class="btn-ghost" data-open="report" type="button">성과보고 내보내기 ↓</button>
+      </span>
+    </div>
+
+    <div class="content">
+
+      <!-- ═══ 임원 대시보드 ═══ -->
+      <section data-screen="dashboard">
+        <div class="kpi-band">
+          <div class="kpi"><div class="k js-mrr-k">MRR</div><div class="v js-mrr">$36.7<small>M</small></div><div class="s" style="color:var(--green-text)">▲ 12.4% MoM</div></div>
+          <div class="kpi"><div class="k">ARR (run-rate)</div><div class="v">$440<small>M</small></div><div class="s">목표 $520M의 85%</div></div>
+          <div class="kpi"><div class="k">계약 백로그</div><div class="v">$1.28<small>B</small></div><div class="s">가중 잔여 계약가치</div></div>
+          <div class="kpi"><div class="k">인프라 가동률</div><div class="v">37.1<small>%</small></div><div class="s">판매기준 52/140랙 · <span class="amber">Q4 증설 검토</span></div></div>
+          <div class="kpi"><div class="k">파이프라인 (가중)</div><div class="v">$214<small>M</small></div><div class="s">활성 딜 7건</div></div>
+          <div class="kpi"><div class="k">고객 유지</div><div class="v green">100<small>%</small></div><div class="s">신규 1 · 이탈 0 (분기)</div></div>
+        </div>
+
+        <div class="grid" style="margin-bottom:16px">
+          <!-- MRR 추이 · 상품 믹스 -->
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t js-mrr-label">MRR 추이 · 상품 믹스</span><span class="c">최근 12개월 · 빌링 DW</span></div>
+            <svg width="100%" height="120" viewBox="0 0 560 120" preserveAspectRatio="none" role="img" aria-label="MRR 12개월 추이">
+              <rect x="8" y="96" width="30" height="18" style="fill:var(--green-line)"></rect><rect x="54" y="92" width="30" height="22" style="fill:var(--green-line)"></rect><rect x="100" y="88" width="30" height="26" style="fill:var(--green-line)"></rect><rect x="146" y="80" width="30" height="34" style="fill:var(--green-line)"></rect><rect x="192" y="76" width="30" height="38" style="fill:var(--green-line)"></rect><rect x="238" y="66" width="30" height="48" style="fill:var(--green-line)"></rect><rect x="284" y="60" width="30" height="54" style="fill:#3f6a1a"></rect><rect x="330" y="54" width="30" height="60" style="fill:#3f6a1a"></rect><rect x="376" y="44" width="30" height="70" style="fill:#3f6a1a"></rect><rect x="422" y="36" width="30" height="78" style="fill:var(--green)"></rect><rect x="468" y="28" width="30" height="86" style="fill:var(--green)"></rect><rect x="514" y="18" width="30" height="96" style="fill:var(--green)"></rect>
+              <polyline points="23,88 69,84 115,79 161,71 207,66 253,55 299,49 345,43 391,33 437,26 483,19 529,10" style="fill:none;stroke:var(--blue-text);stroke-width:1.6;stroke-dasharray:4 3"></polyline>
+            </svg>
+            <div class="chart-x"><span>25-08</span><span style="color:var(--blue-text)">─ ─ 목표선</span><span>26-07</span></div>
+            <table class="tbl" style="margin-top:12px">
+              <thead><tr><th>상품</th><th class="num">MRR</th><th class="num">랙당 매출/월</th><th class="num">마진율</th></tr></thead>
+              <tbody>
+                <tr><td><b>VR NVL72</b> reserved <span class="mut2" style="font-size:10px">48랙</span></td><td class="num id">$33.9M</td><td class="num">$706K</td><td class="num"><span class="st green">41%</span></td></tr>
+                <tr><td><b>VR NVL72</b> on-demand <span class="mut2" style="font-size:10px">4랙</span></td><td class="num id">$2.8M</td><td class="num">$706K</td><td class="num"><span class="st green">48%</span></td></tr>
+                <tr><td>스토리지 · 부가 서비스</td><td class="num id">$1.9M</td><td class="num mut">—</td><td class="num"><span class="st green">63%</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 영업 파이프라인 -->
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">영업 파이프라인</span><span class="c">활성 7건 · 가중 $214M</span>
+              <button class="btn fr" data-open="lead" type="button">+ 리드 등록</button></div>
+            <div class="funnel">
+              <div style="flex:1.4;background:var(--line-soft);border-radius:6px 0 0 6px;color:var(--muted)">리드 <b class="js-lead-n">3</b></div>
+              <div style="flex:1.2;background:#1c2f4a;color:var(--blue-text)">견적/RFQ <b>2</b></div>
+              <div style="flex:1;background:var(--amber-bg);color:var(--amber)">협상 <b>1</b></div>
+              <div style="flex:.9;background:#1d3a26;border-radius:0 6px 6px 0;color:var(--green-text)">계약 임박 <b>1</b></div>
+            </div>
+            <div class="deal green">
+              <div class="hd"><b>delta-corp — 24랙 reserved 3년</b><span class="st green" data-delta-stage>계약 임박 · 90%</span><span class="amt">$61.0M ARR</span></div>
+              <div class="sub">법무 검토 중 · 희망 개통 09-01 · <span class="amber">⚠ 안산 잔여 용량 확인 필요 (운영 Capacity 연동)</span></div>
+            </div>
+            <div class="deal amber">
+              <div class="hd"><b>theta-ai — 8랙 reserved 1년</b><span class="st amber">협상 · 60%</span><span class="amt">$6.8M ARR</span></div>
+              <div class="sub">할인율 8% 제안 — 승인 필요 (기준 5% 초과) · 담당 이민준</div>
+            </div>
+            <div class="deal blue">
+              <div class="hd"><b>RFQ-031 — 공공 AI 센터 32랙</b><span class="st blue">견적 · 응답 D-3</span><span class="amt">$81.3M ARR</span></div>
+              <div class="sub">견적 자동산정 완료 (랙·전력·GPU 기반) · CSAP 인증 요건 포함</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid" style="margin-bottom:16px">
+          <!-- 계약 현황 -->
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">계약 현황</span><span class="c">활성 4 · 총 잔여가치 $1.28B</span></div>
+            <table class="tbl">
+              <thead><tr><th>고객 / 계약</th><th class="num">규모</th><th class="num">MRR</th><th>기간</th><th>상태</th></tr></thead>
+              <tbody id="ct-body-dash"></tbody>
+            </table>
+            <div class="callout warn" style="margin-top:10px"><b class="soft">acme-ai 갱신 <span class="js-acme-d">D-83</span></b> — 사용률 64%로 축소 리스크 · 추천: on-demand 전환 + 추론 상품 업셀 제안 <a class="fr" href="#/contracts" style="float:right;font-weight:700">갱신 플레이북 →</a></div>
+          </div>
+
+          <!-- 수요 · 공급 계획 -->
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">수요 · 공급 계획</span><span class="c">운영 Capacity 실시간 연동</span></div>
+            <div class="legend"><span><i style="background:var(--green)"></i> 계약 확정</span><span><i style="background:var(--amber)"></i> 파이프라인 (가중)</span><span><i style="background:#233043"></i> 공급 용량</span></div>
+            <svg width="100%" height="110" viewBox="0 0 560 110" preserveAspectRatio="none" role="img" aria-label="분기별 수요 공급">
+              <rect x="10" y="20" width="120" height="74" style="fill:#233043"></rect><rect x="10" y="56" width="120" height="38" style="fill:var(--green)"></rect>
+              <rect x="150" y="20" width="120" height="74" style="fill:#233043"></rect><rect x="150" y="48" width="120" height="46" style="fill:var(--green)"></rect><rect x="150" y="38" width="120" height="10" style="fill:var(--amber)"></rect>
+              <rect x="290" y="20" width="120" height="74" style="fill:#233043"></rect><rect x="290" y="40" width="120" height="54" style="fill:var(--green)"></rect><rect x="290" y="24" width="120" height="16" style="fill:var(--amber)"></rect>
+              <rect x="430" y="6" width="120" height="88" style="fill:#233043"></rect><rect x="430" y="46" width="120" height="48" style="fill:var(--green)"></rect><rect x="430" y="24" width="120" height="22" style="fill:var(--amber)"></rect>
+              <line x1="430" y1="6" x2="550" y2="6" style="stroke:var(--blue-text);stroke-width:1.5;stroke-dasharray:4 3"></line>
+            </svg>
+            <div class="chart-x"><span>Q3 '26 (140랙)</span><span>Q4 '26</span><span>Q1 '27</span><span style="color:var(--blue-text)">Q2 '27 +su-12·13 (172랙)</span></div>
+            <div class="callout warn" style="margin-top:10px">Q1 '27에 파이프라인 반영 수요가 공급의 <b class="amber">86%</b> 도달 — 랙 리드타임 12주 기준 <b class="soft">10월 초 su-12·13 발주 필요</b> · VR 후속(Rubin Ultra) 세대 전환 시나리오 별도 검토</div>
+          </div>
+        </div>
+
+        <div class="grid3">
+          <!-- 가격 정책 -->
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">가격 정책</span><span class="c">v2.4 · 07-01 발효</span></div>
+            <table class="tbl">
+              <tbody>
+                <tr><td>On-demand</td><td class="num id">$980 /rack-h</td></tr>
+                <tr><td>Reserved 1y</td><td class="num id">$833 /rack-h <span class="st green">-15%</span></td></tr>
+                <tr><td>Reserved 3y</td><td class="num id">$686 /rack-h <span class="st green">-30%</span></td></tr>
+                <tr><td>Spot (풀 잔여)</td><td class="num id">$490 /rack-h <span class="mut2">P2</span></td></tr>
+              </tbody>
+            </table>
+            <div class="mut" style="font-size:11px;margin-top:8px">할인 승인 한도: 영업 5% · 사업총괄 10% · 초과 시 CFO — <span class="amber">대기 1건 (theta-ai 8%)</span></div>
+          </div>
+
+          <!-- 파트너 · 공급망 -->
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">파트너 · 공급망</span></div>
+            <div class="list">
+              <div class="li"><span class="dot green"></span><span><b class="soft">NVIDIA</b> — su-12·13 물량 배정 협의 · NCP 인증 유지</span><span class="rt mut">주간 싱크</span></div>
+              <div class="li"><span class="dot amber"></span><span><b class="soft">랙 공급 리드타임</b> — 12주 (VR NVL72 · 2랙 분할 납품)</span><span class="rt st amber">발주 D-90</span></div>
+              <div class="li"><span class="dot green"></span><span><b class="soft">IGIS (안산 DC)</b> — 2층 10.4MW 증설 계약 갱신 완료</span><span class="rt mut">07-02</span></div>
+              <div class="li"><span class="dot blue"></span><span><b class="soft">VAST</b> — 스토리지 증설 16→24PB 견적 접수</span><span class="rt mut">검토 중</span></div>
+            </div>
+          </div>
+
+          <!-- 컴플라이언스 · 인증 -->
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick red"></span><span class="t">컴플라이언스 · 인증</span></div>
+            <div class="list">
+              <div class="li"><span class="dot red"></span><span><b class="soft">CSAP (하)</b> — 갱신 심사 <b style="color:var(--red)">D-45</b> · 제출자료 7/12건</span><a class="rt" href="#/compliance" style="font-weight:700">자료실 →</a></div>
+              <div class="li"><span class="dot green"></span><span><b class="soft">ISO 27001 / 27017</b> — 유효 (2027-11)</span></div>
+              <div class="li"><span class="dot green"></span><span><b class="soft">ISMS-P</b> — 유효 (2027-04)</span></div>
+              <div class="li"><span class="dot blue"></span><span><b class="soft">공공 RFQ-031 요건</b> — CSAP 필수 · 물리 분리 구성안 검토</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ 파이프라인 · CRM ═══ -->
+      <section data-screen="pipeline">
+        <div class="kpi-band">
+          <div class="kpi"><div class="k">가중 파이프라인</div><div class="v">$214<small>M</small></div><div class="s">활성 딜 7건</div></div>
+          <div class="kpi"><div class="k">분기 승률</div><div class="v green">68<small>%</small></div><div class="s">전분기 61%</div></div>
+          <div class="kpi"><div class="k">평균 딜 사이즈</div><div class="v">19<small>랙</small></div><div class="s">평균 기간 2.1y</div></div>
+          <div class="kpi"><div class="k">평균 사이클</div><div class="v">47<small>일</small></div><div class="s">리드 → 계약</div></div>
+        </div>
+
+        <div class="panel">
+          <div class="ph"><span class="tick"></span><span class="t">스테이지 보드</span>
+            <button class="btn fr" data-open="lead" type="button">+ 리드 등록</button></div>
+          <div class="lanes">
+            <div class="lane">
+              <div class="lh"><span class="mut">리드</span><span class="n" id="lane-lead-n">3 · $46M</span></div>
+              <div class="lc"><b>epsilon-lab</b><div class="s">4랙 · 추론 · 인바운드</div></div>
+              <div class="lc"><b>omega-motors</b><div class="s">8랙 · 자율주행 학습</div></div>
+              <div id="lane-lead-extra"></div>
+            </div>
+            <div class="lane">
+              <div class="lh"><span style="color:var(--blue-text)">견적 / RFQ</span><span class="n">2 · $101M</span></div>
+              <div class="lc blue"><b>RFQ-031 공공 AI 센터</b><div class="s">32랙 · <span class="st blue">응답 D-3</span></div></div>
+              <div class="lc blue"><b>kappa-search</b><div class="s">8랙 · 견적 발송됨</div></div>
+            </div>
+            <div class="lane">
+              <div class="lh"><span class="amber">협상</span><span class="n">1 · $6.8M</span></div>
+              <div class="lc amber"><b>theta-ai</b><div class="s">8랙 1y · <span class="st amber">할인 8% 승인 대기</span></div></div>
+            </div>
+            <div class="lane">
+              <div class="lh"><span style="color:var(--green-text)">계약 임박</span><span class="n">1 · $61M</span></div>
+              <div class="lc green"><b>delta-corp ▾ 선택됨</b><div class="s" id="delta-card-sub">24랙 3y · 법무 검토</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 딜 상세 — delta-corp -->
+        <div class="panel">
+          <div class="ph"><span class="tick" style="background:var(--green-text)"></span><span class="t">딜 상세 — delta-corp 신규 24랙</span><span class="st green" data-delta-stage>계약 임박 · 90%</span>
+            <span class="fr" style="display:flex;gap:7px">
+              <button class="btn" id="btn-convert" data-open="convert" type="button">계약 전환</button>
+              <button class="btn-plain" data-open="quote" type="button">견적 재발행</button>
+            </span></div>
+          <div class="grid3">
+            <table class="kv2">
+              <tbody>
+                <tr><td>규모 / 조건</td><td>VR NVL72 × 24랙 · reserved 3y · $61.0M ARR (TCV $183M)</td></tr>
+                <tr><td>배치</td><td id="delta-hold">안산 su-9·10 가배치 — <span class="st amber">용량 소프트 홀드 D-14</span> (운영 콘솔 연동)</td></tr>
+                <tr><td>희망 개통</td><td>09-01 · 격리 티어 bare_metal_dedicated</td></tr>
+                <tr><td>다음 단계</td><td id="delta-next">법무 검토 완료 (D-5 예상) → 서명 → 비즈 개통 요청 → 운영 승인 게이트</td></tr>
+              </tbody>
+            </table>
+            <div class="alog">
+              <div class="h">활동 로그</div>
+              <div class="b">
+                <div>07-08 법무 회신 — SLA 크레딧 조항 수정 합의</div>
+                <div>07-05 기술 검증 미팅 — IB 토폴로지 요건 확인 <span class="st green">OK</span></div>
+                <div>07-01 견적 v2 발행 (3y -30% 적용)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ 견적 · RFQ ═══ -->
+      <section data-screen="rfq">
+        <div class="grid">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">RFI / RFQ 접수함</span><span class="c">응답 SLA 5영업일</span></div>
+            <div class="deal blue">
+              <div class="hd"><b class="id" style="font-size:11px">RFQ-031</b><span class="soft" style="font-size:12px">공공 AI 센터 — 32랙 · CSAP 필수</span><span class="fr st blue">응답 D-3</span></div>
+              <div class="sub">견적 자동산정 완료 · 물리 분리 구성안 첨부 대기 — <a href="#/rfq" style="font-weight:700">응답서 편집 →</a></div>
+            </div>
+            <div class="deal done">
+              <div class="hd"><b class="id mut" style="font-size:11px">RFQ-030</b><span class="soft" style="font-size:12px">kappa-search — 8랙</span><span class="fr st green">응답 완료</span></div>
+            </div>
+            <div class="deal done">
+              <div class="hd"><b class="id mut" style="font-size:11px">RFI-027</b><span class="soft" style="font-size:12px">omega-motors — 기술 질의 14항</span><span class="fr st green">회신 완료</span></div>
+            </div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">견적 자동산정</span><span class="c">랙 수 · 전력 · GPU 기반 · 가격표 v2.4</span></div>
+            <div class="qchips">
+              <span class="qchip">VR NVL72 ▾</span>
+              <span class="qchip">랙 32</span>
+              <span class="qchip">reserved 3y ▾</span>
+              <button class="btn" type="button">산정</button>
+            </div>
+            <table class="tbl">
+              <tbody>
+                <tr><td>컴퓨트 32랙 × $686/rack-h (3y -30%)</td><td class="num id">$15.8M/월</td></tr>
+                <tr><td>스토리지 16PB · QoS 1,280GB/s</td><td class="num id">$0.4M/월</td></tr>
+                <tr><td style="font-weight:700;color:var(--strong)">36개월 TCV</td><td class="num id" style="color:var(--green-text);font-weight:700;font-size:12px">$583.2M</td></tr>
+              </tbody>
+            </table>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button class="btn-ghost" type="button">견적서 PDF ↓</button>
+              <button class="btn-plain" type="button">CRM에 저장</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ 계약 관리 ═══ -->
+      <section data-screen="contracts">
+        <div class="panel">
+          <div class="ph"><span class="tick"></span><span class="t">계약 목록</span><span class="c">활성 4 · 잔여 계약가치 $1.28B</span>
+            <button class="btn fr" data-open="contract" type="button">+ 계약 등록</button></div>
+          <table class="tbl">
+            <thead><tr><th>고객 / 계약</th><th class="num">규모</th><th class="num">MRR</th><th class="num">잔여 TCV</th><th>기간</th><th>상태</th></tr></thead>
+            <tbody id="ct-body"></tbody>
+          </table>
+        </div>
+        <div class="grid">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick amber"></span><span class="t">갱신 · 해지 알림</span></div>
+            <div class="list">
+              <div class="li"><span class="dot amber"></span><span><b class="soft">acme-ai 갱신 <span class="js-acme-d">D-83</span></b> — util 64% 축소 리스크 · on-demand 전환 + 업셀 제안</span><span class="rt" style="color:var(--green);font-weight:700;cursor:pointer">플레이북 →</span></div>
+              <div class="li"><span class="dot blue"></span><span><b class="soft">beta-ai 갱신 D-267</b> — 확장 의향 조사 예정 (Q4)</span></div>
+              <div class="li"><span class="dot green"></span><span><b class="soft">fin-corp</b> — 안정 · 분기 리뷰 07-22</span></div>
+            </div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">표준 조항 — SLA · 크레딧</span></div>
+            <table class="kv2">
+              <tbody>
+                <tr><td style="width:150px">관리면 가용성</td><td>99.95% (financially-backed) — 미달 시 월 요금 5~30% 크레딧</td></tr>
+                <tr><td>노드 · 스토리지</td><td>노드 99.9% · 고속 스토리지 99.99%/30d</td></tr>
+                <tr><td>해지 · 갱신</td><td>중도 해지 잔여 30% 위약 · Sanitization 증명 의무 · 만료 90일 전 통지</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ 매출 · 수익 분석 ═══ -->
+      <section data-screen="revenue">
+        <div class="kpi-band">
+          <div class="kpi"><div class="k js-mrr-k">MRR</div><div class="v js-mrr">$36.7<small>M</small></div><div class="s" style="color:var(--green-text)">▲ 12.4% MoM</div></div>
+          <div class="kpi"><div class="k">블렌디드 마진</div><div class="v green">42.3<small>%</small></div><div class="s">목표 40% 상회</div></div>
+          <div class="kpi"><div class="k">랙당 매출/월</div><div class="v">$706<small>K</small></div><div class="s">GPU시간당 $13.6</div></div>
+          <div class="kpi"><div class="k">예측 대비 실적</div><div class="v green">103<small>%</small></div><div class="s">7월 포캐스트 $35.6M</div></div>
+        </div>
+        <div class="grid">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t js-mrr-label">MRR 추이 (12개월) · 목표선</span></div>
+            <svg width="100%" height="110" viewBox="0 0 560 110" preserveAspectRatio="none" role="img" aria-label="MRR 추이">
+              <rect x="8" y="88" width="30" height="18" style="fill:var(--green-line)"></rect><rect x="54" y="84" width="30" height="22" style="fill:var(--green-line)"></rect><rect x="100" y="80" width="30" height="26" style="fill:var(--green-line)"></rect><rect x="146" y="72" width="30" height="34" style="fill:var(--green-line)"></rect><rect x="192" y="68" width="30" height="38" style="fill:var(--green-line)"></rect><rect x="238" y="58" width="30" height="48" style="fill:var(--green-line)"></rect><rect x="284" y="52" width="30" height="54" style="fill:#3f6a1a"></rect><rect x="330" y="46" width="30" height="60" style="fill:#3f6a1a"></rect><rect x="376" y="36" width="30" height="70" style="fill:#3f6a1a"></rect><rect x="422" y="28" width="30" height="78" style="fill:var(--green)"></rect><rect x="468" y="20" width="30" height="86" style="fill:var(--green)"></rect><rect x="514" y="10" width="30" height="96" style="fill:var(--green)"></rect>
+              <polyline points="23,80 69,76 115,71 161,63 207,58 253,47 299,41 345,35 391,25 437,18 483,11 529,4" style="fill:none;stroke:var(--blue-text);stroke-width:1.6;stroke-dasharray:4 3"></polyline>
+            </svg>
+            <div class="chart-x"><span>25-08</span><span style="color:var(--blue-text)">─ ─ 목표</span><span>26-07</span></div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">고객별 수익성</span><span class="c">빌링 DW · 원가 배부 후</span></div>
+            <table class="tbl">
+              <thead><tr><th>고객</th><th class="num">MRR</th><th class="num">마진율</th><th>추세</th></tr></thead>
+              <tbody>
+                <tr><td><b>fin-corp</b></td><td class="num id">$22.4M</td><td class="num"><span class="st green">41%</span></td><td style="color:var(--green-text)">안정</td></tr>
+                <tr><td><b>acme-ai</b></td><td class="num id">$11.2M</td><td class="num"><span class="st green">44%</span></td><td class="amber">갱신 리스크</td></tr>
+                <tr><td><b>beta-ai</b></td><td class="num id">$2.8M</td><td class="num"><span class="st green">39%</span></td><td style="color:var(--green-text)">안정</td></tr>
+                <tr><td>스토리지 · 부가</td><td class="num id">$1.9M</td><td class="num"><span class="st green">63%</span></td><td style="color:var(--green-text)">+18%</td></tr>
+              </tbody>
+            </table>
+            <div class="mut" style="font-size:11px;margin-top:8px">상품별 마진: reserved 41% · on-demand 48% · 부가 63% — VR 프리미엄 +12% 유지</div>
+          </div>
+        </div>
+        <!-- VRCM billing/usage 라이브 시에만 표시 (폴백: 위 정적 표 유지) -->
+        <div class="panel" id="rev-live" style="margin-top:16px;display:none">
+          <div class="ph"><span class="tick"></span><span class="t">실사용 과금 — 테넌트별 (VRCM 빌링 라이브)</span><span class="c" id="rev-note">GET /api/v1/billing/usage</span></div>
+          <table class="tbl">
+            <thead><tr><th>주문</th><th>테넌트</th><th>블루프린트</th><th class="num">랙</th><th class="num">사용 rack-h</th><th class="num">단가 /rack-h</th><th class="num">누적 청구</th><th class="num">월 예상</th></tr></thead>
+            <tbody id="rev-body"></tbody>
+          </table>
+          <div class="mut" style="font-size:11px;margin-top:8px" id="rev-total"></div>
+        </div>
+      </section>
+
+      <!-- ═══ 가격 정책 ═══ -->
+      <section data-screen="pricing">
+        <div class="grid">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">가격표 — v2.4</span><span class="c" id="price-cap">07-01 발효 · VR NVL72</span></div>
+            <table class="tbl">
+              <tbody id="price-body">
+                <tr><td>On-demand</td><td class="num id">$980 /rack-h</td><td class="num mut">기준가</td></tr>
+                <tr><td>Reserved 1y</td><td class="num id">$833 /rack-h</td><td class="num" style="color:var(--green-text)">-15%</td></tr>
+                <tr><td>Reserved 3y</td><td class="num id">$686 /rack-h</td><td class="num" style="color:var(--green-text)">-30%</td></tr>
+                <tr><td>Spot (풀 잔여)</td><td class="num id">$490 /rack-h</td><td class="num mut2">P2</td></tr>
+                <tr><td>스토리지 (VAST · QoS)</td><td class="num id">$15.5K /PB-월</td><td class="num mut">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div class="panel">
+              <div class="ph"><span class="tick amber"></span><span class="t">할인 승인 큐</span><span class="c">한도: 영업 5% · 총괄 10% · 초과 CFO</span></div>
+              <div class="deal">
+                <div class="hd"><span class="dot amber"></span><b>theta-ai — 8% 할인 요청</b><span class="mut" style="font-size:11px">8랙 1y · 담당 이민준</span>
+                  <span class="fr" style="display:flex;gap:6px">
+                    <button class="btn sm" data-open="discount" type="button">승인</button>
+                    <button class="btn-danger sm" data-open="reject" type="button">반려</button>
+                  </span></div>
+                <div class="sub">마진 영향 44% → 39% · 연 -$0.5M — 승인 시 견적 자동 재발행</div>
+              </div>
+            </div>
+            <div class="panel" style="margin-bottom:0">
+              <div class="ph"><span class="tick"></span><span class="t">프로모션 · 크레딧</span></div>
+              <table class="tbl">
+                <tbody>
+                  <tr><td>신규 고객 온보딩 크레딧</td><td class="num id">$500K / 계약</td><td class="num"><span class="st green">활성</span></td></tr>
+                  <tr><td>스타트업 프로그램</td><td class="num id">on-demand -20%</td><td class="num"><span class="st blue">Q4 예정</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ 수요 · 공급 계획 ═══ -->
+      <section data-screen="planning">
+        <div class="grid">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">수요 vs 공급 — 분기별</span><span class="c">운영 Capacity 실시간 연동</span></div>
+            <div class="legend"><span><i style="background:var(--green)"></i> 계약 확정</span><span><i style="background:var(--amber)"></i> 파이프라인 (가중)</span><span><i style="background:#233043"></i> 공급 용량</span></div>
+            <svg width="100%" height="110" viewBox="0 0 560 110" preserveAspectRatio="none" role="img" aria-label="분기별 수요 공급">
+              <rect x="10" y="20" width="120" height="74" style="fill:#233043"></rect><rect x="10" y="56" width="120" height="38" style="fill:var(--green)"></rect>
+              <rect x="150" y="20" width="120" height="74" style="fill:#233043"></rect><rect x="150" y="48" width="120" height="46" style="fill:var(--green)"></rect><rect x="150" y="38" width="120" height="10" style="fill:var(--amber)"></rect>
+              <rect x="290" y="20" width="120" height="74" style="fill:#233043"></rect><rect x="290" y="40" width="120" height="54" style="fill:var(--green)"></rect><rect x="290" y="24" width="120" height="16" style="fill:var(--amber)"></rect>
+              <rect x="430" y="6" width="120" height="88" style="fill:#233043"></rect><rect x="430" y="46" width="120" height="48" style="fill:var(--green)"></rect><rect x="430" y="24" width="120" height="22" style="fill:var(--amber)"></rect>
+              <line x1="430" y1="6" x2="550" y2="6" style="stroke:var(--blue-text);stroke-width:1.5;stroke-dasharray:4 3"></line>
+            </svg>
+            <div class="chart-x"><span>Q3 '26 (140랙)</span><span>Q4 '26</span><span>Q1 '27</span><span style="color:var(--blue-text)">Q2 '27 +su-12·13 (172랙)</span></div>
+            <div class="callout warn" id="exp-callout" style="margin-top:10px">Q1 '27 수요가 공급의 <b class="amber">86%</b> — 파트너 리드타임 <b class="soft">12주</b> 기준 <b class="soft">10월 초 su-12·13 발주 확정</b> 필요</div>
+          </div>
+          <div>
+            <div class="panel">
+              <div class="ph"><span class="tick"></span><span class="t">증설 발주 트래커</span></div>
+              <div class="list">
+                <div class="li"><span class="dot amber"></span><span><b class="soft" id="exp-title">su-12·13 (32랙 · VR)</b> — 발주 결정 <b class="amber" id="exp-order">D-90</b> · NVIDIA 물량 협의 중</span></div>
+                <div class="li"><span class="dot blue"></span><span><b class="soft">안산 2층 전력 인가</b> — Q1 '27 · IGIS 일정 확정</span></div>
+                <div class="li"><span class="dot green"></span><span><b class="soft">VAST 16→24PB</b> — 견적 접수 · 8월 결정</span></div>
+              </div>
+            </div>
+            <div class="panel" style="margin-bottom:0">
+              <div class="ph"><span class="tick"></span><span class="t">GPU 세대 시나리오</span></div>
+              <table class="tbl">
+                <tbody>
+                  <tr><td><b>VR NVL72</b> (현행)</td><td class="mut">140 → 172랙 (Q2 '27)</td><td class="num"><span class="st green">주력</span></td></tr>
+                  <tr><td><b>Rubin Ultra NVL</b></td><td class="mut">'27 H2 신규 SU부터 검토</td><td class="num"><span class="st blue">평가</span></td></tr>
+                  <tr><td>GB300 잔여 수요</td><td class="mut">신규 도입 없음</td><td class="num"><span class="st gray">종료</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ 파트너 · 공급망 ═══ -->
+      <section data-screen="partners">
+        <div class="grid">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">파트너 현황</span></div>
+            <div class="list div">
+              <div class="li"><span class="dot green"></span><div><b class="soft">NVIDIA</b> — NCP 파트너 · su-12·13 물량 배정 협의<div class="mut2" style="font-size:10.5px">주간 싱크 (수) · BMaaS Req v2.2 준수 리뷰 분기별</div></div><span class="rt st green">정상</span></div>
+              <div class="li"><span class="dot green"></span><div><b class="soft">IGIS (안산 DC)</b> — 2층 10.4MW 증설 계약 갱신 완료<div class="mut2" style="font-size:10.5px">전력 인가 Q1 '27 · 상면 ~2031</div></div><span class="rt st green">정상</span></div>
+              <div class="li"><span class="dot blue"></span><div><b class="soft">VAST Data</b> — 16→24PB 증설 견적 접수<div class="mut2" style="font-size:10.5px">8월 결정 · QoS SLA 조항 협의</div></div><span class="rt st blue">검토</span></div>
+              <div class="li"><span class="dot green"></span><div><b class="soft">STT (가산 DC)</b> — 안정 운영 · 분기 리뷰 08월</div><span class="rt st green">정상</span></div>
+            </div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick amber"></span><span class="t">하드웨어 공급 리드타임</span></div>
+            <table class="tbl">
+              <tbody>
+                <tr><td>VR NVL72 랙</td><td class="num" style="color:var(--amber);font-weight:700">12주</td><td class="mut">2랙 단위 분할 납품</td></tr>
+                <tr><td>IB 스위치 (Quantum XDR)</td><td class="num">8주</td><td class="mut">SU 증설과 동기 발주</td></tr>
+                <tr><td>CDU · 배관</td><td class="num">10주</td><td class="mut">시공 4주 별도</td></tr>
+                <tr><td>교체 부품 (트레이·GPU)</td><td class="num" style="color:var(--green-text);font-weight:700">현지 재고</td><td class="mut">RMA 스왑 풀 — 트레이 12 · GPU 48</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ 컴플라이언스 ═══ -->
+      <section data-screen="compliance">
+        <div class="grid">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick red"></span><span class="t">인증 현황</span></div>
+            <table class="tbl">
+              <tbody>
+                <tr><td><b>CSAP (하)</b></td><td><span class="st red">갱신 심사 D-45</span></td><td class="mut">제출자료 7/12 · 법무팀</td></tr>
+                <tr><td><b>ISO 27001 / 27017</b></td><td><span class="st green">유효</span></td><td class="mut">만료 2027-11</td></tr>
+                <tr><td><b>ISMS-P</b></td><td><span class="st green">유효</span></td><td class="mut">만료 2027-04</td></tr>
+                <tr><td><b>SOC 2 Type II</b></td><td><span class="st blue">심사 준비</span></td><td class="mut">'27 H1 목표</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">CSAP 갱신 — 제출자료 체크리스트</span><span class="c fr">7/12 완료</span></div>
+            <div class="ckl">
+              <div class="ck"><span class="st green">✓</span><span class="mut">보안 정책 · 조직 체계 · 접근통제 명세 (감사로그 연동)</span></div>
+              <div class="ck"><span class="st green">✓</span><span class="mut">데이터 격리 증빙 — 4계층 격리 리포트 (운영 콘솔 자동 생성)</span></div>
+              <div class="ck"><span class="st amber" id="san-icon">…</span><span class="mut" id="san-line">Sanitization 증명 (SAN-0691) — 7단계 소거 진행 중</span></div>
+              <div class="ck"><span class="st amber">…</span><span class="soft">물리 보안 실사 보고서 — IGIS 협조 요청 중</span></div>
+              <div class="ck"><span class="st amber">…</span><span class="soft">침해 대응 모의훈련 결과 — 07-18 실시 예정</span></div>
+            </div>
+            <div class="callout warn" style="margin-top:10px">RFQ-031 (공공)은 CSAP 유효가 낙찰 전제 — 갱신 실패 시 $81.3M 파이프라인 리스크</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ 시장 · 경쟁 분석 (P2) ═══ -->
+      <section data-screen="market">
+        <div class="p2-banner"><span class="p2-tag">P2 프리뷰</span><span>경쟁사 벤치마크 아카이브 · 시장점유율 트렌드 로드맵 화면입니다.</span></div>
+        <div class="panel">
+          <div class="ph"><span class="tick"></span><span class="t">경쟁사 벤치마크</span><span class="c">리서치 아카이브 · 분기 갱신</span></div>
+          <table class="tbl">
+            <thead><tr><th>사업자</th><th>주력 상품</th><th>차별점 / 시사점</th></tr></thead>
+            <tbody>
+              <tr><td><b>CoreWeave</b></td><td class="mut">GB300 · VR 대규모 · Slurm/K8s</td><td class="mut">랙 단위 지정(targetRacks) · Billing Insights — 고객 콘솔 벤치마크 반영됨</td></tr>
+              <tr><td><b>Lambda</b></td><td class="mut">온디맨드 중심 · 개발자 UX</td><td class="mut">셀프서비스 온보딩 속도 — 스타트업 프로그램으로 대응</td></tr>
+              <tr><td><b>Crusoe</b></td><td class="mut">에너지 연계 DC</td><td class="mut">전력 원가 우위 — PUE 1.18 · MaxQ 운전으로 대응</td></tr>
+              <tr><td><b>Nebius</b></td><td class="mut">유럽 · 풀스택 플랫폼</td><td class="mut">마켓플레이스 · 추론 서비스 — P2 로드맵 참고</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ═══ 채널 · 리셀러 (P2) ═══ -->
+      <section data-screen="channel">
+        <div class="p2-banner"><span class="p2-tag">P2 프리뷰</span><span>리셀러 · MSP 채널의 리드 등록과 커미션 정산 로드맵 화면입니다.</span></div>
+        <div class="grid">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">채널 리드</span></div>
+            <table class="tbl">
+              <tbody>
+                <tr><td><b>MSP-한강클라우드</b></td><td class="mut">sigma-bio 소개 — 2랙</td><td class="num"><span class="st blue">리드 등록</span></td></tr>
+                <tr><td><b>리셀러-DX파트너스</b></td><td class="mut">omega-motors 소개 — 8랙</td><td class="num"><span class="st blue">검증 중</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">커미션 정책 (안)</span></div>
+            <table class="tbl">
+              <tbody>
+                <tr><td>소개 (referral)</td><td class="num id">첫해 ARR의 3%</td></tr>
+                <tr><td>재판매 (resale)</td><td class="num id">마진 8–12% (규모별)</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ 모달 ══════════ -->
+
+<!-- 리드 등록 -->
+<div class="modal-ov" data-modal="lead">
+  <div class="modal">
+    <div class="mh"><span class="tick"></span><span class="t">리드 등록</span><span class="x" data-close>✕</span></div>
+    <div class="mb">
+      <div class="row2">
+        <div><label>고객명</label><input type="text" id="lead-name" placeholder="예: zeta-robotics"></div>
+        <div><label>요구 규모</label><select id="lead-racks"><option value="8">8랙 · 학습</option><option value="4">4랙 · 추론</option><option value="16">16랙 이상</option></select></div>
+        <div><label>성사 확률</label><select id="lead-prob"><option value="20">20% · 초기 리드</option><option value="40">40% · 검증</option><option value="60">60% · 제안</option></select></div>
+        <div><label>소스</label><select><option>인바운드 문의</option><option>파트너 소개</option><option>아웃바운드</option></select></div>
+        <div><label>담당</label><select><option>이민준</option><option>박서연</option></select></div>
+      </div>
+      <div class="callout" style="margin-top:12px">등록 시 파이프라인 보드에 즉시 반영됩니다 — <b class="soft">세션 로컬 저장 (PoC · 새로고침 시 초기화)</b> · 요구 규모는 수요 예측에 가중 반영</div>
+    </div>
+    <div class="mf">
+      <button class="btn-plain" data-close type="button">취소</button>
+      <button class="btn" id="cf-lead" type="button">리드 등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- 계약 전환 (delta-corp) -->
+<div class="modal-ov" data-modal="convert">
+  <div class="modal lg">
+    <div class="mh"><span class="tick"></span><span class="t">계약 전환 — delta-corp 24랙</span><span class="x" data-close>✕</span></div>
+    <div class="mb">
+      <div class="chk"><span class="st green">✓</span><span class="mut">법무 검토 완료 · 서명본 업로드됨 (07-09)</span></div>
+      <div class="chk"><span class="st green">✓</span><span class="mut">용량 확인 — 안산 su-9·10 소프트 홀드 유효 (D-14)</span></div>
+      <div class="chk"><span class="st green">✓</span><span class="mut">가격 조건 — reserved 3y · $61.0M ARR (TCV $183M)</span></div>
+      <div class="callout" style="margin-top:12px">전환 시: 계약 활성 등록 → 테넌트 생성 → 개통 요청(ord) 발행 → <b class="soft">운영 콘솔 승인 게이트</b>로 전달 · 희망 개통 09-01</div>
+    </div>
+    <div class="mf">
+      <button class="btn-plain" data-close type="button">취소</button>
+      <button class="btn" id="cf-convert" type="button">계약 전환 + 개통 요청</button>
+    </div>
+  </div>
+</div>
+
+<!-- 견적 재발행 -->
+<div class="modal-ov" data-modal="quote">
+  <div class="modal">
+    <div class="mh"><span class="tick"></span><span class="t">견적 재발행 — delta-corp v3</span><span class="x" data-close>✕</span></div>
+    <div class="mb">
+      <table class="kv">
+        <tbody>
+          <tr><td>변경 사항</td><td>SLA 크레딧 조항 v2 반영 · 스토리지 12→16PB</td></tr>
+          <tr><td>랙 수</td><td><input type="number" id="q-racks" value="24" min="1" max="140" style="width:76px"> <span class="mut2" id="q-rate" style="font-size:10.5px"></span></td></tr>
+          <tr><td>자동 산정</td><td class="id" id="q-calc">—</td></tr>
+          <tr><td>유효 기간</td><td>30일 · 랙 수 × 단가 × 720h/월 기준 자동 산정</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="mf">
+      <button class="btn-plain" data-close type="button">취소</button>
+      <button class="btn" id="cf-quote" type="button">견적서 생성 + 발송</button>
+    </div>
+  </div>
+</div>
+
+<!-- 할인 승인 -->
+<div class="modal-ov" data-modal="discount">
+  <div class="modal">
+    <div class="mh"><span class="tick amber"></span><span class="t">할인 승인 — theta-ai 8%</span><span class="x" data-close>✕</span></div>
+    <div class="mb">
+      <table class="kv">
+        <tbody>
+          <tr><td>요청</td><td>8랙 reserved 1y · 기준 -8% (한도 5% 초과 → 총괄 승인)</td></tr>
+          <tr><td>사유</td><td>경쟁사(온디맨드 특가) 대응 · 승률 60% → 80% 추정</td></tr>
+          <tr><td>마진 영향</td><td><span class="st amber">44% → 39% · 연 -$0.5M</span></td></tr>
+        </tbody>
+      </table>
+      <div class="callout" style="margin-top:10px">승인 시 견적이 자동 재발행되고 CRM 딜 단계가 갱신됩니다 · 승인자: 박서연 (사업총괄)</div>
+    </div>
+    <div class="mf">
+      <button class="btn-plain" data-close type="button">취소</button>
+      <button class="btn" id="cf-discount" type="button">할인 승인</button>
+    </div>
+  </div>
+</div>
+
+<!-- 반려 -->
+<div class="modal-ov" data-modal="reject">
+  <div class="modal sm">
+    <div class="mh"><span class="tick red"></span><span class="t">반려 — 할인 요청</span><span class="x" data-close>✕</span></div>
+    <div class="mb">
+      <label style="margin-top:0">반려 사유 (담당자에게 전달)</label>
+      <textarea rows="3" placeholder="예: 5% 이내로 재협상 — 대신 온보딩 크레딧 $500K 카드 활용 제안"></textarea>
+    </div>
+    <div class="mf">
+      <button class="btn-plain" data-close type="button">취소</button>
+      <button class="btn-danger" id="cf-reject" type="button">반려 확정</button>
+    </div>
+  </div>
+</div>
+
+<!-- 계약 등록 -->
+<div class="modal-ov" data-modal="contract">
+  <div class="modal">
+    <div class="mh"><span class="tick"></span><span class="t">계약 등록</span><span class="x" data-close>✕</span></div>
+    <div class="mb">
+      <div class="row2">
+        <div><label>고객</label><select><option>delta-corp</option><option>epsilon-lab</option><option>omega-motors</option></select></div>
+        <div><label>격리 티어</label><select><option>bare_metal_dedicated</option><option>vm_isolated</option><option>shared_pool</option></select></div>
+        <div><label>규모 / 기간</label><select><option>24랙 · reserved 3y</option><option>8랙 · reserved 1y</option><option>4랙 · on-demand</option></select></div>
+        <div><label>계약서 파일</label><div class="file-drop">서명본 업로드 (PDF)</div></div>
+      </div>
+      <div class="mut2" style="font-size:10.5px;margin-top:10px">등록 시 잔여 TCV·MRR이 임원 대시보드와 매출 분석에 자동 반영됩니다</div>
+    </div>
+    <div class="mf">
+      <button class="btn-plain" data-close type="button">취소</button>
+      <button class="btn" id="cf-contract" type="button">계약 등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- 성과보고 내보내기 -->
+<div class="modal-ov" data-modal="report">
+  <div class="modal sm">
+    <div class="mh"><span class="tick"></span><span class="t">성과보고 내보내기</span><span class="x" data-close>✕</span></div>
+    <div class="mb">
+      <div class="row2">
+        <div><label>기간</label><select><option>2026 상반기</option><option>2026 Q2</option><option>최근 12개월</option></select></div>
+        <div><label>형식</label><select><option>CSV — 계약·매출 리포트 (즉시 다운로드)</option><option>경영 보고 PPT (PoC 미연동)</option><option>PDF 요약 (PoC 미연동)</option></select></div>
+      </div>
+      <div class="mut" style="font-size:11.5px;margin-top:12px">계약(contracts) + 실사용 과금(billing/usage) 합산 — 고객·랙·MRR·상태·사용량 컬럼 CSV. <b class="soft">VRCM 라이브 시 실데이터 · 미기동 시 mock 데이터</b>로 생성됩니다</div>
+    </div>
+    <div class="mf">
+      <button class="btn-plain" data-close type="button">취소</button>
+      <button class="btn" id="cf-report" type="button">CSV 내보내기 ↓</button>
+    </div>
+  </div>
+</div>
+
+<script src="../shared/app.js"></script>
+<script src="../shared/mock-api.js"></script>
+<script src="../shared/vrcm-api.js"></script>
+<script src="../shared/palette.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

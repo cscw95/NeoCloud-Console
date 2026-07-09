@@ -1,0 +1,25 @@
+/* NeoCloud 3대 콘솔 — 공통 디자인 토큰 (handoff README 기준)
+   그림자/글로우 금지 — 모달 카드 box-shadow만 예외. */
+:root{
+  --bg:#0b121c; --sidebar:#0b141f; --topbar:#0d1826; --card:#16202e;
+  --card-sub:#0d141d; --strip:#121d2c; --kpi-cell:#121d2c;
+  --line:#223142; --line-soft:#1a2433; --line-sidebar:#1d2c3e;
+  --text:#e6edf3; --strong:#fff; --muted:#8aa0b4; --muted2:#5a6b80;
+  --soft:#cfe0ee;
+  --green:#76b900; --on-green:#08210a; --green-text:#9fe0a8;
+  --green-line:#2d4a12;
+  --amber:#e8c66a; --amber-bg:#3a2f12; --amber-line:#4a3d18;
+  --red:#f0a3b0; --red-line:#43232a; --blue:#5aa7e8; --blue-text:#9fd0ff;
+  /* 셸 파생 토큰 (레퍼런스 반복값) */
+  --menu-act:#16241a; --menu-hover:#101b29; --dot-off:#3a4a5c;
+  --inc-strip:#1a1420;   /* 운영 overview P2 인시던트 스트립 */
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font:13px/1.5 -apple-system,"Apple SD Gothic Neo","Segoe UI",sans-serif;
+}
+code,.mono{font-family:Menlo,monospace}
+.num,.tabnum{font-variant-numeric:tabular-nums}
+a{color:var(--green);text-decoration:none}
+a:hover{color:#9fd045}
