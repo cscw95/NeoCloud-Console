@@ -2,7 +2,10 @@
    라우팅/모달/토스트/버스는 ../shared/app.js,
    데이터는 ../shared/mock-api.js → ../shared/vrcm-api.js 가 NC.api를
    라이브 어댑터로 교체(vrcm :8000 기동 시 실데이터, 아니면 mock 폴백).
-   테넌트 스코프: NC.api.currentTenant() 기준 — 사이드바 select로 전환. */
+   테넌트 스코프: NC.api.currentTenant() 기준 — 사이드바 select로 전환.
+   2차 풀연동: clusters(emuClusters+setWorkload 전환) · images(spec 카탈로그)
+   · settings(iamRealm) · alerts(faultMetrics KPI) · network(leases 필터)
+   · support(SLA 실수치·리드타임 실계산) — marketplace는 P2 mock 유지. */
 (function () {
   "use strict";
   var $ = function (sel, root) { return (root || document).querySelector(sel); };
@@ -546,6 +549,43 @@
     return statusChip(color, s === "in_service" ? "in-service" : s);
   }
 
+  /* 내 DHCP 임대 — leases() 전 호스트를 nodes(tid) tray_id로 필터.
+     폴백/내 임대 없음: 패널 숨김 */
+  function renderNetLeases(t) {
+    var panel = $("#net-dhcp-panel"), tb = $("#net-leases");
+    if (!panel || !tb || !t || !NC.api.leases || !NC.api.nodes) return;
+    Promise.all([NC.api.leases(), NC.api.nodes(t.id)])
+      .then(function (res) {
+        var ls = res[0], ns = res[1];
+        if (!ls || !ns || !ns.length) { panel.style.display = "none"; return; }
+        var mine = {};
+        ns.forEach(function (n) { mine[n.tray_id] = 1; });
+        var rows = (Array.isArray(ls) ? ls : []).filter(function (l) {
+          return mine[l.tray_id];
+        });
+        if (!rows.length) { panel.style.display = "none"; return; }
+        var LIMIT = 8;
+        var html = rows.slice(0, LIMIT).map(function (l) {
+          return '<tr><td class="id">' + esc(l.host_id) + "</td>" +
+            '<td class="id">' + esc(l.ip) + "</td>" +
+            '<td class="id" style="color:var(--muted)">' + esc(l.mac) +
+            "</td>" +
+            '<td class="num">' + Math.round((l.lease_s || 0) / 3600) +
+            "h</td>" +
+            '<td class="id" style="color:var(--muted)">' +
+            esc(l.dhcp_server || "—") + "</td></tr>";
+        }).join("");
+        if (rows.length > LIMIT) html +=
+          '<tr><td colspan="5" style="color:var(--muted2)">… 외 ' +
+          (rows.length - LIMIT) + "개 임대 — NICo DHCP 실데이터</td></tr>";
+        tb.innerHTML = html;
+        var sub = $("#net-dhcp-sub");
+        if (sub) sub.textContent = "임대 " + rows.length +
+          "건 · NICo DHCP · VRCM 실시간";
+        panel.style.display = "";
+      }).catch(function () {});
+  }
+
   /* 네트워크 — fabric().tenants P_Key·SU + segments() 내 세그먼트 */
   function renderNetwork() {
     loadTenant().then(function (t) {
@@ -553,6 +593,7 @@
       if (cell) cell.textContent =
         ((t && t.pkey) || "—") + " — enforced · 포트 4,608";
       if (!t) return;
+      renderNetLeases(t);
       if (NC.api.fabric) NC.api.fabric().then(function (f) {
         if (!f || !f.tenants) return;
         var me = f.tenants.filter(function (x) {
@@ -692,8 +733,92 @@
     loadTenant().then(function (t) { renderLiveHistory(t, "monitoring"); });
   }
 
-  function renderAlerts() { NC.api.alerts().then(renderAlertFeeds); }
-  function renderSupport() { refreshTickets(); }
+  /* 알림 — 피드는 라이브(alerts) · 상단 faultMetrics() KPI 칩 (폴백: 숨김) */
+  function fmtSec(s) {
+    if (s == null) return "—";
+    if (s < 60) return (Math.round(s * 10) / 10) + "<small>s</small>";
+    if (s < 3600) return (Math.round(s / 6) / 10) + "<small>m</small>";
+    return (Math.round(s / 360) / 10) + "<small>h</small>";
+  }
+  function renderFaultKpis() {
+    var band = $("#alerts-kpi");
+    if (!band || !NC.api.faultMetrics) return;
+    NC.api.faultMetrics().then(function (f) {
+      if (!f || f.availability_pct == null) {  // 폴백 — 칩 밴드 숨김
+        band.style.display = "none";
+        return;
+      }
+      band.style.display = "";
+      var av = $("#ak-avail");
+      if (av) {
+        av.innerHTML = f.availability_pct + "<small>%</small>";
+        av.classList.toggle("green", f.availability_pct >= 99.9);
+        av.classList.toggle("amber", f.availability_pct < 99.9);
+      }
+      var avs = $("#ak-avail-sub");
+      if (avs) avs.textContent = "GPU " +
+        (f.gpus_total || 0).toLocaleString("en-US") + " 기준 · VRCM 실측정";
+      var ta = $("#ak-mtta"); if (ta) ta.innerHTML = fmtSec(f.mtta_s);
+      var tr = $("#ak-mttr"); if (tr) tr.innerHTML = fmtSec(f.mttr_s);
+      var op = $("#ak-open");
+      if (op) {
+        op.textContent = String(f.faults_open || 0);
+        op.classList.toggle("amber", (f.faults_open || 0) > 0);
+        op.classList.toggle("green", !(f.faults_open || 0));
+      }
+      var ops = $("#ak-open-sub");
+      if (ops) ops.textContent = "누적 해결 " + (f.faults_resolved || 0) + "건";
+    }).catch(function () {});
+  }
+  function renderAlerts() {
+    NC.api.alerts().then(renderAlertFeeds);
+    renderFaultKpis();
+  }
+
+  /* 지원 — SLA 표 실수치: 가용성(faultMetrics) · 리드타임(orders history
+     received→delivered 실계산) · 격리 행(isolation — 보안 화면과 동일 소스) */
+  function fmtLead(s) {
+    if (s < 1) return "1초 미만";
+    if (s < 60) return Math.round(s) + "초";
+    if (s < 3600) return (s / 60).toFixed(1) + "분";
+    return (s / 3600).toFixed(1) + "시간";
+  }
+  function renderSlaLive() {
+    if (NC.api.faultMetrics) NC.api.faultMetrics().then(function (f) {
+      var el = $("#sla-avail");
+      if (!el || !f || f.availability_pct == null) return; // 폴백 — 정적 유지
+      el.innerHTML = '99.9% — 이번 달 <b style="color:var(--' +
+        (f.availability_pct >= 99.9 ? "green-text" : "amber") + ')">' +
+        f.availability_pct + "%</b> (GPU " +
+        (f.gpus_total || 0).toLocaleString("en-US") +
+        " · VRCM 실측정) · 크레딧 발생 없음";
+    }).catch(function () {});
+    if (NC.api.orders) NC.api.orders().then(function (os) {
+      var el = $("#sla-lead");
+      if (!el || !os) return;                  // 폴백 — 정적 유지
+      var secs = [];
+      os.forEach(function (o) {
+        if (o.kind !== "new" || o.state !== "delivered") return;
+        var rec = null, del = null;
+        (o.history || []).forEach(function (h) {
+          if (h.state === "received") rec = h.at;
+          if (h.state === "delivered") del = h.at;
+        });
+        if (!rec || !del) return;
+        var d = (Date.parse(del) - Date.parse(rec)) / 1000;
+        if (d >= 0) secs.push(d);
+      });
+      if (!secs.length) return;
+      var avg = secs.reduce(function (a, b) { return a + b; }, 0) / secs.length;
+      el.textContent = "received → delivered 평균 " + fmtLead(avg) +
+        " — 인도 " + secs.length + "건 실계산 (VRCM)";
+    }).catch(function () {});
+  }
+  function renderSupport() {
+    refreshTickets();
+    renderIsolation();
+    renderSlaLive();
+  }
 
   /* 보안 — isolation 실배지 + accessPackages 실렌더 (SAN mock 유지) */
   function renderSecurity() {
@@ -709,9 +834,202 @@
 
   function renderApi() { renderApiTokenLog(); }
 
+  /* ══ 클러스터 — emuClusters() 실카드 + 워크로드 프로파일 전환 ═══
+     라이브: #cl-live에 패널 렌더·정적(#cl-static) 숨김 · KPI 실집계.
+     폴백(vrcm 다운): emuClusters()가 null → 정적 prod-training 패널 유지 */
+  var WL_PROFILES = ["training", "inference"];
+
+  function clusterLivePanel(c, t) {
+    var faults = c.fault_gpus || 0;
+    var trays = c.trays || 0;
+    var racks = Math.round(trays / 18);
+    var seg = WL_PROFILES.map(function (p) {
+      return '<span data-wl-p="' + p + '"' +
+        (c.profile === p ? ' class="on"' : "") + ">" + p + "</span>";
+    }).join("");
+    return '<div class="panel">' +
+      '<div class="ph"><span class="dot ' + (faults ? "amber" : "green") +
+      '" style="width:8px;height:8px"></span>' +
+      '<span class="t">' + esc(t.name) + "-" +
+      esc(c.profile || "cluster") + "</span>" +
+      '<span class="c mono" style="color:var(--muted2)">bare-metal · VR NVL72' +
+      "</span>" +
+      '<span class="c">' + esc(t.site || "—") + " · SU " +
+      esc((t.sus || []).join(", ") || "—") + " · P_Key " +
+      esc(t.pkey || "—") + "</span>" +
+      '<span class="seg" data-wl="' + esc(c.tenant_id) +
+      '" title="워크로드 프로파일 — emu 텔레메트리 실전환" ' +
+      'style="margin-left:auto">' + seg + "</span>" +
+      '<span style="display:flex;gap:7px">' +
+      '<button class="btn" style="padding:6px 13px;font-size:11.5px" ' +
+      'data-open="resize">사이즈 조정</button>' +
+      '<button class="btn-ghost" data-open="console_access">콘솔 접속</button>' +
+      '<button class="btn-danger" data-open="reclaim">회수 요청</button>' +
+      "</span></div>" +
+      '<div class="stats">' +
+      "<span>랙 <b>" + racks + "</b></span>" +
+      "<span>노드 <b>" + trays + "</b></span>" +
+      "<span>GPU <b>" + (c.gpus || 0).toLocaleString("en-US") + "</b></span>" +
+      "<span>util <b>" + Math.round(c.avg_util_pct || 0) + "%</b></span>" +
+      "<span>전력 <b>" + (c.power_kw || 0).toLocaleString("en-US") +
+      " kW</b>" + (c.power_cap_kw
+        ? ' <span style="color:var(--muted2)">/ cap ' + c.power_cap_kw +
+          "</span>" : "") + "</span>" +
+      "<span>최고 온도 <b>" + (c.max_gpu_temp_c || 0) + "°C</b></span>" +
+      "<span>NVLink <b>" + (c.nvlink_tbps || 0) + " TB/s</b></span>" +
+      (faults
+        ? '<span style="color:var(--amber)">fault GPU ' + faults + "</span>"
+        : '<span style="color:var(--green-text)">모든 GPU 정상</span>') +
+      "</div>" +
+      '<div class="mini">VRCM emu 실시간 텔레메트리 — 워크로드 프로파일을 ' +
+      "전환하면 util·전력·NVLink 패턴이 실제로 바뀝니다</div></div>";
+  }
+
+  function renderClusterCards(t) {
+    var live = $("#cl-live"), stat = $("#cl-static");
+    if (!live || !t || !NC.api.emuClusters) return;
+    NC.api.emuClusters().then(function (cs) {
+      if (!cs) return;                         // 폴백 — 정적 패널 유지
+      var mine = (Array.isArray(cs) ? cs : []).filter(function (c) {
+        return c.tenant_id === t.id;
+      });
+      live.innerHTML = mine.length
+        ? mine.map(function (c) { return clusterLivePanel(c, t); }).join("")
+        : '<div class="panel"><div class="ph"><span class="tick"></span>' +
+          '<span class="t">클러스터 없음</span></div>' +
+          '<div class="mini" style="margin-top:0">주문 승인·프로비저닝 완료 ' +
+          "후 표시됩니다 — 아래 \"새 클러스터 생성\"으로 주문하세요</div></div>";
+      live.style.display = "";
+      if (stat) stat.style.display = "none";
+      var gpus = 0, trays = 0, util = 0;       // KPI 밴드 — emu 실집계
+      mine.forEach(function (c) {
+        gpus += c.gpus || 0;
+        trays += c.trays || 0;
+        util += c.avg_util_pct || 0;
+      });
+      util = mine.length ? Math.round(util / mine.length) : 0;
+      var kc = $("#kpi-clusters");
+      if (kc) kc.textContent = String(mine.length);
+      var ks = $("#kpi-clusters-sub");
+      if (ks) ks.textContent = "bare-metal " + mine.length + " · VRCM 실시간";
+      var kg = $("#kpi-cl-gpus");
+      if (kg) kg.textContent = gpus.toLocaleString("en-US");
+      var kgs = $("#kpi-cl-gpus-sub");
+      if (kgs) kgs.textContent = "노드 " + trays + " · " +
+        Math.round(trays / 18) + "랙";
+      var ku = $("#kpi-cl-util");
+      if (ku) ku.innerHTML = util + "<small>%</small>";
+      var kub = $("#kpi-cl-util-bar");
+      if (kub) kub.style.width = Math.max(0, Math.min(100, util)) + "%";
+    }).catch(function () {});
+  }
+
   function renderClusters() {
-    loadTenant().then(applyTenant);
+    loadTenant().then(function (t) {
+      applyTenant(t);
+      renderClusterCards(t);
+    });
     refreshTickets();
+  }
+
+  /* ══ 이미지 — spec() 블루프린트 카탈로그 실렌더 (폴백: 정적 표 유지)
+     상세 사양(세대·MaxQ/MaxP)은 /api/v1/blueprints 보강 — 실패해도
+     spec 기반으로 렌더. 커스텀 이미지 행(#images-custom)은 항상 유지 */
+  var VRCM_BASE = localStorage.getItem("nc-vrcm") || "http://127.0.0.1:8000";
+
+  function bpRow(key, b, sp) {
+    var perSu = (sp.racks_per_su || {})[key];
+    var name = '<td class="id">' + esc(key) +
+      (sp.default_blueprint === key
+        ? ' <span class="st green" style="font-size:9.5px">기본</span>' : "") +
+      "</td>";
+    if (!b) return "<tr>" + name +
+      '<td style="color:var(--muted)">블루프린트' +
+      (perSu ? " · SU " + perSu + "랙" : "") + "</td>" +
+      '<td class="num" style="color:var(--muted)">—</td>' +
+      '<td class="num st green">stable</td></tr>';
+    return "<tr>" + name +
+      '<td style="color:var(--muted)">' + esc(b.model) + " · " +
+      esc(b.generation) + " · GPU " + (b.gpu_per_rack || 72) + "/랙" +
+      (perSu ? " · SU " + perSu + "랙" : "") + "</td>" +
+      '<td class="num" style="color:var(--muted)">MaxQ ' +
+      (b.maxq_rack_kw || "—") + "kW · MaxP " + (b.maxp_rack_kw || "—") +
+      "kW</td>" +
+      '<td class="num st ' + (b.preliminary ? "blue" : "green") + '">' +
+      (b.preliminary ? "preview" : "stable") + "</td></tr>";
+  }
+
+  function renderImages() {
+    if (!NC.api.spec) return;
+    NC.api.spec().then(function (sp) {
+      if (!sp || !sp.blueprints || !sp.blueprints.length) return; // 폴백
+      fetch(VRCM_BASE + "/api/v1/blueprints")
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; })
+        .then(function (bps) {
+          var tb = $("#images-bp");
+          if (!tb) return;
+          var map = {};
+          (bps || []).forEach(function (b) { map[b.key] = b; });
+          tb.innerHTML = sp.blueprints.map(function (k) {
+            return bpRow(k, map[k], sp);
+          }).join("");
+          var src = $("#images-src");
+          if (src) src.textContent = "VRCM 블루프린트 " +
+            sp.blueprints.length +
+            "종 — 기본 이미지 ubuntu-24.04-nvidia (CUDA 13.1 · NCCL 2.24)";
+        });
+    }).catch(function () {});
+  }
+
+  /* ══ 설정 — iamRealm(tid): realm·롤 3종·클라이언트 표 실렌더.
+     apikey 발급 이력(localStorage)을 클라이언트별로 연계 표기.
+     폴백(vrcm 다운): iamRealm null → 패널 숨김 · 정적 멤버 표 유지 */
+  function renderSettings() {
+    loadTenant().then(function (t) {
+      var panel = $("#iam-realm-panel");
+      if (!panel || !t || !NC.api.iamRealm) return;
+      NC.api.iamRealm(t.id).then(function (r) {
+        if (!r) { panel.style.display = "none"; return; } // 폴백 — 숨김
+        var sub = $("#iam-realm-sub");
+        if (sub) sub.textContent = "realm " + r.realm +
+          (r.display ? " (" + r.display + ")" : "") + " · " +
+          (r.state || "—") + " — Keycloak · VRCM 실시간";
+        var roles = $("#iam-roles");
+        if (roles) roles.innerHTML = (r.roles || []).map(function (x) {
+          return '<span class="chip" style="font-size:11px">롤 ' + esc(x) +
+            "</span>";
+        }).join("");
+        var log = tokenLog(), localCnt = {};
+        log.forEach(function (e2) {
+          localCnt[e2.client] = (localCnt[e2.client] || 0) + 1;
+        });
+        var tb = $("#iam-clients");
+        if (tb) tb.innerHTML = (r.clients || []).map(function (c) {
+          return '<tr><td class="id">' + esc(c.client_id) +
+            (c.order_id ? ' <span style="color:var(--muted2)">' +
+              esc(c.order_id) + "</span>" : "") + "</td>" +
+            '<td style="color:var(--muted)">' + esc(c.kind || "—") + "</td>" +
+            "<td>" + (c.mfa ? '<span class="st green">필수</span>'
+              : '<span style="color:var(--muted2)">—</span>') + "</td>" +
+            '<td class="num">' + (c.tokens_issued || 0) +
+            (localCnt[c.client_id]
+              ? ' <span style="color:var(--blue-text)">+' +
+                localCnt[c.client_id] + " (이 브라우저)</span>" : "") +
+            "</td>" +
+            '<td class="id" style="color:var(--muted)">' +
+            esc(c.secret_masked || "—") + "</td>" +
+            '<td><span class="st ' +
+            (c.state === "active" ? "green" : "amber") + '">' +
+            esc(c.state || "—") + "</span></td></tr>";
+        }).join("");
+        var note = $("#iam-note");
+        if (note) note.textContent = "토큰 발급은 API · CLI 화면의 " +
+          "\"키 발급\"에서 실 IAM으로 수행됩니다 — 이 브라우저 발급 이력 " +
+          log.length + "건";
+        panel.style.display = "";
+      }).catch(function () {});
+    });
   }
 
   /* ══ 이벤트 버스 — 크로스 포털 효과 수신 ═════════════════════ */
@@ -944,6 +1262,31 @@
   }
 
   document.addEventListener("click", function (e) {
+    /* 워크로드 프로파일 세그먼트 — setWorkload 실전환 (라이브 전용) */
+    var wl = e.target.closest("[data-wl-p]");
+    if (wl) {
+      var wrap = wl.closest("[data-wl]");
+      if (wrap && !wl.classList.contains("on")) {
+        var wlTid = wrap.dataset.wl, wlProf = wl.dataset.wlP;
+        if (NC.live && NC.api.setWorkload) {
+          NC.api.setWorkload(wlTid, wlProf).then(function (r) {
+            if (!r) {
+              NC.toast("워크로드 전환 실패 — VRCM 응답 없음", "warn");
+              return;
+            }
+            NC.toast("워크로드 프로파일 전환: " + (r.profile || wlProf) +
+              " — emu 텔레메트리 패턴이 실제로 변경됩니다 (VRCM 실전환)");
+            loadTenant().then(renderClusterCards);
+          }).catch(function () {
+            NC.toast("워크로드 전환 실패 — 잠시 후 다시 시도해주세요", "warn");
+          });
+        } else {
+          NC.toast("워크로드 전환은 VRCM 연동 시 사용할 수 있습니다 " +
+            "(mock 모드)", "warn");
+        }
+      }
+      return;
+    }
     var act = e.target.closest("[data-act]");
     if (act) {
       var a = act.dataset.act;
@@ -979,6 +1322,7 @@
     dashboard: renderDashboard,
     clusters: renderClusters,
     nodes: renderNodes,
+    images: renderImages,
     storage: renderStorage,
     network: renderNetwork,
     monitoring: renderMonitoring,
@@ -987,6 +1331,7 @@
     support: renderSupport,
     security: renderSecurity,
     api: renderApi,
+    settings: renderSettings,
   });
 
   // 사이드바 테넌트 select — 변경 시 NC.setTenant → bus "tenant.changed"

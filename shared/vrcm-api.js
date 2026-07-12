@@ -205,6 +205,16 @@
       return t;
     },
 
+    /* ── 고객 콘솔 풀연동 (라이브 전용) ─────────────────────── */
+    iamRealm: tid => raw(`${BASE}/fake-shared/iam/realms/${tid}`),
+    leases: () => raw(BASE + "/fake-nico/dhcp/leases"),
+    async setWorkload(tid, profile) {      // 클러스터 워크로드 프로파일 전환
+      const r = await jp(`${V}/emu/clusters/${tid}/workload`,
+        { profile });
+      NC.bus.emit("workload.changed", { tenant: tid, profile });
+      return r;
+    },
+
     /* ── 셀프서비스·과금·IAM (라이브 전용) ──────────────────── */
     async createOrder(body) {              // 고객: 클러스터 신규/확장 실주문
       const o = await jp(V + "/orders", body);
