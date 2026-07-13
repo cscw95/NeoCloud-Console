@@ -32,6 +32,128 @@
     return s.length > 8 ? s.slice(0, 3) + "****" + s.slice(-4) : "nc_****";
   };
 
+  /* ══ 공통 유틸 — CSV 다운로드 · 클립보드 · 해시 쿼리 ══════════ */
+  function csvEsc(v) {
+    return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+  }
+  function downloadCsv(name, rows) {
+    var csv = "﻿" + rows.map(function (r) {    // BOM — 엑셀 한글 호환
+      return r.map(csvEsc).join(",");
+    }).join("\r\n");
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+  }
+  function copyText(t) {
+    var done = function () {
+      NC.toast("클립보드에 복사되었습니다 — " + esc(t));
+    };
+    var legacy = function () {
+      var ta = document.createElement("textarea");
+      ta.value = t;
+      ta.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e2) {}
+      ta.remove();
+      if (ok) done();
+      else NC.toast("복사 실패 — 텍스트를 직접 선택해 복사하세요", "warn");
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText)
+      navigator.clipboard.writeText(t).then(done, legacy);
+    else legacy();
+  }
+  function hashQuery(key) {
+    var out = null;
+    (location.hash.split("?")[1] || "").split("&").forEach(function (kv) {
+      var p = kv.split("=");
+      if (p[0] === key) out = decodeURIComponent(p[1] || "");
+    });
+    return out;
+  }
+
+  /* ══ pagedTable — 재사용 페이지네이션 헬퍼 ════════════════════
+     cfg { bar: 컨트롤 컨테이너, pageSize, unit,
+           render(pageItems, meta) — meta {total, all, from, page, pages},
+           search: {placeholder, match(item, q)} | 생략,
+           filter: {options: [[value,label]…], accept(item, v)} | 생략 }
+     반환 { set(items), setQuery(q), refresh() }.
+     전체 행 ≤ pageSize이고 검색·필터 미사용이면 컨트롤 자동 숨김
+     (폴백 mock 모드에서 UI 불변). */
+  function pagedTable(cfg) {
+    var st = { items: [], page: 0, q: "", f: "" };
+    var bar = cfg.bar;
+    bar.classList.add("pgr");
+    bar.innerHTML =
+      (cfg.search
+        ? '<input type="search" placeholder="' +
+          esc(cfg.search.placeholder || "검색") + '">' : "") +
+      (cfg.filter
+        ? "<select>" + cfg.filter.options.map(function (o) {
+            return '<option value="' + esc(o[0]) + '">' + esc(o[1]) +
+              "</option>";
+          }).join("") + "</select>" : "") +
+      '<span class="cnt"></span>' +
+      '<button type="button" data-pg="-1">← 이전</button>' +
+      '<button type="button" data-pg="1">다음 →</button>';
+    var inp = bar.querySelector("input");
+    var sel = bar.querySelector("select");
+    var cnt = bar.querySelector(".cnt");
+    var prev = bar.querySelector('[data-pg="-1"]');
+    var next = bar.querySelector('[data-pg="1"]');
+    if (inp) inp.addEventListener("input", function () {
+      st.q = this.value; st.page = 0; refresh();
+    });
+    if (sel) sel.addEventListener("change", function () {
+      st.f = this.value; st.page = 0; refresh();
+    });
+    prev.addEventListener("click", function () { st.page -= 1; refresh(); });
+    next.addEventListener("click", function () { st.page += 1; refresh(); });
+    function refresh() {
+      var list = st.items;
+      if (st.f && cfg.filter) list = list.filter(function (it) {
+        return cfg.filter.accept(it, st.f);
+      });
+      var q = st.q.trim().toLowerCase();
+      if (q && cfg.search) list = list.filter(function (it) {
+        return cfg.search.match(it, q);
+      });
+      var size = cfg.pageSize || 12;
+      var pages = Math.max(1, Math.ceil(list.length / size));
+      st.page = Math.max(0, Math.min(st.page, pages - 1));
+      var from = st.page * size;
+      var page = list.slice(from, from + size);
+      cfg.render(page, { total: list.length, all: st.items.length,
+        from: from, page: st.page, pages: pages });
+      bar.classList.toggle("on",
+        st.items.length > size || !!q || !!st.f);
+      cnt.textContent = list.length
+        ? (cfg.unit || "") + " " + list.length + "건 중 " + (from + 1) +
+          "–" + (from + page.length) +
+          (list.length !== st.items.length
+            ? " (전체 " + st.items.length + "건)" : "") +
+          (pages > 1 ? " · " + (st.page + 1) + "/" + pages + "p" : "")
+        : (cfg.unit || "") + " 0건";
+      prev.disabled = st.page <= 0;
+      next.disabled = st.page >= pages - 1;
+    }
+    return {
+      set: function (items) { st.items = items || []; refresh(); },
+      setQuery: function (q2) {
+        st.q = q2 || "";
+        if (inp) inp.value = st.q;
+        st.page = 0;
+        refresh();
+      },
+      refresh: refresh,
+    };
+  }
+
   /* ══ 현재 테넌트 (라이브: vrcm 테넌트 / 폴백: mock fin-corp) ═══ */
   var curTenant = null;
   function loadTenant() {
@@ -98,6 +220,33 @@
       "</div></div></div>";
   }
 
+  /* 읽음 상태(localStorage 건수 기반) — "모두 읽음"이 배지를 0으로 */
+  var lastAlertCount = 0;
+  var alertsReadCnt = 0;
+  try {
+    alertsReadCnt =
+      parseInt(localStorage.getItem("nc-alerts-read") || "0", 10) || 0;
+  } catch (e) {}
+
+  function applyAlertBadges() {
+    var unread = Math.max(0, lastAlertCount - alertsReadCnt);
+    var n = String(unread);
+    var bd = $("#mi-alerts-bd");
+    if (bd) { bd.textContent = n; bd.style.display = unread ? "" : "none"; }
+    var bell = $("#tb-bell-n");
+    if (bell) { bell.textContent = n; bell.style.display = unread ? "" : "none"; }
+    var un = $("#alerts-unread");
+    if (un) un.textContent = "미확인 " + n;
+  }
+
+  function markAlertsRead() {
+    alertsReadCnt = lastAlertCount;
+    try { localStorage.setItem("nc-alerts-read", String(alertsReadCnt)); }
+    catch (e) {}
+    applyAlertBadges();
+    NC.toast("알림 " + lastAlertCount + "건을 모두 읽음 처리했습니다");
+  }
+
   function renderAlertFeeds(alerts) {
     alerts = alerts || [];
     var html = alerts.map(alertItem).join("");
@@ -105,10 +254,8 @@
       var el = $(sel);
       if (el) el.innerHTML = html;
     });
-    var n = String(alerts.length);
-    var bd = $("#mi-alerts-bd"); if (bd) bd.textContent = n;
-    var bell = $("#tb-bell-n"); if (bell) bell.textContent = n;
-    var unread = $("#alerts-unread"); if (unread) unread.textContent = "미확인 " + n;
+    lastAlertCount = alerts.length;
+    applyAlertBadges();
   }
 
   /* ══ 티켓 — 현재 테넌트 필터 목록 렌더 + 배지 (라이브 시 실 티켓) ══ */
@@ -132,15 +279,47 @@
       "</div>";
   }
 
-  function renderTicketList(list) {
-    var html = list.length
-      ? list.map(ticketCard).join("")
-      : '<div class="mini" style="margin-top:0">접수된 티켓이 없습니다 — ' +
-        '"+ 생성" 버튼으로 접수하세요</div>';
-    ["#dash-tickets", "#support-tickets"].forEach(function (sel) {
-      var el = $(sel);
-      if (el) el.innerHTML = html;
+  var EMPTY_TICKETS =
+    '<div class="mini" style="margin-top:0">접수된 티켓이 없습니다 — ' +
+    '"+ 생성" 버튼으로 접수하세요</div>';
+
+  var ticketPager = null;
+  function ensureTicketPager() {
+    if (ticketPager) return ticketPager;
+    var bar = $("#tickets-pgr");
+    if (!bar) return null;
+    ticketPager = pagedTable({
+      bar: bar, pageSize: 6, unit: "티켓",
+      search: { placeholder: "티켓 ID · 제목 검색",
+        match: function (t, q) {
+          return ((t.id || "") + " " + (t.subject || ""))
+            .toLowerCase().indexOf(q) >= 0;
+        } },
+      render: function (page, m) {
+        var el = $("#support-tickets");
+        if (!el) return;
+        el.innerHTML = page.length
+          ? page.map(ticketCard).join("")
+          : (m.all
+            ? '<div class="mini" style="margin-top:0">일치하는 티켓 없음 — ' +
+              "검색어를 조정하세요</div>"
+            : EMPTY_TICKETS);
+      },
     });
+    return ticketPager;
+  }
+
+  function renderTicketList(list) {
+    var pgr = ensureTicketPager();          // 지원 화면 — 페이지네이션
+    if (pgr) pgr.set(list);
+    var el = $("#dash-tickets");            // 대시보드 — 상위 3건 + 외 N
+    if (el) el.innerHTML = list.length
+      ? list.slice(0, 3).map(ticketCard).join("") +
+        (list.length > 3
+          ? '<div class="mini">… 외 ' + (list.length - 3) +
+            '건 — <a class="lnk" href="#/support">지원 화면에서 전체 보기</a>' +
+            "</div>" : "")
+      : EMPTY_TICKETS;
   }
 
   /* TCK-1204 시나리오 동기(노드 "복구 중"↔"정상") + 열린 티켓 배지.
@@ -490,7 +669,58 @@
     renderIsolation();
   }
 
-  /* 노드 — nodes(tid)+cpuNodes(tid) 실 테이블 (null → 정적 유지) */
+  /* 노드 — nodes(tid)+cpuNodes(tid) 전체 목록을 pagedTable로 열람
+     (12행/페이지 · 상태 필터 · 호스트명 검색 · 폴백 null → 정적 유지) */
+  function nodeRowHtml(n) {
+    if (n.kind === "cpu")
+      return '<tr><td class="id">' + esc(n.id) + "</td>" +
+        '<td class="id">' + esc(n.ip || "—") + "</td>" +
+        '<td style="color:var(--muted)">CPU 노드 · ' + esc(n.arch || "") +
+        " " + (n.cores || "—") + "c · " + (n.mem || "—") + "TB</td>" +
+        "<td>" + stateChipHtml(n.state) + "</td>" +
+        '<td class="num" style="color:var(--muted)">—</td>' +
+        '<td><button class="tbtn" data-open="console_access">콘솔' +
+        "</button></td></tr>";
+    return "<tr" + (n.state === "in_service" ? "" : ' class="fault"') +
+      '><td class="id">' + esc(n.id) + "</td>" +
+      '<td class="id" style="color:var(--muted)">' + esc(n.ip || "—") +
+      "</td>" +
+      '<td style="color:var(--muted)">' + esc(n.bp) +
+      " · 4× Rubin · 2× Vera</td>" +
+      "<td>" + stateChipHtml(n.state) + "</td>" +
+      '<td class="num" style="color:var(--muted)">—</td>' +
+      '<td><button class="tbtn" data-open="console_access">콘솔</button>' +
+      ' · <button class="tbtn a" data-open="reboot">재부팅</button>' +
+      "</td></tr>";
+  }
+
+  var nodesPager = null, nodesQConsumed = "";
+  function ensureNodesPager() {
+    if (nodesPager) return nodesPager;
+    var bar = $("#nodes-pgr");
+    if (!bar) return null;
+    nodesPager = pagedTable({
+      bar: bar, pageSize: 12, unit: "노드",
+      search: { placeholder: "호스트명 · 인스턴스 검색",
+        match: function (n, q) { return n._s.indexOf(q) >= 0; } },
+      filter: { options: [["", "상태: 전체"], ["in_service", "in-service"],
+          ["other", "기타 (비정상·프로비저닝)"]],
+        accept: function (n, v) {
+          return v === "in_service"
+            ? n.state === "in_service" : n.state !== "in_service";
+        } },
+      render: function (page) {
+        var tb = $("#nodes-tbody");
+        if (!tb) return;
+        tb.innerHTML = page.length
+          ? page.map(nodeRowHtml).join("")
+          : '<tr><td colspan="6" style="color:var(--muted2)">일치하는 ' +
+            "노드가 없습니다 — 검색어·상태 필터를 조정하세요</td></tr>";
+      },
+    });
+    return nodesPager;
+  }
+
   function renderNodes() {
     refreshTickets();
     loadTenant().then(function (t) {
@@ -499,46 +729,35 @@
         NC.api.cpuNodes ? NC.api.cpuNodes(t.id) : null
       ]).then(function (res) {
         var ns = res[0], cpus = res[1] || [];
-        var tb = $("#nodes-tbody");
-        if (!ns || !tb) return;              // 폴백 — mock 테이블 유지
+        if (!ns) return;                     // 폴백 — mock 테이블 유지
+        var items = ns.map(function (n) {
+          return { kind: "gpu", id: n.tray_id, ip: n.nico_instance_id,
+            bp: n.blueprint_key, state: n.state,
+            _s: ((n.tray_id || "") + " " + (n.nico_host_id || "") + " " +
+                 (n.nico_instance_id || "")).toLowerCase() };
+        }).concat(cpus.map(function (c) {
+          return { kind: "cpu", id: c.id, ip: c.host_ip, arch: c.cpu_arch,
+            cores: c.cores, mem: c.mem_tb, state: c.state,
+            _s: ((c.id || "") + " " + (c.host_ip || "")).toLowerCase() };
+        }));
+        var pgr = ensureNodesPager();
+        if (!pgr) return;
+        pgr.set(items);
+        var q = hashQuery("q");              // ⌘K 팔레트 호스트 딥링크
+        if (q && q !== nodesQConsumed) {     // 1회만 소비 — 검색 초기화 존중
+          pgr.setQuery(q);
+          nodesQConsumed = q;
+        }
         var inSvc = ns.filter(function (n) {
           return n.state === "in_service";
         }).length;
-        var LIMIT = 10;
-        var rows = ns.slice(0, LIMIT).map(function (n) {
-          return "<tr" +
-            (n.state === "in_service" ? "" : ' class="fault"') +
-            '><td class="id">' + esc(n.tray_id) + "</td>" +
-            '<td class="id" style="color:var(--muted)">' +
-            esc(n.nico_instance_id || "—") + "</td>" +
-            '<td style="color:var(--muted)">' + esc(n.blueprint_key) +
-            " · 4× Rubin · 2× Vera</td>" +
-            "<td>" + stateChipHtml(n.state) + "</td>" +
-            '<td class="num" style="color:var(--muted)">—</td>' +
-            '<td><button class="tbtn" data-open="console_access">콘솔' +
-            '</button> · <button class="tbtn a" data-open="reboot">재부팅' +
-            "</button></td></tr>";
-        });
-        cpus.slice(0, 5).forEach(function (c) {
-          rows.push('<tr><td class="id">' + esc(c.id) + "</td>" +
-            '<td class="id">' + esc(c.host_ip || "—") + "</td>" +
-            '<td style="color:var(--muted)">CPU 노드 · ' +
-            esc(c.cpu_arch || "") + " " + (c.cores || "—") + "c · " +
-            (c.mem_tb || "—") + "TB</td>" +
-            "<td>" + stateChipHtml(c.state) + "</td>" +
-            '<td class="num" style="color:var(--muted)">—</td>' +
-            '<td><button class="tbtn" data-open="console_access">콘솔' +
-            "</button></td></tr>");
-        });
-        if (ns.length > LIMIT) rows.push(
-          '<tr><td colspan="6" style="color:var(--muted2)">… 외 ' +
-          (ns.length - LIMIT) + " GPU 노드 — VRCM 실데이터</td></tr>");
-        tb.innerHTML = rows.join("");
         $$("[data-node-summary]").forEach(function (el) {
           el.textContent = ns.length + " GPU 노드 · in-service " + inSvc +
             (ns.length - inSvc ? " · 기타 " + (ns.length - inSvc) : "") +
             " · CPU " + cpus.length;
         });
+        var chip = $("#nodes-cluster-chip");
+        if (chip) chip.textContent = "테넌트: " + (t.name || t.id);
       }).catch(function () {});
     });
   }
@@ -549,8 +768,42 @@
     return statusChip(color, s === "in_service" ? "in-service" : s);
   }
 
-  /* 내 DHCP 임대 — leases() 전 호스트를 nodes(tid) tray_id로 필터.
-     폴백/내 임대 없음: 패널 숨김 */
+  /* 내 DHCP 임대 — leases() 전 호스트를 nodes(tid) tray_id로 필터 후
+     pagedTable(8행 · host/ip 검색). 폴백/내 임대 없음: 패널 숨김 */
+  function leaseRowHtml(l) {
+    return '<tr><td class="id">' + esc(l.host_id) + "</td>" +
+      '<td class="id">' + esc(l.ip) + "</td>" +
+      '<td class="id" style="color:var(--muted)">' + esc(l.mac) + "</td>" +
+      '<td class="num">' + Math.round((l.lease_s || 0) / 3600) + "h</td>" +
+      '<td class="id" style="color:var(--muted)">' +
+      esc(l.dhcp_server || "—") + "</td></tr>";
+  }
+
+  var leasePager = null;
+  function ensureLeasePager() {
+    if (leasePager) return leasePager;
+    var bar = $("#leases-pgr");
+    if (!bar) return null;
+    leasePager = pagedTable({
+      bar: bar, pageSize: 8, unit: "임대",
+      search: { placeholder: "host · ip 검색",
+        match: function (l, q) {
+          return ((l.host_id || "") + " " + (l.ip || "") + " " +
+                  (l.mac || "")).toLowerCase().indexOf(q) >= 0;
+        } },
+      render: function (page, m) {
+        var tb = $("#net-leases");
+        if (!tb) return;
+        tb.innerHTML = page.length
+          ? page.map(leaseRowHtml).join("")
+          : '<tr><td colspan="5" style="color:var(--muted2)">일치하는 ' +
+            "임대가 없습니다" + (m.all ? " — 검색어를 조정하세요" : "") +
+            "</td></tr>";
+      },
+    });
+    return leasePager;
+  }
+
   function renderNetLeases(t) {
     var panel = $("#net-dhcp-panel"), tb = $("#net-leases");
     if (!panel || !tb || !t || !NC.api.leases || !NC.api.nodes) return;
@@ -564,21 +817,8 @@
           return mine[l.tray_id];
         });
         if (!rows.length) { panel.style.display = "none"; return; }
-        var LIMIT = 8;
-        var html = rows.slice(0, LIMIT).map(function (l) {
-          return '<tr><td class="id">' + esc(l.host_id) + "</td>" +
-            '<td class="id">' + esc(l.ip) + "</td>" +
-            '<td class="id" style="color:var(--muted)">' + esc(l.mac) +
-            "</td>" +
-            '<td class="num">' + Math.round((l.lease_s || 0) / 3600) +
-            "h</td>" +
-            '<td class="id" style="color:var(--muted)">' +
-            esc(l.dhcp_server || "—") + "</td></tr>";
-        }).join("");
-        if (rows.length > LIMIT) html +=
-          '<tr><td colspan="5" style="color:var(--muted2)">… 외 ' +
-          (rows.length - LIMIT) + "개 임대 — NICo DHCP 실데이터</td></tr>";
-        tb.innerHTML = html;
+        var pgr = ensureLeasePager();
+        if (pgr) pgr.set(rows);
         var sub = $("#net-dhcp-sub");
         if (sub) sub.textContent = "임대 " + rows.length +
           "건 · NICo DHCP · VRCM 실시간";
@@ -629,7 +869,48 @@
     });
   }
 
-  /* 스토리지 — storageViews() 현재 테넌트 필터 실렌더 */
+  /* 스토리지 — storageViews() 현재 테넌트 필터 → pagedTable(8행 · 경로 검색) */
+  function volRowHtml(v) {
+    var cap = v.capacity_tb >= 1000
+      ? (v.capacity_tb / 1000).toFixed(1) + "PB"
+      : Math.round(v.capacity_tb) + "TB";
+    return '<tr><td class="id">' + esc(v.path) + "</td>" +
+      '<td class="num">' + cap + "</td>" +
+      '<td class="num" style="color:var(--muted)">' +
+      esc((v.protocols || []).join("/")) + "</td>" +
+      '<td class="num">' + Math.round(v.qos_gbps || 0) + "GB/s · " +
+      Math.round(v.qos_iops_k || 0) + "K IOPS</td>" +
+      '<td><button class="tbtn" data-open="snapshot">스냅샷</button>' +
+      ' · <button class="tbtn a" data-open="qos">QoS 변경</button>' +
+      "</td></tr>";
+  }
+
+  var storagePager = null;
+  function ensureStoragePager() {
+    if (storagePager) return storagePager;
+    var bar = $("#storage-pgr");
+    if (!bar) return null;
+    storagePager = pagedTable({
+      bar: bar, pageSize: 8, unit: "볼륨",
+      search: { placeholder: "경로 검색",
+        match: function (v, q) {
+          return String(v.path || "").toLowerCase().indexOf(q) >= 0;
+        } },
+      render: function (page, m) {
+        var tb = $("#storage-volumes");
+        if (!tb) return;
+        tb.innerHTML = page.length
+          ? page.map(volRowHtml).join("")
+          : (m.all
+            ? '<tr><td colspan="5" style="color:var(--muted2)">일치하는 ' +
+              "볼륨 없음 — 검색어를 조정하세요</td></tr>"
+            : '<tr><td colspan="5" style="color:var(--muted2)">할당된 ' +
+              "볼륨 없음 — 클러스터 주문 시 자동 프로비저닝됩니다</td></tr>");
+      },
+    });
+    return storagePager;
+  }
+
   function renderStorage() {
     loadTenant().then(function (t) {
       if (!t || !NC.api.storageViews) return;
@@ -639,22 +920,8 @@
         var mine = (Array.isArray(vs) ? vs : []).filter(function (v) {
           return v.tenant_ref === t.id;
         });
-        tb.innerHTML = mine.length ? mine.map(function (v) {
-          var cap = v.capacity_tb >= 1000
-            ? (v.capacity_tb / 1000).toFixed(1) + "PB"
-            : Math.round(v.capacity_tb) + "TB";
-          return '<tr><td class="id">' + esc(v.path) + "</td>" +
-            '<td class="num">' + cap + "</td>" +
-            '<td class="num" style="color:var(--muted)">' +
-            esc((v.protocols || []).join("/")) + "</td>" +
-            '<td class="num">' + Math.round(v.qos_gbps || 0) + "GB/s · " +
-            Math.round(v.qos_iops_k || 0) + "K IOPS</td>" +
-            '<td><button class="tbtn" data-open="snapshot">스냅샷</button>' +
-            ' · <button class="tbtn a" data-open="qos">QoS 변경</button>' +
-            "</td></tr>";
-        }).join("")
-          : '<tr><td colspan="5" style="color:var(--muted2)">할당된 볼륨 ' +
-            "없음 — 클러스터 주문 시 자동 프로비저닝됩니다</td></tr>";
+        var pgr = ensureStoragePager();
+        if (pgr) pgr.set(mine);
         var capTb = mine.reduce(function (a, v) {
           return a + (v.capacity_tb || 0); }, 0);
         var qos = mine.reduce(function (a, v) {
@@ -674,7 +941,42 @@
     });
   }
 
-  /* 빌링 — billingUsage()+billingRates() 실렌더 (없으면 정적 유지) */
+  /* 빌링 — billingUsage()+billingRates() 실렌더 (없으면 정적 유지).
+     비용 라인은 pagedTable(10행) — 합계 행은 항상 하단 고정 */
+  function billLineRow(l) {
+    return "<tr><td>컴퓨트 — " + esc(l.order_id) + " (" +
+      esc(l.blueprint_key) + " " + l.racks + "랙" +
+      (l.active ? "" : " · 종료") + ")</td>" +
+      '<td class="num id">' + usd(l.amount_usd) + "</td>" +
+      '<td class="num" style="color:var(--muted);width:150px">' +
+      (l.rack_hours || 0).toFixed(1) + " rack-h × $" +
+      (l.rate_usd || 0) + "</td></tr>";
+  }
+
+  var billPager = null, billTotals = null;
+  function ensureBillPager() {
+    if (billPager) return billPager;
+    var bar = $("#bill-pgr");
+    if (!bar) return null;
+    billPager = pagedTable({
+      bar: bar, pageSize: 10, unit: "라인",
+      render: function (page) {
+        var tb = $("#bill-lines");
+        if (!tb) return;
+        var html = page.map(billLineRow).join("");
+        if (billTotals) html +=
+          '<tr><td style="color:var(--strong);font-weight:700">합계 ' +
+          "(MTD · 전체 " + billTotals.count + "라인)</td>" +
+          '<td class="num id" style="color:var(--strong);font-weight:700">' +
+          usd(billTotals.sum) + "</td>" +
+          '<td class="num" style="color:var(--muted)">월 환산 ' +
+          usd(billTotals.proj) + "</td></tr>";
+        tb.innerHTML = html;
+      },
+    });
+    return billPager;
+  }
+
   function renderBilling() {
     loadTenant().then(function (t) {
       if (!t) return;
@@ -686,23 +988,13 @@
         var tb = $("#bill-lines");
         if (!tb || !mine.length) return;
         var sum = 0, proj = 0;
-        var html = mine.map(function (l) {
+        mine.forEach(function (l) {
           sum += l.amount_usd || 0;
           proj += l.projected_monthly_usd || 0;
-          return "<tr><td>컴퓨트 — " + esc(l.order_id) + " (" +
-            esc(l.blueprint_key) + " " + l.racks + "랙" +
-            (l.active ? "" : " · 종료") + ")</td>" +
-            '<td class="num id">' + usd(l.amount_usd) + "</td>" +
-            '<td class="num" style="color:var(--muted);width:150px">' +
-            (l.rack_hours || 0).toFixed(1) + " rack-h × $" +
-            (l.rate_usd || 0) + "</td></tr>";
-        }).join("");
-        html += '<tr><td style="color:var(--strong);font-weight:700">합계 ' +
-          '(MTD)</td><td class="num id" style="color:var(--strong);' +
-          'font-weight:700">' + usd(sum) + "</td>" +
-          '<td class="num" style="color:var(--muted)">월 환산 ' + usd(proj) +
-          "</td></tr>";
-        tb.innerHTML = html;
+        });
+        billTotals = { sum: sum, proj: proj, count: mine.length };
+        var pgr = ensureBillPager();
+        if (pgr) pgr.set(mine);
         var src = $("#bill-lines-src");
         if (src) src.textContent = "VRCM billing/usage 실데이터";
         var mtd = $("#bill-kpi-mtd"), msub = $("#bill-kpi-mtd-sub");
@@ -770,9 +1062,142 @@
       if (ops) ops.textContent = "누적 해결 " + (f.faults_resolved || 0) + "건";
     }).catch(function () {});
   }
+  /* 알림 피드 "더 보기" — 라이브: faultMetrics().recent 전체 이력을
+     10건씩 누적 로드. 폴백(mock)·추가분 없음: 버튼 자동 숨김 */
+  var alertsShown = 0, alertsExtAll = null;
+  function extAlertsFromFaults(f) {
+    return (f.recent || []).map(function (x, i) {
+      var res = x.resolved || x.state === "resolved";
+      return { id: "AL-" + (300 + i), sev: res ? "info" : "warn",
+        msg: (x.tray_id || "tray") + " XID " + x.xid +
+             (res ? " — 복구 완료" : " — 대응 중"),
+        at: String(x.started_at || x.at || "").slice(5, 16)
+          .replace("T", " ") };
+    });
+  }
+  function updateAlertsMore(alerts) {
+    var btn = $("#alerts-more");
+    if (!btn) return;
+    alertsShown = (alerts || []).length;
+    alertsExtAll = null;
+    if (!NC.live || !NC.api.faultMetrics) { btn.style.display = "none"; return; }
+    NC.api.faultMetrics().then(function (f) {
+      var n = f && f.recent ? f.recent.length : 0;
+      if (n > alertsShown) {
+        btn.style.display = "";
+        btn.textContent = "더 보기 — 외 " + (n - alertsShown) + "건 (VRCM 이력)";
+      } else btn.style.display = "none";
+    }).catch(function () { btn.style.display = "none"; });
+  }
+  function loadMoreAlerts() {
+    var btn = $("#alerts-more"), feed = $("#alerts-feed");
+    if (!btn || !feed) return;
+    var p = alertsExtAll
+      ? Promise.resolve(alertsExtAll)
+      : NC.api.faultMetrics().then(function (f) {
+          return f && f.recent ? (alertsExtAll = extAlertsFromFaults(f)) : null;
+        });
+    p.then(function (list) {
+      if (!list || !list.length) { btn.style.display = "none"; return; }
+      alertsShown = Math.min(list.length, (alertsShown || 5) + 10);
+      feed.innerHTML = list.slice(0, alertsShown).map(alertItem).join("");
+      if (alertsShown < list.length) {
+        btn.style.display = "";
+        btn.textContent = "더 보기 — 외 " + (list.length - alertsShown) +
+          "건 (VRCM 이력)";
+      } else {
+        btn.style.display = "none";
+        NC.toast("알림 이력 전체 " + list.length + "건을 모두 불러왔습니다");
+      }
+    }).catch(function () {});
+  }
+
   function renderAlerts() {
-    NC.api.alerts().then(renderAlertFeeds);
+    NC.api.alerts().then(function (as) {
+      renderAlertFeeds(as);
+      updateAlertsMore(as);
+    });
     renderFaultKpis();
+  }
+
+  /* ══ CSV 내보내기 — 빌링(billingUsage 실데이터)·감사 로그(audit) ══
+     라이브: VRCM 실데이터 Blob → 다운로드 · 폴백: 화면 표 기준 CSV */
+  function exportBillingCsv() {
+    loadTenant().then(function (t) {
+      var p = NC.api.billingUsage
+        ? NC.api.billingUsage() : Promise.resolve(null);
+      p.then(function (u) {
+        var tag = new Date().toISOString().slice(0, 10);
+        var mine = u && u.lines
+          ? u.lines.filter(function (l) { return !t || l.tenant_id === t.id; })
+          : null;
+        if (mine && mine.length) {
+          var rows = [["order_id", "blueprint", "racks", "rack_hours",
+            "rate_usd", "amount_usd", "projected_monthly_usd", "state"]];
+          mine.forEach(function (l) {
+            rows.push([l.order_id, l.blueprint_key, l.racks,
+              l.rack_hours, l.rate_usd, l.amount_usd,
+              l.projected_monthly_usd, l.active ? "active" : "ended"]);
+          });
+          downloadCsv("billing-" + (t ? t.id : "all") + "-" + tag + ".csv",
+            rows);
+          NC.toast("비용 CSV 내보내기 완료 — " + mine.length +
+            "라인 (VRCM billing/usage 실데이터)");
+        } else {
+          var rows2 = [["항목", "금액", "비고"]];
+          $$("#bill-lines tr").forEach(function (tr) {
+            var tds = $$("td", tr).map(function (td) {
+              return td.textContent.trim();
+            });
+            if (tds.length) rows2.push(tds);
+          });
+          downloadCsv("billing-" + tag + ".csv", rows2);
+          NC.toast("비용 CSV 내보내기 완료 — 화면 표 기준 (mock 데이터)");
+        }
+      }).catch(function () {
+        NC.toast("CSV 내보내기 실패 — 잠시 후 다시 시도해주세요", "warn");
+      });
+    });
+  }
+  function exportAuditCsv() {
+    var tag = new Date().toISOString().slice(0, 10);
+    var p = NC.api.audit ? NC.api.audit(200) : Promise.resolve(null);
+    p.then(function (as) {
+      if (as && as.length) {
+        var mine = curTenant ? as.filter(function (a) {
+          return !a.tenant_ref || a.tenant_ref === curTenant.id;
+        }) : as;
+        var rows = [["seq", "at", "actor", "action", "target", "result",
+          "tenant_ref"]];
+        mine.forEach(function (a) {
+          rows.push([a.seq, a.at, a.actor, a.action, a.target, a.result,
+            a.tenant_ref]);
+        });
+        downloadCsv("audit-" + tag + ".csv", rows);
+        NC.toast("감사 로그 CSV 내보내기 완료 — " + mine.length +
+          "행 (VRCM 실데이터 · 내 테넌트 스코프)");
+      } else {
+        var rows2 = [["log"]];
+        $$('[data-screen="security"] .log div').forEach(function (d) {
+          rows2.push([d.textContent.trim()]);
+        });
+        downloadCsv("audit-" + tag + ".csv", rows2);
+        NC.toast("감사 로그 CSV 내보내기 완료 — 화면 로그 기준 (mock)");
+      }
+    }).catch(function () {
+      NC.toast("CSV 내보내기 실패 — 잠시 후 다시 시도해주세요", "warn");
+    });
+  }
+
+  /* 격리 리포트 "보기" — 라이브: 실검증 갱신 · 폴백: 데모 명시 */
+  function viewIsoReport() {
+    if (NC.live) {
+      renderIsolation();
+      NC.toast("4계층 격리 리포트를 갱신했습니다 — VRCM 실검증 " +
+        "(배지·findings 반영)");
+    } else {
+      NC.toast("격리 리포트 상세 보기 (데모 · PoC 미연동)");
+    }
   }
 
   /* 지원 — SLA 표 실수치: 가용성(faultMetrics) · 리드타임(orders history
@@ -1231,6 +1656,7 @@
       NC.toast("IAM 토큰 발급 완료 — " + r.cid + " · " + masked + " (유효 " +
         Math.round((t.expires_in || 3600) / 60) + "분) · 전체 값은 지금 " +
         "1회만 복사하세요");
+      resetModalInputs("apikey");
       renderApiTokenLog();
     }).catch(function () {
       NC.toast(ACTION_TOAST.apikey);          // 폴백 — 데모
@@ -1251,7 +1677,7 @@
       if (t && t.id) {
         NC.toast("지원 티켓 " + t.id + " 접수 완료 — VRCM 실 생성 (" +
           severity + ")");
-        if (subjEl) subjEl.value = "";
+        resetModalInputs("ticket");          // 모달·퀵폼 입력 초기화
         refreshTickets();
       } else {
         NC.toast(ACTION_TOAST.ticket);       // 라이브 이탈 → 데모 폴백
@@ -1261,7 +1687,137 @@
     });
   }
 
+  /* ══ 모달 오프너 보강 — 행 컨텍스트 타이틀·퀵폼 프리필 ═══════ */
+  function prepModal(op) {
+    var id = op.dataset.open;
+    var tr = op.closest("tr");
+    var cell = tr ? tr.querySelector(".id") : null;
+    var rowId = cell ? cell.textContent.trim() : "";
+    if (id === "reboot") {
+      var rt = $("#reboot-title");
+      if (rt) rt.textContent = "노드 재부팅 — " + (rowId || "nh-su-5-r00-t00");
+    } else if (id === "snapshot") {
+      var path = rowId || "/vast/fin-corp/ds01";
+      var stt = $("#snap-title");
+      if (stt) stt.textContent = "스냅샷 생성 — " + path;
+      var nm = $("#snap-name");
+      if (nm) {
+        var seg = path.split("/").filter(Boolean).pop() || "vol";
+        var mmdd = new Date().toISOString().slice(5, 10).replace("-", "");
+        nm.value = "snap-" + seg + "-" + mmdd + "-manual";
+      }
+    } else if (id === "qos") {
+      var qt = $("#qos-title");
+      if (qt) qt.textContent = "QoS 변경 요청 — " +
+        (rowId || "/vast/fin-corp/ds01");
+    } else if (id === "ticket") {
+      var qs = $("#sup-q-subject"), sv = $("#sup-q-sev");
+      var ts = $("#tkt-subject"), sevSel = $("#tkt-sev");
+      if (qs && qs.value.trim() && ts) ts.value = qs.value.trim();
+      if (sv && sv.value && sevSel)
+        Array.prototype.forEach.call(sevSel.options, function (o) {
+          if (o.value.indexOf(sv.value) === 0) sevSel.value = o.value;
+        });
+    }
+  }
+
+  /* ══ 모달 확정 빈 값 가드 — 실패 시 경고 토스트·모달 유지 ═════ */
+  function guardFail(el, msg) {
+    NC.toast(msg, "warn");
+    if (el && el.focus) el.focus();
+    return false;
+  }
+  var GUARDS = {
+    ticket: function () {
+      var el = $("#tkt-subject");
+      return el && el.value.trim() ? true
+        : guardFail(el, "티켓 제목을 입력하세요 — 빈 제목은 접수할 수 없습니다");
+    },
+    volume: function () {
+      var el = $("#vol-path");
+      var v = el ? el.value.trim() : "";
+      if (!v) return guardFail(el,
+        "볼륨 경로를 입력하세요 (예: /vast/fin-corp/ds02)");
+      if (v.charAt(0) !== "/")
+        return guardFail(el, "볼륨 경로는 /로 시작해야 합니다");
+      return true;
+    },
+    snapshot: function () {
+      var el = $("#snap-name");
+      return el && el.value.trim() ? true
+        : guardFail(el, "스냅샷 이름을 입력하세요");
+    },
+    apikey: function () {
+      var el = $("#ak-name");
+      return el && el.value.trim() ? true
+        : guardFail(el, "키 이름을 입력하세요 (예: eval-pipeline)");
+    },
+    invite: function () {
+      var el = $("#inv-email");
+      var v = el ? el.value.trim() : "";
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? true
+        : guardFail(el, "올바른 이메일 주소를 입력하세요 (예: name@fin-corp.com)");
+    },
+  };
+  function resetModalInputs(a) {
+    var map = { ticket: ["#tkt-subject", "#sup-q-subject"],
+      volume: ["#vol-path"], apikey: ["#ak-name"], invite: ["#inv-email"] };
+    (map[a] || []).forEach(function (sel) {
+      var el = $(sel);
+      if (el) el.value = "";
+    });
+  }
+
+  /* ══ 기간 세그먼트(6h/24h/7d/30d) — 라이브: emu 히스토리 리샘플 ══ */
+  var SEG_LIMITS = { "6h": 120, "24h": 240, "7d": 360, "30d": 480 };
+  function applyRangeSeg(sg) {
+    var label = sg.textContent.trim();
+    var scr = sg.closest("[data-screen]");
+    var hasCharts = scr && scr.querySelector("[data-mon]");
+    if (NC.live && hasCharts && NC.api.emuHistory) {
+      loadTenant().then(function (t) {
+        if (!t) return;
+        NC.api.emuHistory(t.id, SEG_LIMITS[label] || 120)
+          .then(function (h) {
+            if (h && h.length) {
+              updateMonCharts(scr, h);
+              NC.toast("차트 기간 " + label + " — emu 히스토리 " +
+                h.length + "포인트 반영 (VRCM)");
+            } else NC.toast("기간 " + label +
+              " 전환 — 표시할 히스토리가 없습니다", "warn");
+          }).catch(function () {});
+      });
+    } else {
+      NC.toast("기간 " + label +
+        " 전환 (데모 · PoC 미연동) — VRCM 연동 시 실데이터 리샘플");
+    }
+  }
+
+  var ID_ACTIONS = {
+    "alerts-readall": markAlertsRead,
+    "alerts-more": loadMoreAlerts,
+    "bill-csv": exportBillingCsv,
+    "audit-csv": exportAuditCsv,
+    "iso-view": viewIsoReport,
+  };
+
   document.addEventListener("click", function (e) {
+    /* 명시적 데모 버튼 — data-demo="동작 설명" */
+    var demo = e.target.closest("[data-demo]");
+    if (demo) {
+      NC.toast(demo.dataset.demo + " (데모 · PoC 미연동)");
+      return;
+    }
+    /* 클립보드 복사 — data-copy="텍스트" */
+    var cp = e.target.closest("[data-copy]");
+    if (cp) { copyText(cp.dataset.copy); return; }
+    /* 단일 id 액션 (모두 읽음 · 더 보기 · CSV ×2 · 격리 보기) */
+    var one = e.target.closest(
+      "#alerts-readall,#alerts-more,#bill-csv,#audit-csv,#iso-view");
+    if (one) { ID_ACTIONS[one.id](); return; }
+    /* 모달 오프너 — 동적 타이틀·프리필 (shared/app.js가 오픈 수행) */
+    var op = e.target.closest("[data-open]");
+    if (op) prepModal(op);                   // return 없음 — 오픈은 공용 셸
     /* 워크로드 프로파일 세그먼트 — setWorkload 실전환 (라이브 전용) */
     var wl = e.target.closest("[data-wl-p]");
     if (wl) {
@@ -1287,9 +1843,20 @@
       }
       return;
     }
+    /* 기간 세그먼트 (6h/24h/…) — 워크로드 seg 제외한 나머지 .seg.
+       이미 선택된 세그 재클릭도 리프레시로 동작 (무반응 0 원칙) */
+    var sg = e.target.closest(".seg span");
+    if (sg && !sg.closest("[data-wl]")) {
+      $$("span", sg.parentNode).forEach(function (s2) {
+        s2.classList.toggle("on", s2 === sg);
+      });
+      applyRangeSeg(sg);
+      return;
+    }
     var act = e.target.closest("[data-act]");
     if (act) {
       var a = act.dataset.act;
+      if (GUARDS[a] && !GUARDS[a]()) return; // 빈 값 가드 — 모달 유지
       var liveReady = NC.live && curTenant;  // 미기동 → 데모 토스트 폴백
       if (a === "ticket" && liveReady && NC.api.createTicket) {
         submitTicketLive(); return;          // VRCM 실 접수
@@ -1308,6 +1875,7 @@
       }
       NC.closeModal();
       NC.toast(ACTION_TOAST[a] || "요청이 접수되었습니다 (데모)");
+      resetModalInputs(a);                   // 다음 입력 대비 초기화
       return;
     }
     var san = e.target.closest(".san-pdf");

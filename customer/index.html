@@ -110,6 +110,17 @@
 .san-pdf:disabled{color:var(--muted2);border-color:var(--line);cursor:default}
 /* KPI 파생 */
 .kpi .bar>i.blue{background:var(--blue)}
+/* 페이지네이션 바 (pagedTable 헬퍼) — 행이 적으면 자동 숨김 */
+.pgr{display:none;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.pgr.on{display:flex}
+.pgr input,.pgr select{background:var(--card-sub);border:1px solid var(--line);border-radius:7px;
+  padding:5px 10px;color:var(--text);font-size:11px;font-family:inherit;width:auto}
+.pgr input{min-width:180px}
+.pgr .cnt{margin-left:auto;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.pgr button{background:none;border:1px solid var(--line);border-radius:6px;color:var(--soft);
+  padding:4px 10px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:inherit}
+.pgr button:hover:not(:disabled){color:var(--strong);border-color:var(--muted2)}
+.pgr button:disabled{opacity:.35;cursor:default}
 </style></head>
 <body><div class="app">
 
@@ -281,7 +292,7 @@
               <div class="tt" style="color:var(--soft)">스토리지 QoS 상향 (40→60GB/s) 적용 완료</div></div>
             </div>
             <div style="display:flex;gap:14px;margin-top:12px;color:var(--muted);font-size:11px">
-              <a class="lnk" href="#/support">지식베이스</a><span style="cursor:pointer">상태 페이지</span><span style="cursor:pointer">문서</span></div>
+              <a class="lnk" href="#/support">지식베이스</a><span style="cursor:pointer" data-demo="상태 페이지 열기">상태 페이지</span><a href="#/api" style="cursor:pointer;color:inherit;text-decoration:none">문서</a></div>
           </div>
 
           <!-- 보안 · 컴플라이언스 -->
@@ -339,9 +350,9 @@
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">새 클러스터 생성</span></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-              <span class="chip">VR NVL72 (bare-metal) ▾</span>
-              <span class="chip">랙 16 (1 SU)</span>
-              <span class="chip">스토리지 자동 ▾</span>
+              <span class="chip" style="cursor:pointer" data-open="create_cluster" title="주문 모달에서 변경">VR NVL72 (bare-metal) ▾</span>
+              <span class="chip" style="cursor:pointer" data-open="create_cluster" title="주문 모달에서 변경">랙 16 (1 SU)</span>
+              <span class="chip" style="cursor:pointer" data-open="create_cluster" title="주문 모달에서 변경">스토리지 자동 ▾</span>
               <button class="btn" data-open="create_cluster">▸ 주문</button></div>
             <div class="mini">CPU 노드 5대(DPU·VPC) 자동 포함 · 승인 후 자동 프로비저닝 (평균 리드타임 수 시간 내)</div>
           </div>
@@ -351,19 +362,18 @@
       <!-- ════════ 노드 · 인스턴스 ════════ -->
       <section data-screen="nodes">
         <div class="filters">
-          <span class="chip">클러스터: prod-training ▾</span>
-          <span class="chip">상태: 전체 ▾</span>
-          <span class="chip dim" style="flex:1;max-width:280px">노드 ID · IP 검색</span>
+          <span class="chip" id="nodes-cluster-chip">클러스터: prod-training ▾</span>
           <span style="margin-left:auto;color:var(--muted);font-size:11px" class="tabnum" data-node-summary>584 노드 · in-service 583 · 복구 중 1</span></div>
         <div class="panel" style="margin-bottom:0">
+          <div id="nodes-pgr" class="pgr"><!-- pagedTable — 검색·상태 필터·이전/다음 (라이브 시 표시) --></div>
           <table class="tbl">
             <thead><tr><th>노드 (트레이)</th><th>IP</th><th>사양</th><th>상태</th><th class="num">GPU util</th><th>액션</th></tr></thead>
             <tbody id="nodes-tbody">
-              <tr><td class="id">nh-su-5-r00-t00</td><td class="id">10.64.12.10</td><td style="color:var(--muted)">4× Rubin · 2× Vera · 2.3TB</td><td><span style="display:inline-flex;align-items:center;gap:5px"><span class="dot green" style="width:6px;height:6px"></span><span class="st green">in-service</span></span></td><td class="num">81%</td><td><button class="tbtn">콘솔</button> · <button class="tbtn a" data-open="reboot">재부팅</button></td></tr>
-              <tr><td class="id">nh-su-5-r00-t01</td><td class="id">10.64.12.11</td><td style="color:var(--muted)">4× Rubin · 2× Vera · 2.3TB</td><td><span style="display:inline-flex;align-items:center;gap:5px"><span class="dot green" style="width:6px;height:6px"></span><span class="st green">in-service</span></span></td><td class="num">79%</td><td><button class="tbtn">콘솔</button> · <button class="tbtn a" data-open="reboot">재부팅</button></td></tr>
+              <tr><td class="id">nh-su-5-r00-t00</td><td class="id">10.64.12.10</td><td style="color:var(--muted)">4× Rubin · 2× Vera · 2.3TB</td><td><span style="display:inline-flex;align-items:center;gap:5px"><span class="dot green" style="width:6px;height:6px"></span><span class="st green">in-service</span></span></td><td class="num">81%</td><td><button class="tbtn" data-open="console_access">콘솔</button> · <button class="tbtn a" data-open="reboot">재부팅</button></td></tr>
+              <tr><td class="id">nh-su-5-r00-t01</td><td class="id">10.64.12.11</td><td style="color:var(--muted)">4× Rubin · 2× Vera · 2.3TB</td><td><span style="display:inline-flex;align-items:center;gap:5px"><span class="dot green" style="width:6px;height:6px"></span><span class="st green">in-service</span></span></td><td class="num">79%</td><td><button class="tbtn" data-open="console_access">콘솔</button> · <button class="tbtn a" data-open="reboot">재부팅</button></td></tr>
               <tr class="fault"><td class="id">nh-su-5-r03-t11</td><td class="id">10.64.12.58</td><td style="color:var(--muted)">4× Rubin · 2× Vera · 2.3TB</td><td data-tck-node><span style="display:inline-flex;align-items:center;gap:5px"><span class="dot amber" style="width:6px;height:6px"></span><span class="st amber">복구 중 (GPU2)</span></span></td><td class="num" style="color:var(--amber)">51%</td><td><a class="lnk" style="color:var(--muted);font-weight:400;font-size:10.5px" href="#/support">티켓 TCK-1204</a></td></tr>
-              <tr><td class="id">cpu-ansan-01</td><td class="id">10.80.1.10</td><td style="color:var(--muted)">CPU 노드 · Vera 88c · 1.44TB</td><td><span style="display:inline-flex;align-items:center;gap:5px"><span class="dot green" style="width:6px;height:6px"></span><span class="st green">in-service</span></span></td><td class="num" style="color:var(--muted)">—</td><td><button class="tbtn">콘솔</button></td></tr>
-              <tr><td colspan="6" style="color:var(--muted2)">… 외 580 노드 — 필터·검색으로 탐색 · 1/12 페이지</td></tr>
+              <tr><td class="id">cpu-ansan-01</td><td class="id">10.80.1.10</td><td style="color:var(--muted)">CPU 노드 · Vera 88c · 1.44TB</td><td><span style="display:inline-flex;align-items:center;gap:5px"><span class="dot green" style="width:6px;height:6px"></span><span class="st green">in-service</span></span></td><td class="num" style="color:var(--muted)">—</td><td><button class="tbtn" data-open="console_access">콘솔</button></td></tr>
+              <tr><td colspan="6" style="color:var(--muted2)">… 외 580 노드 (mock 데모) — VRCM 연동 시 전체 노드 페이지네이션·검색 제공</td></tr>
             </tbody></table>
         </div>
       </section>
@@ -373,7 +383,7 @@
         <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(460px,1fr))">
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">OS 이미지 카탈로그</span><span class="c" id="images-src"></span>
-              <button class="btn" style="margin-left:auto;padding:5px 12px;font-size:11.5px">+ 커스텀 이미지 등록</button></div>
+              <button class="btn" style="margin-left:auto;padding:5px 12px;font-size:11.5px" data-demo="커스텀 이미지 등록">+ 커스텀 이미지 등록</button></div>
             <table class="tbl"><tbody id="images-bp">
               <tr><td class="id">ubuntu-24.04-nvidia</td><td style="color:var(--muted)">기본 · CUDA 13.1 · NCCL 2.24</td><td class="num st green">stable</td><td class="num" style="color:var(--muted)">사용 중 (576)</td></tr>
               <tr><td class="id">dsx-os-2.4</td><td style="color:var(--muted)">NVIDIA DSX 번들</td><td class="num st green">stable</td><td class="num" style="color:var(--muted)">—</td></tr>
@@ -405,6 +415,7 @@
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">볼륨 (VAST)</span>
               <button class="btn" style="margin-left:auto;padding:5px 12px;font-size:11.5px" data-open="volume">+ 볼륨 생성</button></div>
+            <div id="storage-pgr" class="pgr"><!-- pagedTable — 경로 검색·이전/다음 (라이브 시) --></div>
             <table class="tbl">
               <thead><tr><th>경로</th><th class="num">쿼터</th><th class="num">사용</th><th class="num">QoS</th><th>액션</th></tr></thead>
               <tbody id="storage-volumes">
@@ -417,8 +428,8 @@
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">스냅샷 · 데이터 전송</span></div>
             <table class="tbl"><tbody>
-              <tr><td class="id">snap-ds01-0709-0300</td><td style="color:var(--muted)">자동 · 8.9PB</td><td class="num"><button class="tbtn">복원</button></td></tr>
-              <tr><td class="id">snap-ckpt-0709-0300</td><td style="color:var(--muted)">자동 · 2.3PB</td><td class="num"><button class="tbtn">복원</button></td></tr>
+              <tr><td class="id">snap-ds01-0709-0300</td><td style="color:var(--muted)">자동 · 8.9PB</td><td class="num"><button class="tbtn" data-demo="스냅샷 snap-ds01-0709-0300 복원">복원</button></td></tr>
+              <tr><td class="id">snap-ckpt-0709-0300</td><td style="color:var(--muted)">자동 · 2.3PB</td><td class="num"><button class="tbtn" data-demo="스냅샷 snap-ckpt-0709-0300 복원">복원</button></td></tr>
             </tbody></table>
             <div class="ccard" style="margin-top:10px">
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="dot blue"></span>
@@ -439,7 +450,7 @@
             <table class="kv2"><tbody>
               <tr><td>VRF</td><td class="id" id="net-vrf">vrf-fin-corp · L3VNI 30101 / Conv 30102 / OOB 30103</td></tr>
               <tr><td>서브넷</td><td class="id">10.64.12.0/22 (compute) · 10.80.1.0/24 (cpu)</td></tr>
-              <tr><td>보안 그룹</td><td>sg-default (deny-all) + sg-bastion(22) + sg-monitoring(9100) — <span class="lnk">규칙 편집</span></td></tr>
+              <tr><td>보안 그룹</td><td>sg-default (deny-all) + sg-bastion(22) + sg-monitoring(9100) — <span class="lnk" data-demo="보안 그룹 규칙 편집">규칙 편집</span></td></tr>
               <tr><td>이그레스</td><td>NAT GW 경유 · 대역 10Gbps · MTD 214TB</td></tr>
             </tbody></table>
           </div>
@@ -462,6 +473,7 @@
           </div>
           <div class="panel" id="net-dhcp-panel" style="margin-bottom:0;display:none">
             <div class="ph"><span class="tick blue"></span><span class="t">내 DHCP 임대</span><span class="c" id="net-dhcp-sub">NICo DHCP · VRCM 실시간</span></div>
+            <div id="leases-pgr" class="pgr"><!-- pagedTable — host/ip 검색·이전/다음 --></div>
             <table class="tbl">
               <thead><tr><th>호스트</th><th>IP</th><th>MAC</th><th class="num">임대</th><th>DHCP 서버</th></tr></thead>
               <tbody id="net-leases"></tbody></table>
@@ -518,8 +530,9 @@
         <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(460px,1fr))">
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick amber"></span><span class="t">알림 피드</span><span class="c" id="alerts-unread">미확인 3</span>
-              <span class="lnk" style="margin-left:auto;font-size:11px">모두 읽음</span></div>
+              <span class="lnk" id="alerts-readall" style="margin-left:auto;font-size:11px">모두 읽음</span></div>
             <div class="feed" id="alerts-feed"><!-- NC.api.alerts() 렌더 --></div>
+            <button class="btn-dim" id="alerts-more" style="display:none;margin-top:10px;font-size:11px;padding:5px 12px">더 보기</button>
             <div class="feed" style="margin-top:9px">
               <div class="fi"><span class="dot gray"></span><div class="tx" style="color:var(--muted)">스토리지 QoS 변경 적용 완료 (40→60GB/s)<div class="tm">07-05 · 티켓</div></div></div>
             </div>
@@ -552,6 +565,7 @@
         <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(460px,1fr))">
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">비용 분해 — 7월 MTD</span><span class="c" id="bill-lines-src"></span></div>
+            <div id="bill-pgr" class="pgr"><!-- pagedTable — 비용 라인 이전/다음 (라이브 시) --></div>
             <table class="tbl"><tbody id="bill-lines">
               <tr><td>컴퓨트 — prod-training (reserved 32랙)</td><td class="num id">$5,116,800</td><td class="num" style="color:var(--muted);width:52px">94.4%</td></tr>
               <tr><td>컴퓨트 — dev-inference (on-demand)</td><td class="num id">$18,200</td><td class="num" style="color:var(--muted)">0.3%</td></tr>
@@ -563,13 +577,13 @@
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">인보이스 · 결제</span></div>
             <table class="tbl"><tbody>
-              <tr><td class="id">INV-2026-06</td><td class="num">$20,481,300</td><td class="st green">결제 완료</td><td class="num"><button class="tbtn">PDF ↓</button></td></tr>
-              <tr><td class="id">INV-2026-05</td><td class="num">$20,052,700</td><td class="st green">결제 완료</td><td class="num"><button class="tbtn">PDF ↓</button></td></tr>
+              <tr><td class="id">INV-2026-06</td><td class="num">$20,481,300</td><td class="st green">결제 완료</td><td class="num"><button class="tbtn" data-demo="INV-2026-06 인보이스 PDF 다운로드">PDF ↓</button></td></tr>
+              <tr><td class="id">INV-2026-05</td><td class="num">$20,052,700</td><td class="st green">결제 완료</td><td class="num"><button class="tbtn" data-demo="INV-2026-05 인보이스 PDF 다운로드">PDF ↓</button></td></tr>
             </tbody></table>
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
               <span class="chip" style="font-size:11px">결제: 법인계좌 자동이체 <span class="st green">활성</span></span>
               <span class="chip" style="font-size:11px">예산 알림: 70/90/100% <span class="st green">on</span></span>
-              <button class="btn-ghost" style="font-size:11px">CSV 내보내기</button></div>
+              <button class="btn-ghost" id="bill-csv" style="font-size:11px" title="비용 분해 라인 CSV — 라이브 시 billing/usage 실데이터">CSV 내보내기</button></div>
             <div id="bill-rates" style="display:none;margin-top:12px">
               <div class="ph" style="margin-bottom:6px"><span class="tick"></span><span class="t" style="font-size:12px">단가 (VRCM 실시간)</span><span class="c" id="bill-rates-note"></span></div>
               <table class="kv2"><tbody id="bill-rates-rows"></tbody></table></div>
@@ -583,9 +597,10 @@
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick blue"></span><span class="t">티켓</span><span class="c">진행 1 · 해결 12 (90d)</span></div>
             <div style="display:flex;gap:8px;margin-bottom:12px">
-              <span class="chip dim" style="flex:2">제목 (예: rack-00 GPU 성능 저하)</span>
-              <span class="chip">P2 ▾</span>
+              <input id="sup-q-subject" placeholder="제목 (예: rack-00 GPU 성능 저하)" style="flex:2;min-width:0;background:var(--card-sub);border:1px solid var(--line);border-radius:7px;padding:6px 12px;color:var(--text);font-size:11.5px;font-family:inherit">
+              <select id="sup-q-sev" title="심각도" style="width:auto;background:var(--card-sub);border:1px solid var(--line);border-radius:7px;color:var(--soft);font-size:11.5px;padding:6px 8px;font-family:inherit"><option>P2</option><option>P1</option><option>P3</option></select>
               <button class="btn" style="flex:none;padding:7px 14px;font-size:11.5px" data-open="ticket">+ 생성</button></div>
+            <div id="tickets-pgr" class="pgr"><!-- pagedTable — 티켓 검색·이전/다음 (다건 시) --></div>
             <div id="support-tickets">
             <div class="tkt" data-tck-card>
               <div class="th"><span class="tid">TCK-1204</span><span class="tst" data-tck-st>P2 · 진행 중</span><span class="tm">담당 NOC 이수민 · 26분 전</span></div>
@@ -603,11 +618,11 @@
               <tr><td>노드 가용성 SLA</td><td id="sla-avail">99.9% — 이번 달 <b style="color:var(--green-text)">99.9%</b> · 크레딧 발생 없음</td></tr>
               <tr><td>프로비저닝 리드타임</td><td id="sla-lead">평균 수 시간 내 — 주문 승인 후 자동 프로비저닝</td></tr>
               <tr><td>격리 검증</td><td><span class="st green" data-iso-badge style="display:inline-flex;align-items:center;gap:5px"><span class="dot green" data-iso-dot style="width:6px;height:6px"></span><span data-iso-tx>격리 검증 PASS</span></span> — <a class="lnk" href="#/security">보안 화면 리포트와 동일 소스</a></td></tr>
-              <tr><td>에스컬레이션</td><td>TAM 지정: 박도윤 — <span class="lnk">미팅 예약</span></td></tr>
+              <tr><td>에스컬레이션</td><td>TAM 지정: 박도윤 — <span class="lnk" data-demo="TAM 박도윤 미팅 예약">미팅 예약</span></td></tr>
             </tbody></table>
             <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-              <button class="btn-ghost">지식베이스</button>
-              <button class="btn-dim" style="font-size:11.5px;padding:6px 13px">상태 페이지</button>
+              <button class="btn-ghost" data-demo="지식베이스 열기">지식베이스</button>
+              <button class="btn-dim" style="font-size:11.5px;padding:6px 13px" data-demo="상태 페이지 열기">상태 페이지</button>
               <a class="btn-dim" style="font-size:11.5px;padding:6px 13px" href="#/api">문서 · API 레퍼런스</a></div>
           </div>
         </div>
@@ -620,7 +635,7 @@
             <div class="ph"><span class="tick"></span><span class="t">컴플라이언스 증빙</span>
               <span class="st green" data-iso-badge style="display:inline-flex;align-items:center;gap:5px"><span class="dot green" data-iso-dot style="width:6px;height:6px"></span><span data-iso-tx>격리 검증 PASS</span></span></div>
             <table class="kv2"><tbody>
-              <tr><td style="width:170px">데이터 격리 증빙</td><td>4계층 격리 리포트 (07-08 자동) <span class="lnk" style="margin-left:6px">보기</span></td></tr>
+              <tr><td style="width:170px">데이터 격리 증빙</td><td>4계층 격리 리포트 (07-08 자동) <span class="lnk" id="iso-view" style="margin-left:6px" title="라이브 시 VRCM 실검증 리포트 갱신">보기</span></td></tr>
               <tr><td>Sanitization 증명서</td><td>SAN-0691 (07-02) · SAN-0663 (06-18) <button class="btn-ghost san-pdf" style="margin-left:6px;padding:3px 10px;font-size:10.5px">PDF ↓</button><div class="mini" id="san-note"></div></td></tr>
               <tr><td>인증서</td><td>mTLS 클라이언트 인증서 2 · 만료 2027-01 <span style="color:var(--amber)">D-176</span></td></tr>
               <tr><td>데이터 처리 위치</td><td>대한민국 (안산·가산) — 국외 이전 없음</td></tr>
@@ -629,7 +644,7 @@
           </div>
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">감사 로그 · 접근 이력</span>
-              <button class="btn-ghost" style="margin-left:auto">CSV 내보내기</button></div>
+              <button class="btn-ghost" id="audit-csv" style="margin-left:auto" title="라이브 시 VRCM 감사 로그 실데이터 CSV">CSV 내보내기</button></div>
             <div class="log">
               <div><span class="tm">10:20:11</span> kim.jh cluster.resize.request prod-training <span style="color:var(--green-text)">success</span></div>
               <div><span class="tm">09:44:02</span> api-key-2 GET /v1/metrics <span style="color:var(--green-text)">success</span> (10.80.1.10)</div>
@@ -653,9 +668,9 @@
             <div class="ph"><span class="tick"></span><span class="t">API 키</span>
               <button class="btn" style="margin-left:auto;padding:5px 12px;font-size:11.5px" data-open="apikey">+ 키 발급</button></div>
             <table class="tbl"><tbody>
-              <tr><td class="id">nc_****9f2a</td><td style="color:var(--muted)">svc-training · 전체 권한</td><td style="color:var(--muted)">2분 전 사용</td><td class="num"><button class="tbtn a">로테이션 D-12</button></td></tr>
-              <tr><td class="id">nc_****41cc</td><td style="color:var(--muted)">monitoring · 읽기 전용</td><td style="color:var(--muted)">14초 전</td><td class="num"><button class="tbtn">관리</button></td></tr>
-              <tr><td class="id">nc_****d208</td><td style="color:var(--muted)">ci-pipeline · 배포 권한</td><td style="color:var(--muted)">3일 전</td><td class="num"><button class="tbtn r">폐기</button></td></tr>
+              <tr><td class="id">nc_****9f2a</td><td style="color:var(--muted)">svc-training · 전체 권한</td><td style="color:var(--muted)">2분 전 사용</td><td class="num"><button class="tbtn a" data-demo="API 키 nc_****9f2a 로테이션 예약">로테이션 D-12</button></td></tr>
+              <tr><td class="id">nc_****41cc</td><td style="color:var(--muted)">monitoring · 읽기 전용</td><td style="color:var(--muted)">14초 전</td><td class="num"><button class="tbtn" data-demo="API 키 nc_****41cc 관리">관리</button></td></tr>
+              <tr><td class="id">nc_****d208</td><td style="color:var(--muted)">ci-pipeline · 배포 권한</td><td style="color:var(--muted)">3일 전</td><td class="num"><button class="tbtn r" data-demo="API 키 nc_****d208 폐기">폐기</button></td></tr>
             </tbody></table>
             <div id="api-token-log" style="display:none;margin-top:12px">
               <div class="ph" style="margin-bottom:6px"><span class="tick blue"></span><span class="t" style="font-size:12px">IAM 토큰 발급 이력 (이 브라우저)</span></div>
@@ -665,9 +680,9 @@
             <div class="ph"><span class="tick"></span><span class="t">엔드포인트 · 예시</span><span class="c">REST · gRPC · Terraform · Python SDK</span></div>
             <div class="code"><span class="cm"># 클러스터 상태</span><br>curl -H "Authorization: Bearer $NC_KEY" \<br>&nbsp;&nbsp;https://api.neocloud.io/v1/clusters/prod-training<br><br><span class="cm"># Terraform</span><br>resource "neocloud_cluster" "train" { racks = 32 }</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn-ghost">API 레퍼런스</button>
-              <button class="btn-dim" style="font-size:11.5px;padding:6px 13px">Python SDK</button>
-              <button class="btn-dim" style="font-size:11.5px;padding:6px 13px">Terraform Provider</button>
+              <button class="btn-ghost" data-demo="API 레퍼런스 문서 열기">API 레퍼런스</button>
+              <button class="btn-dim" style="font-size:11.5px;padding:6px 13px" data-demo="Python SDK 가이드 열기">Python SDK</button>
+              <button class="btn-dim" style="font-size:11.5px;padding:6px 13px" data-demo="Terraform Provider 문서 열기">Terraform Provider</button>
               <a class="btn-dim" style="font-size:11.5px;padding:6px 13px" href="#/security">사용 로그</a></div>
           </div>
         </div>
@@ -711,8 +726,8 @@
             <div class="ph"><span class="tick"></span><span class="t">조직 · 프로젝트 · 키</span></div>
             <table class="kv2"><tbody>
               <tr><td style="width:130px">조직</td><td>fin-corp <span class="mono" style="color:var(--muted2);font-size:10px">tnt-fin-corp</span> · 계약 reserved 3y</td></tr>
-              <tr><td>프로젝트</td><td>llm-pretrain (기본) · inference-lab — <span class="lnk">+ 프로젝트</span></td></tr>
-              <tr><td>SSH 키</td><td class="id">ed25519 ×2 (mlops · ci) <span class="lnk" style="font-family:-apple-system,'Apple SD Gothic Neo',sans-serif">+ 등록</span></td></tr>
+              <tr><td>프로젝트</td><td>llm-pretrain (기본) · inference-lab — <span class="lnk" data-demo="프로젝트 생성">+ 프로젝트</span></td></tr>
+              <tr><td>SSH 키</td><td class="id">ed25519 ×2 (mlops · ci) <span class="lnk" style="font-family:-apple-system,'Apple SD Gothic Neo',sans-serif" data-demo="SSH 키 등록">+ 등록</span></td></tr>
               <tr><td>보안 정책</td><td>MFA 필수 · 세션 12h · API 키 로테이션 90일</td></tr>
             </tbody></table>
           </div>
@@ -780,7 +795,7 @@
   <div class="mh"><span class="tick"></span><span class="t">콘솔 접속 — prod-training</span><span class="x" data-close>✕</span></div>
   <div class="mb">
     <table class="kv"><tbody>
-      <tr><td>SSH Bastion</td><td class="id">ssh fin-corp@bastion.ansan.neocloud.io <span class="lnk" style="font-family:-apple-system,'Apple SD Gothic Neo',sans-serif;margin-left:6px">복사</span></td></tr>
+      <tr><td>SSH Bastion</td><td class="id">ssh fin-corp@bastion.ansan.neocloud.io <span class="lnk" style="font-family:-apple-system,'Apple SD Gothic Neo',sans-serif;margin-left:6px" data-copy="ssh fin-corp@bastion.ansan.neocloud.io">복사</span></td></tr>
       <tr><td>웹 콘솔 (PAM)</td><td class="id">https://pam.neocloud.io/console — 세션 녹화·TTL 60분</td></tr>
       <tr><td>인증</td><td>ed25519 키 (mlops) · MFA 필수</td></tr>
     </tbody></table>
@@ -789,7 +804,7 @@
 </div></div>
 
 <div class="modal-ov" data-modal="reboot"><div class="modal sm">
-  <div class="mh"><span class="tick amber"></span><span class="t">노드 재부팅 — nh-su-5-r00-t00</span><span class="x" data-close>✕</span></div>
+  <div class="mh"><span class="tick amber"></span><span class="t" id="reboot-title">노드 재부팅 — nh-su-5-r00-t00</span><span class="x" data-close>✕</span></div>
   <div class="mb">
     <label class="chk"><input type="radio" name="reboot-mode" checked> 워크로드 드레인 후 재부팅 (Slurm cordon → drain → reboot)</label>
     <label class="chk"><input type="radio" name="reboot-mode"> 즉시 강제 재부팅 (실행 중 job 중단됨)</label>
@@ -802,7 +817,7 @@
   <div class="mh"><span class="tick"></span><span class="t">볼륨 생성 (VAST)</span><span class="x" data-close>✕</span></div>
   <div class="mb">
     <div class="row2">
-      <div><label>경로</label><input placeholder="/vast/fin-corp/____" style="font-family:Menlo,monospace"></div>
+      <div><label>경로</label><input id="vol-path" placeholder="/vast/fin-corp/____" style="font-family:Menlo,monospace"></div>
       <div><label>쿼터</label><select><option>2 PB</option><option>4 PB</option><option>8 PB</option></select></div>
       <div><label>QoS</label><select><option>160 GB/s · 800K IOPS</option><option>320 GB/s · 1.6M IOPS</option></select></div>
       <div><label>프로토콜</label><select><option>NFSoRDMA</option><option>NFS</option><option>S3</option></select></div>
@@ -813,7 +828,7 @@
 </div></div>
 
 <div class="modal-ov" data-modal="qos"><div class="modal sm">
-  <div class="mh"><span class="tick amber"></span><span class="t">QoS 변경 요청 — /vast/fin-corp/ds01</span><span class="x" data-close>✕</span></div>
+  <div class="mh"><span class="tick amber"></span><span class="t" id="qos-title">QoS 변경 요청 — /vast/fin-corp/ds01</span><span class="x" data-close>✕</span></div>
   <div class="mb">
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
       <span style="color:var(--muted);font-size:11.5px">현재 <b style="color:var(--strong)">960 GB/s</b></span>
@@ -825,9 +840,9 @@
 </div></div>
 
 <div class="modal-ov" data-modal="snapshot"><div class="modal sm">
-  <div class="mh"><span class="tick"></span><span class="t">스냅샷 생성 — /vast/fin-corp/ds01</span><span class="x" data-close>✕</span></div>
+  <div class="mh"><span class="tick"></span><span class="t" id="snap-title">스냅샷 생성 — /vast/fin-corp/ds01</span><span class="x" data-close>✕</span></div>
   <div class="mb">
-    <input value="snap-ds01-0709-manual" style="font-family:Menlo,monospace;margin-bottom:8px">
+    <input id="snap-name" value="snap-ds01-0709-manual" style="font-family:Menlo,monospace;margin-bottom:8px">
     <div class="mini" style="margin-top:0">현재 8.9PB · copy-on-write 즉시 생성 · 보존 14일 (수동 스냅샷은 별도 삭제 전까지 유지 선택 가능)</div>
   </div>
   <div class="mf"><button class="btn-dim" data-close>취소</button><button class="btn" data-act="snapshot">스냅샷 생성</button></div>
@@ -890,7 +905,7 @@
   <div class="mh"><span class="tick"></span><span class="t">멤버 초대</span><span class="x" data-close>✕</span></div>
   <div class="mb">
     <div class="row2" style="grid-template-columns:1.4fr 1fr">
-      <div><label>이메일</label><input placeholder="name@fin-corp.com"></div>
+      <div><label>이메일</label><input id="inv-email" placeholder="name@fin-corp.com"></div>
       <div><label>역할</label><select><option>viewer</option><option>operator</option><option>org admin</option></select></div>
     </div>
     <div class="mini">SSO(SAML) 사용자는 IdP 그룹 매핑이 우선 적용됩니다 · MFA 필수 정책 상속</div>
@@ -900,5 +915,9 @@
 
 <script src="../shared/app.js"></script><script src="../shared/mock-api.js"></script>
 <script src="../shared/vrcm-api.js"></script>
+<script>/* ⌘K 팔레트 엔티티 → 고객 콘솔 라우트 매핑 (palette.js 로드 전 정의 필수 —
+   기본값 order:"provisioning"·host:"assets"는 이 콘솔에 없는 라우트) */
+window.NC_PALETTE_ROUTES = { tenant: "dashboard", order: "clusters",
+  ticket: "support", host: "nodes" };</script>
 <script src="../shared/palette.js"></script><script src="app.js"></script>
 </body></html>

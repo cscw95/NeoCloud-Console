@@ -45,10 +45,10 @@
       right.prepend(b);
     }
     b.innerHTML = on
-      ? '<span class="dot" style="background:var(--green)"></span>VRCM 연동'
-      : '<span class="dot" style="background:var(--dot-off)"></span>mock 데이터';
-    b.title = on ? "NeoCloud OS(VRCM) API " + BASE + " 실연동 중"
-                 : "VRCM 미기동 — 시나리오 mock 데이터로 동작";
+      ? '<span class="dot" style="background:var(--green)"></span>Control-Plane 연동'
+      : '<span class="dot" style="background:var(--amber)"></span>Control-Plane 미연동';
+    b.title = on ? "NeoCloud OS Control-Plane API " + BASE + " 실연동 중 (라이브 데이터)"
+                 : "Control-Plane 미기동 — 시나리오 mock 데이터로 동작 (오프라인)";
   }
 
   /* ── 헬퍼: 테넌트/패브릭 병합 ───────────────────────────── */
