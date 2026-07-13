@@ -1,4 +1,4 @@
-/* NeoCloud 고객 콘솔 — 화면 렌더러 · VRCM 실연동 + mock 폴백.
+/* NeoCloud 고객 콘솔 — 화면 렌더러 · Control-Plane 실연동 + mock 폴백.
    라우팅/모달/토스트/버스는 ../shared/app.js,
    데이터는 ../shared/mock-api.js → ../shared/vrcm-api.js 가 NC.api를
    라이브 어댑터로 교체(vrcm :8000 기동 시 실데이터, 아니면 mock 폴백).
@@ -428,7 +428,7 @@
       '<span class="ty">bare-metal · ' + esc(c.profile || "—") + "</span>" +
       '<span class="lo">트레이 ' + (c.trays || 0) + "</span>" +
       '<span style="margin-left:auto;color:var(--muted);font-size:11px">' +
-      "VRCM 실시간</span></div>" +
+      "Control-Plane 실시간</span></div>" +
       '<div class="stats" style="margin-top:10px">' +
       "<span>GPU <b>" + (c.gpus || 0).toLocaleString("en-US") + "</b></span>" +
       "<span>util <b>" + util + "%</b></span>" +
@@ -474,7 +474,7 @@
         if (mb) mb.textContent = String(mine.length);
         var hero = $("#hero-sub");
         if (hero && t) hero.textContent = t.name + " — 클러스터 " +
-          mine.length + " · " + racks + "랙 가동 중 (VRCM 실시간)";
+          mine.length + " · " + racks + "랙 가동 중 (Control-Plane 실시간)";
       }
       var v = $("#kpi-util"), bar = $("#kpi-util-bar");
       if (mine.length) {
@@ -566,7 +566,7 @@
     var f = $("#iso-findings");
     if (f) {
       f.style.display = "";
-      f.innerHTML = "VRCM 4계층 격리 실검증: " +
+      f.innerHTML = "Control-Plane 4계층 격리 실검증: " +
         (iso.findings || []).map(function (x) {
           var pass = x.severity === "pass";
           return '<span style="color:var(--' +
@@ -625,7 +625,7 @@
     }).join("");
     if (sub) sub.textContent = esc(last.order) + " · " + last.racks + "랙" +
       (pkgs.length > 1 ? " (외 " + (pkgs.length - 1) + "건)" : "") +
-      " · VRCM 실시간";
+      " · Control-Plane 실시간";
     panel.style.display = "";
   }
 
@@ -821,7 +821,7 @@
         if (pgr) pgr.set(rows);
         var sub = $("#net-dhcp-sub");
         if (sub) sub.textContent = "임대 " + rows.length +
-          "건 · NICo DHCP · VRCM 실시간";
+          "건 · NICo DHCP · Control-Plane 실시간";
         panel.style.display = "";
       }).catch(function () {});
   }
@@ -996,14 +996,14 @@
         var pgr = ensureBillPager();
         if (pgr) pgr.set(mine);
         var src = $("#bill-lines-src");
-        if (src) src.textContent = "VRCM billing/usage 실데이터";
+        if (src) src.textContent = "Control-Plane billing/usage 실데이터";
         var mtd = $("#bill-kpi-mtd"), msub = $("#bill-kpi-mtd-sub");
         var pj = $("#bill-kpi-proj"), psub = $("#bill-kpi-proj-sub");
         if (mtd) mtd.innerHTML = usdC(sum);
         if (msub) msub.textContent = "주문 " + mine.length +
           "건 · rack-hour 기반";
         if (pj) pj.innerHTML = usdC(proj);
-        if (psub) psub.textContent = "활성 주문 월 환산 (VRCM)";
+        if (psub) psub.textContent = "활성 주문 월 환산 (Control-Plane)";
       }).catch(function () {});
       if (NC.api.billingRates) NC.api.billingRates().then(function (r) {
         if (!r || !r.rates) return;
@@ -1049,7 +1049,7 @@
       }
       var avs = $("#ak-avail-sub");
       if (avs) avs.textContent = "GPU " +
-        (f.gpus_total || 0).toLocaleString("en-US") + " 기준 · VRCM 실측정";
+        (f.gpus_total || 0).toLocaleString("en-US") + " 기준 · Control-Plane 실측정";
       var ta = $("#ak-mtta"); if (ta) ta.innerHTML = fmtSec(f.mtta_s);
       var tr = $("#ak-mttr"); if (tr) tr.innerHTML = fmtSec(f.mttr_s);
       var op = $("#ak-open");
@@ -1085,7 +1085,7 @@
       var n = f && f.recent ? f.recent.length : 0;
       if (n > alertsShown) {
         btn.style.display = "";
-        btn.textContent = "더 보기 — 외 " + (n - alertsShown) + "건 (VRCM 이력)";
+        btn.textContent = "더 보기 — 외 " + (n - alertsShown) + "건 (Control-Plane 이력)";
       } else btn.style.display = "none";
     }).catch(function () { btn.style.display = "none"; });
   }
@@ -1104,7 +1104,7 @@
       if (alertsShown < list.length) {
         btn.style.display = "";
         btn.textContent = "더 보기 — 외 " + (list.length - alertsShown) +
-          "건 (VRCM 이력)";
+          "건 (Control-Plane 이력)";
       } else {
         btn.style.display = "none";
         NC.toast("알림 이력 전체 " + list.length + "건을 모두 불러왔습니다");
@@ -1121,7 +1121,7 @@
   }
 
   /* ══ CSV 내보내기 — 빌링(billingUsage 실데이터)·감사 로그(audit) ══
-     라이브: VRCM 실데이터 Blob → 다운로드 · 폴백: 화면 표 기준 CSV */
+     라이브: Control-Plane 실데이터 Blob → 다운로드 · 폴백: 화면 표 기준 CSV */
   function exportBillingCsv() {
     loadTenant().then(function (t) {
       var p = NC.api.billingUsage
@@ -1142,7 +1142,7 @@
           downloadCsv("billing-" + (t ? t.id : "all") + "-" + tag + ".csv",
             rows);
           NC.toast("비용 CSV 내보내기 완료 — " + mine.length +
-            "라인 (VRCM billing/usage 실데이터)");
+            "라인 (Control-Plane billing/usage 실데이터)");
         } else {
           var rows2 = [["항목", "금액", "비고"]];
           $$("#bill-lines tr").forEach(function (tr) {
@@ -1175,7 +1175,7 @@
         });
         downloadCsv("audit-" + tag + ".csv", rows);
         NC.toast("감사 로그 CSV 내보내기 완료 — " + mine.length +
-          "행 (VRCM 실데이터 · 내 테넌트 스코프)");
+          "행 (Control-Plane 실데이터 · 내 테넌트 스코프)");
       } else {
         var rows2 = [["log"]];
         $$('[data-screen="security"] .log div').forEach(function (d) {
@@ -1193,7 +1193,7 @@
   function viewIsoReport() {
     if (NC.live) {
       renderIsolation();
-      NC.toast("4계층 격리 리포트를 갱신했습니다 — VRCM 실검증 " +
+      NC.toast("4계층 격리 리포트를 갱신했습니다 — Control-Plane 실검증 " +
         "(배지·findings 반영)");
     } else {
       NC.toast("격리 리포트 상세 보기 (데모 · PoC 미연동)");
@@ -1216,7 +1216,7 @@
         (f.availability_pct >= 99.9 ? "green-text" : "amber") + ')">' +
         f.availability_pct + "%</b> (GPU " +
         (f.gpus_total || 0).toLocaleString("en-US") +
-        " · VRCM 실측정) · 크레딧 발생 없음";
+        " · Control-Plane 실측정) · 크레딧 발생 없음";
     }).catch(function () {});
     if (NC.api.orders) NC.api.orders().then(function (os) {
       var el = $("#sla-lead");
@@ -1236,7 +1236,7 @@
       if (!secs.length) return;
       var avg = secs.reduce(function (a, b) { return a + b; }, 0) / secs.length;
       el.textContent = "received → delivered 평균 " + fmtLead(avg) +
-        " — 인도 " + secs.length + "건 실계산 (VRCM)";
+        " — 인도 " + secs.length + "건 실계산 (Control-Plane)";
     }).catch(function () {});
   }
   function renderSupport() {
@@ -1306,7 +1306,7 @@
         ? '<span style="color:var(--amber)">fault GPU ' + faults + "</span>"
         : '<span style="color:var(--green-text)">모든 GPU 정상</span>') +
       "</div>" +
-      '<div class="mini">VRCM emu 실시간 텔레메트리 — 워크로드 프로파일을 ' +
+      '<div class="mini">Control-Plane emu 실시간 텔레메트리 — 워크로드 프로파일을 ' +
       "전환하면 util·전력·NVLink 패턴이 실제로 바뀝니다</div></div>";
   }
 
@@ -1336,7 +1336,7 @@
       var kc = $("#kpi-clusters");
       if (kc) kc.textContent = String(mine.length);
       var ks = $("#kpi-clusters-sub");
-      if (ks) ks.textContent = "bare-metal " + mine.length + " · VRCM 실시간";
+      if (ks) ks.textContent = "bare-metal " + mine.length + " · Control-Plane 실시간";
       var kg = $("#kpi-cl-gpus");
       if (kg) kg.textContent = gpus.toLocaleString("en-US");
       var kgs = $("#kpi-cl-gpus-sub");
@@ -1400,7 +1400,7 @@
             return bpRow(k, map[k], sp);
           }).join("");
           var src = $("#images-src");
-          if (src) src.textContent = "VRCM 블루프린트 " +
+          if (src) src.textContent = "Control-Plane 블루프린트 " +
             sp.blueprints.length +
             "종 — 기본 이미지 ubuntu-24.04-nvidia (CUDA 13.1 · NCCL 2.24)";
         });
@@ -1419,7 +1419,7 @@
         var sub = $("#iam-realm-sub");
         if (sub) sub.textContent = "realm " + r.realm +
           (r.display ? " (" + r.display + ")" : "") + " · " +
-          (r.state || "—") + " — Keycloak · VRCM 실시간";
+          (r.state || "—") + " — Keycloak · Control-Plane 실시간";
         var roles = $("#iam-roles");
         if (roles) roles.innerHTML = (r.roles || []).map(function (x) {
           return '<span class="chip" style="font-size:11px">롤 ' + esc(x) +
@@ -1521,7 +1521,7 @@
     NC.closeModal();
     NC.api.createOrder(body).then(function (o) {
       if (!o) {
-        NC.toast("주문 실패 — VRCM 응답 없음 (콘솔 로그 확인)", "warn");
+        NC.toast("주문 실패 — Control-Plane 응답 없음 (콘솔 로그 확인)", "warn");
         return;
       }
       if (o.state === "delivered") {
@@ -1551,7 +1551,7 @@
     NC.api.createOrder({ tenant_id: curTenant.id, kind: "new",
       blueprint_key: "vr-nvl72", racks: n, storage_mode: "auto",
     }).then(function (o) {
-      if (!o) { NC.toast("확장 실패 — VRCM 응답 없음", "warn"); return; }
+      if (!o) { NC.toast("확장 실패 — Control-Plane 응답 없음", "warn"); return; }
       if (o.state === "delivered") {
         NC.toast("확장 " + o.id + " → delivered · +" + n + "랙 (+" +
           (n * 72).toLocaleString("en-US") + " GPU)");
@@ -1614,7 +1614,7 @@
       return;
     }
     NC.api.terminateOrder(curTenant.id, aid).then(function (o) {
-      if (!o) { NC.toast("회수 실패 — VRCM 응답 없음", "warn"); return; }
+      if (!o) { NC.toast("회수 실패 — Control-Plane 응답 없음", "warn"); return; }
       if (o.state === "rejected" || o.state === "failed") {
         NC.toast("회수 " + o.id + " " + o.state + " — " + orderErr(o), "warn");
       } else {
@@ -1675,7 +1675,7 @@
       severity: severity, body: "고객 콘솔 접수",
     }).then(function (t) {
       if (t && t.id) {
-        NC.toast("지원 티켓 " + t.id + " 접수 완료 — VRCM 실 생성 (" +
+        NC.toast("지원 티켓 " + t.id + " 접수 완료 — Control-Plane 실 생성 (" +
           severity + ")");
         resetModalInputs("ticket");          // 모달·퀵폼 입력 초기화
         refreshTickets();
@@ -1782,14 +1782,14 @@
             if (h && h.length) {
               updateMonCharts(scr, h);
               NC.toast("차트 기간 " + label + " — emu 히스토리 " +
-                h.length + "포인트 반영 (VRCM)");
+                h.length + "포인트 반영 (Control-Plane)");
             } else NC.toast("기간 " + label +
               " 전환 — 표시할 히스토리가 없습니다", "warn");
           }).catch(function () {});
       });
     } else {
       NC.toast("기간 " + label +
-        " 전환 (데모 · PoC 미연동) — VRCM 연동 시 실데이터 리샘플");
+        " 전환 (데모 · PoC 미연동) — Control-Plane 연동 시 실데이터 리샘플");
     }
   }
 
@@ -1827,17 +1827,17 @@
         if (NC.live && NC.api.setWorkload) {
           NC.api.setWorkload(wlTid, wlProf).then(function (r) {
             if (!r) {
-              NC.toast("워크로드 전환 실패 — VRCM 응답 없음", "warn");
+              NC.toast("워크로드 전환 실패 — Control-Plane 응답 없음", "warn");
               return;
             }
             NC.toast("워크로드 프로파일 전환: " + (r.profile || wlProf) +
-              " — emu 텔레메트리 패턴이 실제로 변경됩니다 (VRCM 실전환)");
+              " — emu 텔레메트리 패턴이 실제로 변경됩니다 (Control-Plane 실전환)");
             loadTenant().then(renderClusterCards);
           }).catch(function () {
             NC.toast("워크로드 전환 실패 — 잠시 후 다시 시도해주세요", "warn");
           });
         } else {
-          NC.toast("워크로드 전환은 VRCM 연동 시 사용할 수 있습니다 " +
+          NC.toast("워크로드 전환은 Control-Plane 연동 시 사용할 수 있습니다 " +
             "(mock 모드)", "warn");
         }
       }
@@ -1859,7 +1859,7 @@
       if (GUARDS[a] && !GUARDS[a]()) return; // 빈 값 가드 — 모달 유지
       var liveReady = NC.live && curTenant;  // 미기동 → 데모 토스트 폴백
       if (a === "ticket" && liveReady && NC.api.createTicket) {
-        submitTicketLive(); return;          // VRCM 실 접수
+        submitTicketLive(); return;          // Control-Plane 실 접수
       }
       if (a === "create_cluster" && liveReady && NC.api.createOrder) {
         submitCreateClusterLive(); return;   // 실주문 (POST /orders)

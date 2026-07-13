@@ -434,9 +434,9 @@
             <div class="mut" style="font-size:11px;margin-top:8px">상품별 마진: reserved 41% · on-demand 48% · 부가 63% — VR 프리미엄 +12% 유지</div>
           </div>
         </div>
-        <!-- VRCM billing/usage 라이브 시에만 표시 (폴백: 위 정적 표 유지) -->
+        <!-- Control-Plane billing/usage 라이브 시에만 표시 (폴백: 위 정적 표 유지) -->
         <div class="panel" id="rev-live" style="margin-top:16px;display:none">
-          <div class="ph"><span class="tick"></span><span class="t">실사용 과금 — 테넌트별 (VRCM 빌링 라이브)</span><span class="c" id="rev-note">GET /api/v1/billing/usage</span></div>
+          <div class="ph"><span class="tick"></span><span class="t">실사용 과금 — 테넌트별 (Control-Plane 빌링 라이브)</span><span class="c" id="rev-note">GET /api/v1/billing/usage</span></div>
           <table class="tbl">
             <thead><tr><th>주문</th><th>테넌트</th><th>블루프린트</th><th class="num">랙</th><th class="num">사용 rack-h</th><th class="num">단가 /rack-h</th><th class="num">누적 청구</th><th class="num">월 예상</th></tr></thead>
             <tbody id="rev-body"></tbody>
@@ -750,7 +750,7 @@
         <div><label>기간</label><select><option>2026 상반기</option><option>2026 Q2</option><option>최근 12개월</option></select></div>
         <div><label>형식</label><select><option>CSV — 계약·매출 리포트 (즉시 다운로드)</option><option>경영 보고 PPT (PoC 미연동)</option><option>PDF 요약 (PoC 미연동)</option></select></div>
       </div>
-      <div class="mut" style="font-size:11.5px;margin-top:12px">계약(contracts) + 실사용 과금(billing/usage) 합산 — 고객·랙·MRR·상태·사용량 컬럼 CSV. <b class="soft">VRCM 라이브 시 실데이터 · 미기동 시 mock 데이터</b>로 생성됩니다</div>
+      <div class="mut" style="font-size:11.5px;margin-top:12px">계약(contracts) + 실사용 과금(billing/usage) 합산 — 고객·랙·MRR·상태·사용량 컬럼 CSV. <b class="soft">Control-Plane 라이브 시 실데이터 · 미기동 시 mock 데이터</b>로 생성됩니다</div>
     </div>
     <div class="mf">
       <button class="btn-plain" data-close type="button">취소</button>

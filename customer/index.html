@@ -373,7 +373,7 @@
               <tr><td class="id">nh-su-5-r00-t01</td><td class="id">10.64.12.11</td><td style="color:var(--muted)">4× Rubin · 2× Vera · 2.3TB</td><td><span style="display:inline-flex;align-items:center;gap:5px"><span class="dot green" style="width:6px;height:6px"></span><span class="st green">in-service</span></span></td><td class="num">79%</td><td><button class="tbtn" data-open="console_access">콘솔</button> · <button class="tbtn a" data-open="reboot">재부팅</button></td></tr>
               <tr class="fault"><td class="id">nh-su-5-r03-t11</td><td class="id">10.64.12.58</td><td style="color:var(--muted)">4× Rubin · 2× Vera · 2.3TB</td><td data-tck-node><span style="display:inline-flex;align-items:center;gap:5px"><span class="dot amber" style="width:6px;height:6px"></span><span class="st amber">복구 중 (GPU2)</span></span></td><td class="num" style="color:var(--amber)">51%</td><td><a class="lnk" style="color:var(--muted);font-weight:400;font-size:10.5px" href="#/support">티켓 TCK-1204</a></td></tr>
               <tr><td class="id">cpu-ansan-01</td><td class="id">10.80.1.10</td><td style="color:var(--muted)">CPU 노드 · Vera 88c · 1.44TB</td><td><span style="display:inline-flex;align-items:center;gap:5px"><span class="dot green" style="width:6px;height:6px"></span><span class="st green">in-service</span></span></td><td class="num" style="color:var(--muted)">—</td><td><button class="tbtn" data-open="console_access">콘솔</button></td></tr>
-              <tr><td colspan="6" style="color:var(--muted2)">… 외 580 노드 (mock 데모) — VRCM 연동 시 전체 노드 페이지네이션·검색 제공</td></tr>
+              <tr><td colspan="6" style="color:var(--muted2)">… 외 580 노드 (mock 데모) — Control-Plane 연동 시 전체 노드 페이지네이션·검색 제공</td></tr>
             </tbody></table>
         </div>
       </section>
@@ -466,13 +466,13 @@
             <div class="callout" style="margin-top:10px">파티션 외 노드와의 IB 통신은 차단됩니다 — P_Key·VXLAN 구성은 운영팀이 관리하며 이 화면은 조회 전용입니다</div>
           </div>
           <div class="panel" id="net-seg-panel" style="margin-bottom:0;display:none">
-            <div class="ph"><span class="tick blue"></span><span class="t">내 네트워크 세그먼트</span><span class="c">NICo segments · VRCM 실시간</span></div>
+            <div class="ph"><span class="tick blue"></span><span class="t">내 네트워크 세그먼트</span><span class="c">NICo segments · Control-Plane 실시간</span></div>
             <table class="tbl">
               <thead><tr><th>세그먼트</th><th>VRF</th><th class="num">L3VNI</th><th class="num">Conv VNI</th><th class="num">호스트</th><th>상태</th></tr></thead>
               <tbody id="net-segments"></tbody></table>
           </div>
           <div class="panel" id="net-dhcp-panel" style="margin-bottom:0;display:none">
-            <div class="ph"><span class="tick blue"></span><span class="t">내 DHCP 임대</span><span class="c" id="net-dhcp-sub">NICo DHCP · VRCM 실시간</span></div>
+            <div class="ph"><span class="tick blue"></span><span class="t">내 DHCP 임대</span><span class="c" id="net-dhcp-sub">NICo DHCP · Control-Plane 실시간</span></div>
             <div id="leases-pgr" class="pgr"><!-- pagedTable — host/ip 검색·이전/다음 --></div>
             <table class="tbl">
               <thead><tr><th>호스트</th><th>IP</th><th>MAC</th><th class="num">임대</th><th>DHCP 서버</th></tr></thead>
@@ -522,7 +522,7 @@
       <section data-screen="alerts">
         <!-- faultMetrics() KPI 칩 — 라이브 시 표시 (폴백: 숨김) -->
         <div class="kpi-band" id="alerts-kpi" style="display:none">
-          <div class="kpi"><div class="k">GPU 가용성</div><div class="v green" id="ak-avail">—</div><div class="s" id="ak-avail-sub">VRCM 실측정</div></div>
+          <div class="kpi"><div class="k">GPU 가용성</div><div class="v green" id="ak-avail">—</div><div class="s" id="ak-avail-sub">Control-Plane 실측정</div></div>
           <div class="kpi"><div class="k">MTTA</div><div class="v" id="ak-mtta">—</div><div class="s">감지 → 대응 착수 (평균)</div></div>
           <div class="kpi"><div class="k">MTTR</div><div class="v" id="ak-mttr">—</div><div class="s">복구 완료까지 (평균)</div></div>
           <div class="kpi"><div class="k">미해결 fault</div><div class="v" id="ak-open">—</div><div class="s" id="ak-open-sub">누적 해결 —</div></div>
@@ -585,7 +585,7 @@
               <span class="chip" style="font-size:11px">예산 알림: 70/90/100% <span class="st green">on</span></span>
               <button class="btn-ghost" id="bill-csv" style="font-size:11px" title="비용 분해 라인 CSV — 라이브 시 billing/usage 실데이터">CSV 내보내기</button></div>
             <div id="bill-rates" style="display:none;margin-top:12px">
-              <div class="ph" style="margin-bottom:6px"><span class="tick"></span><span class="t" style="font-size:12px">단가 (VRCM 실시간)</span><span class="c" id="bill-rates-note"></span></div>
+              <div class="ph" style="margin-bottom:6px"><span class="tick"></span><span class="t" style="font-size:12px">단가 (Control-Plane 실시간)</span><span class="c" id="bill-rates-note"></span></div>
               <table class="kv2"><tbody id="bill-rates-rows"></tbody></table></div>
           </div>
         </div>
@@ -635,7 +635,7 @@
             <div class="ph"><span class="tick"></span><span class="t">컴플라이언스 증빙</span>
               <span class="st green" data-iso-badge style="display:inline-flex;align-items:center;gap:5px"><span class="dot green" data-iso-dot style="width:6px;height:6px"></span><span data-iso-tx>격리 검증 PASS</span></span></div>
             <table class="kv2"><tbody>
-              <tr><td style="width:170px">데이터 격리 증빙</td><td>4계층 격리 리포트 (07-08 자동) <span class="lnk" id="iso-view" style="margin-left:6px" title="라이브 시 VRCM 실검증 리포트 갱신">보기</span></td></tr>
+              <tr><td style="width:170px">데이터 격리 증빙</td><td>4계층 격리 리포트 (07-08 자동) <span class="lnk" id="iso-view" style="margin-left:6px" title="라이브 시 Control-Plane 실검증 리포트 갱신">보기</span></td></tr>
               <tr><td>Sanitization 증명서</td><td>SAN-0691 (07-02) · SAN-0663 (06-18) <button class="btn-ghost san-pdf" style="margin-left:6px;padding:3px 10px;font-size:10.5px">PDF ↓</button><div class="mini" id="san-note"></div></td></tr>
               <tr><td>인증서</td><td>mTLS 클라이언트 인증서 2 · 만료 2027-01 <span style="color:var(--amber)">D-176</span></td></tr>
               <tr><td>데이터 처리 위치</td><td>대한민국 (안산·가산) — 국외 이전 없음</td></tr>
@@ -644,7 +644,7 @@
           </div>
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">감사 로그 · 접근 이력</span>
-              <button class="btn-ghost" id="audit-csv" style="margin-left:auto" title="라이브 시 VRCM 감사 로그 실데이터 CSV">CSV 내보내기</button></div>
+              <button class="btn-ghost" id="audit-csv" style="margin-left:auto" title="라이브 시 Control-Plane 감사 로그 실데이터 CSV">CSV 내보내기</button></div>
             <div class="log">
               <div><span class="tm">10:20:11</span> kim.jh cluster.resize.request prod-training <span style="color:var(--green-text)">success</span></div>
               <div><span class="tm">09:44:02</span> api-key-2 GET /v1/metrics <span style="color:var(--green-text)">success</span> (10.80.1.10)</div>
@@ -654,7 +654,7 @@
             <div class="mini">* 어제 · 로그 보존 13개월 · 감사 파이프라인에 불변 기록</div>
           </div>
           <div class="panel" id="access-pkg-panel" style="margin-bottom:0;display:none">
-            <div class="ph"><span class="tick"></span><span class="t">접속 패키지 — 딜리버리</span><span class="c" id="access-pkg-sub">VRCM 실시간</span></div>
+            <div class="ph"><span class="tick"></span><span class="t">접속 패키지 — 딜리버리</span><span class="c" id="access-pkg-sub">Control-Plane 실시간</span></div>
             <table class="kv2"><tbody id="access-pkg"></tbody></table>
             <div class="callout" style="margin-top:10px">client_secret은 딜리버리 시 1회만 제공 — 이후 Vault에서 90일 주기 자동 회전 (SEC09)</div>
           </div>
@@ -691,7 +691,7 @@
       <!-- ════════ 마켓플레이스 (P2) ════════ -->
       <section data-screen="marketplace">
         <div class="p2strip"><span class="p2tag">P2 프리뷰</span>
-          <span>AI 프레임워크 · NIM 컨테이너 · 모델 템플릿을 원클릭 배포하는 마켓플레이스 로드맵 화면입니다 — 아래 카탈로그는 mock 데이터 (VRCM 미연동 · P2 범위).</span></div>
+          <span>AI 프레임워크 · NIM 컨테이너 · 모델 템플릿을 원클릭 배포하는 마켓플레이스 로드맵 화면입니다 — 아래 카탈로그는 mock 데이터 (Control-Plane 미연동 · P2 범위).</span></div>
         <div class="mkt">
           <div class="it"><b>NIM — llama-4-maverick</b>
             <div class="d">추론 엔드포인트 · 권장 4랙 · TensorRT-LLM 최적화</div>
@@ -732,7 +732,7 @@
             </tbody></table>
           </div>
           <div class="panel" id="iam-realm-panel" style="margin-bottom:0;display:none">
-            <div class="ph"><span class="tick blue"></span><span class="t">IAM Realm — 클라이언트 · 롤</span><span class="c" id="iam-realm-sub">Keycloak · VRCM 실시간</span></div>
+            <div class="ph"><span class="tick blue"></span><span class="t">IAM Realm — 클라이언트 · 롤</span><span class="c" id="iam-realm-sub">Keycloak · Control-Plane 실시간</span></div>
             <div id="iam-roles" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"></div>
             <table class="tbl">
               <thead><tr><th>클라이언트</th><th>종류</th><th>MFA</th><th class="num">발급 토큰</th><th>시크릿</th><th>상태</th></tr></thead>

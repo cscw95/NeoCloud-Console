@@ -227,8 +227,8 @@
         kpiCell("GPU", fmt(c.racks * (NC.CONST.gpu_per_rack || 72)), "",
           kpiSub("랙당 " + (NC.CONST.gpu_per_rack || 72))) +
         kpiCell("판매 가능 용량", "—", "",
-          kpiSub("사이트별 집계는 VRCM 연동 시 표시")) +
-        kpiCell("전력 캡", "—", "", kpiSub("VRCM 연동 시 표시")) +
+          kpiSub("사이트별 집계는 Control-Plane 연동 시 표시")) +
+        kpiCell("전력 캡", "—", "", kpiSub("Control-Plane 연동 시 표시")) +
         incCell + alCell;
     });
   }

@@ -308,7 +308,7 @@
       "/rack-h × 720h)</span>";
     var lbl = $("#q-rate");
     if (lbl) lbl.textContent = quoteRate
-      ? "단가 $" + quoteRate + "/rack-h — VRCM billing/rates 라이브"
+      ? "단가 $" + quoteRate + "/rack-h — Control-Plane billing/rates 라이브"
       : "단가 $" + QUOTE_STATIC_RATE + "/rack-h — 가격표 v2.4 (정적)";
   }
   function bindQuote() {
@@ -412,7 +412,7 @@
         esc(r.note) + "</td></tr>";
       body.innerHTML = rows;
       var cap = $("#price-cap");
-      if (cap) cap.textContent = "VRCM billing/rates 라이브 · " +
+      if (cap) cap.textContent = "Control-Plane billing/rates 라이브 · " +
         (r.currency || "USD") + " / " + unit;
     });
   }
@@ -499,7 +499,7 @@
       NC.closeModal("quote");
       NC.toast("견적서 생성 — delta-corp v3 · " + racks + "랙 · 월 " + fmtM(mo) +
         " · 연 " + fmtM(mo * 12) + " (단가 $" + rate + "/rack-h " +
-        (quoteRate ? "VRCM 라이브" : "정적 v2.4") + " · 유효 30일)");
+        (quoteRate ? "Control-Plane 라이브" : "정적 v2.4") + " · 유효 30일)");
     });
 
     onConfirm("cf-discount", "discount",

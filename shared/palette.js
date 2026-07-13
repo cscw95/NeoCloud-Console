@@ -102,7 +102,7 @@
     box.innerHTML = html ||
       '<div class="ncp-grp">결과 없음</div>';
     document.getElementById("ncp-src").textContent =
-      NC.live ? "VRCM 라이브 검색" : "메뉴 + mock";
+      NC.live ? "Control-Plane 라이브 검색" : "메뉴 + mock";
   }
   async function refresh(q) {
     const base = menuItems().concat(await entityItems());

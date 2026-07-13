@@ -28,12 +28,18 @@
   async function live() {                       // 도달성 (10s 캐시)
     if (Date.now() < aliveUntil) return true;
     if (dead) return false;
-    try { await raw(V + "/spec"); setBadge(true); return true; }
-    catch { dead = true; setTimeout(() => (dead = false), 15000);
+    const t0 = (performance && performance.now) ? performance.now() : Date.now();
+    try {
+      await raw(V + "/spec");
+      _latency = Math.round(((performance && performance.now
+        ? performance.now() : Date.now()) - t0));
+      setBadge(true); return true;
+    } catch { dead = true; setTimeout(() => (dead = false), 15000);
             setBadge(false); return false; }
   }
 
-  /* ── 톱바 연동 상태 배지 ─────────────────────────────────── */
+  /* ── 톱바 연동 상태 배지 (Control-Plane + 하위 NICo 체인) ──── */
+  let _latency = null;
   function setBadge(on) {
     NC.live = on;
     let b = document.getElementById("nc-livesrc");
@@ -44,11 +50,44 @@
       b.id = "nc-livesrc"; b.className = "tb-chip";
       right.prepend(b);
     }
+    const lat = on && _latency != null ? ` · ${_latency}ms` : "";
     b.innerHTML = on
-      ? '<span class="dot" style="background:var(--green)"></span>Control-Plane 연동'
+      ? `<span class="dot" style="background:var(--green)"></span>Control-Plane 연동${lat}`
       : '<span class="dot" style="background:var(--amber)"></span>Control-Plane 미연동';
     b.title = on ? "NeoCloud OS Control-Plane API " + BASE + " 실연동 중 (라이브 데이터)"
                  : "Control-Plane 미기동 — 시나리오 mock 데이터로 동작 (오프라인)";
+    if (on) refreshChain(b);       // Control-Plane → NICo 체인 상태 덧붙임
+  }
+
+  // Control-Plane이 NICo(사이트 컨트롤러)와 연동됐는지 표시 (하위 체인).
+  let _chainAt = 0;
+  async function refreshChain(b) {
+    if (Date.now() - _chainAt < 8000) return;
+    _chainAt = Date.now();
+    let c = document.getElementById("nc-chain");
+    try {
+      const r = await fetch(BASE + "/api/v1/integration/nico");
+      if (!r.ok) throw 0;
+      const n = await r.json();
+      if (!c) {
+        c = document.createElement("span");
+        c.id = "nc-chain"; c.className = "tb-chip";
+        (document.querySelector(".tb-right") || b.parentNode).prepend(c);
+      }
+      const up = n.reachable;
+      const mode = n.adapter_active ? "실연동" : "상태감시";  // http vs local
+      c.innerHTML =
+        `<span class="dot" style="background:${up ? "var(--green)" : "var(--dot-off)"}"></span>` +
+        `NICo ${up ? (n.adapter_active ? "연동" : "감시") : "오프라인"}`;
+      c.title = up
+        ? `Control-Plane → NICo Emulator ${n.adapter_mode === "http"
+            ? "실연동(NicoHttpAdapter)" : "상태 감시(local FakeNico)"} · `
+          + `${n.model} ${n.compute_trays} trays / ${n.dpus} DPU · ${n.latency_ms}ms`
+        : "NICo Emulator 오프라인";
+    } catch (e) {
+      if (c) c.innerHTML =
+        '<span class="dot" style="background:var(--dot-off)"></span>NICo 오프라인';
+    }
   }
 
   /* ── 헬퍼: 테넌트/패브릭 병합 ───────────────────────────── */
