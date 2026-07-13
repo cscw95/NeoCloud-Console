@@ -46,7 +46,7 @@ shared/vrcm-api.js   Live adapter — same API surface as the mock, backed by
 - **Cross-portal effects** propagate over the `NC.bus` event bus
   (e.g. `provision.approved`, `deal.converted`, `incident.resolved`).
 
-## Live NICo Emulator(VRCM) Integration
+## Live NeoCloud OS Control Plane (VRCM) Integration
 
 `shared/vrcm-api.js` probes VRCM at `http://127.0.0.1:8000`. When reachable, all
 getters return live data; on failure each getter falls back to the mock
