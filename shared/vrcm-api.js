@@ -60,10 +60,10 @@
   }
 
   // Control-Plane이 NICo(사이트 컨트롤러)와 연동됐는지 표시 (하위 체인).
-  // 고객 콘솔에는 노출하지 않음 — 내부 인프라 체인은 운영·비즈 전용.
+  // 내부 인프라 체인은 운영 콘솔 전용 — 고객·비즈에는 노출하지 않음.
   let _chainAt = 0;
   async function refreshChain(b) {
-    if (/\/customer(\/|$)/.test(location.pathname)) return;
+    if (!/\/ops(\/|$)/.test(location.pathname)) return;
     if (Date.now() - _chainAt < 8000) return;
     _chainAt = Date.now();
     let c = document.getElementById("nc-chain");
