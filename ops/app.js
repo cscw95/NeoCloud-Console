@@ -1242,6 +1242,7 @@
   var OBS_BASE = "http://127.0.0.1:9000/emulator/v1/obs";
   var obsCacheMap = {};            // path → {t, v} (5s 캐시)
   var OBS_PAGE = 100;
+  var obsPwrHist = { ga: [], an: [], tot: [] };   // 사이트별 전력 추이 (5s 폴링 누적)
   var obsGpuFilter = { site: "", su: "", state: "", offset: 0 };
   var obsGpuTotal = 0;
   var obsRackSel = null;           // 히트맵 선택 랙
@@ -1647,17 +1648,26 @@
     Promise.all([obsGet("/dcgm/gpus" + obsGpuQuery()), obsGet("/summary")]).then(function (r) {
       var live = !!(r[0] && r[0].gpus);
       var f = obsGpuFilter, list, total;
+      var siteKo = { gasan: "가산", ansan: "안산" };
+      /* 집계용 표본 — 사이트/SU 필터만 적용 (히트맵·분포·예외는 상태 필터와 무관) */
+      var sample = obsMockGpus().filter(function (g) {
+        if (f.site && g.site !== f.site && g.site !== siteKo[f.site]) return false;
+        if (f.su && g.su_id !== f.su) return false;
+        return true;
+      });
       if (live) {
         list = r[0].gpus || [];
         total = r[0].total != null ? r[0].total : list.length;
+        if (f.attn) list = list.filter(obsGpuIsAttn);
+        obsGpuSort(list, f.sort);
+        if (list.length >= sample.length) sample = list;
       } else {
-        var siteKo = { gasan: "가산", ansan: "안산" };
-        var all = obsMockGpus().filter(function (g) {
-          if (f.site && g.site !== f.site && g.site !== siteKo[f.site]) return false;
-          if (f.su && g.su_id !== f.su) return false;
+        var all = sample.filter(function (g) {
           if (f.state && g.state !== f.state) return false;
           return true;
         });
+        if (f.attn) all = all.filter(obsGpuIsAttn);
+        obsGpuSort(all, f.sort);
         total = all.length;
         if (f.offset >= total) f.offset = 0;
         list = all.slice(f.offset, f.offset + OBS_PAGE);
@@ -1676,26 +1686,157 @@
           kpiSub("XID · cordon")) +
         kpiCell("평균 util", obsN1(s.avg_util_pct) + "<small>%</small>", "",
           kpiSub("할당 GPU 기준")));
-      setHtml("obs-gpu-body", list.map(function (x) {
-        var thr = (x.throttle_reasons || []).join(",");
-        return '<tr data-obs-gpu="' + esc(x.gpu_uuid) + '" style="cursor:pointer" title="클릭 시 GPU 상세">' +
-          td('<span class="id">' + esc(x.gpu_uuid) + "</span>") +
-          td('<span class="id" style="color:var(--muted)">' +
-             esc(x.tray_id || ((x.rack_id || "—") + " · g" + (x.idx != null ? x.idx : "?"))) + "</span>" +
-             '<div style="color:var(--muted2);font-size:9.5px">' + esc(x.site || "—") + " · " +
-             esc(x.su_id || "—") + "</div>") +
-          td('<span class="id" style="color:var(--muted)">' + esc(x.tenant_id || "—") + "</span>") +
-          td(x.util_pct != null ? x.util_pct + "%" : "—", "num") +
-          td(x.temp_c != null ? x.temp_c + "°C" : "—", "num") +
-          td(x.power_w != null ? fmt(x.power_w) + "W" : "—", "num") +
-          td(x.sm_clock_mhz != null ? fmt(x.sm_clock_mhz) : "—", "num") +
-          td(thr ? '<span class="st amber">' + esc(thr) + "</span>" : muted("—")) +
-          td(obsHealthSt(x.health)) + "</tr>";
-      }).join("") || '<tr><td colspan="9" style="color:var(--muted)">조건에 맞는 GPU 없음</td></tr>');
+      obsGpuHeatmap(sample);
+      obsGpuDist(sample, g);
+      obsGpuAttention(sample);
+      setHtml("obs-gpu-body", list.map(obsGpuRow).join("") ||
+        '<tr><td colspan="9" style="color:var(--muted)">조건에 맞는 GPU 없음</td></tr>');
       var a = f.offset, b = Math.min(a + OBS_PAGE, total);
       setTxt("obs-gpu-count", fmt(total) + "기 중 " + (total ? a + 1 : 0) + "–" + b +
         " 표시 · 100/페이지" + (live ? "" : " (mock 표본)"));
     });
+  }
+
+  /* ─ obs-gpu 가독성 헬퍼 — util 바 · 온도 색 단계 · 상태 칩 ─ */
+  function obsUtilCell(p) {
+    if (p == null) return muted("—");
+    var col = p >= 80 ? "var(--green)" : p >= 40 ? "#5a8f0e" : p > 0 ? "var(--amber-dim)" : "var(--track)";
+    return '<span class="ubar"><i><b style="width:' + Math.max(2, Math.min(100, p)) +
+      '%;background:' + col + '"></b></i><em>' + p + "%</em></span>";
+  }
+  function obsTempCell(t) {
+    if (t == null || !t) return muted("—");
+    var col = t >= 85 ? "var(--red)" : t >= 78 ? "var(--amber)" : "var(--soft)";
+    return '<span class="tchip" style="color:' + col + '">' + t + "°C</span>";
+  }
+  function obsStateChip(st) {
+    return st === "faulted" ? '<span class="st red">faulted</span>'
+      : st === "throttled" ? '<span class="st amber">throttled</span>'
+      : st === "active" ? '<span class="st green">active</span>' : muted("idle");
+  }
+  function obsGpuLoc(x) {
+    return '<span class="id" style="color:#fff">' + esc(x.tray_id || (x.rack_id || "—")) +
+      " · g" + (x.idx != null ? x.idx : "?") + "</span>" +
+      '<div style="color:var(--muted2);font-size:9.5px">' + esc(x.gpu_uuid) + " · " +
+      esc(x.site || "—") + " " + esc(x.su_id || "") + "</div>";
+  }
+  function obsGpuRow(x) {
+    return '<tr data-obs-gpu="' + esc(x.gpu_uuid) + '" style="cursor:pointer" title="클릭 시 GPU 상세">' +
+      td(obsGpuLoc(x)) +
+      td('<span class="id" style="color:var(--muted)">' + esc(x.tenant_id || "—") + "</span>") +
+      td(obsStateChip(x.state)) +
+      td(obsUtilCell(x.util_pct)) +
+      td(obsTempCell(x.temp_c), "num") +
+      td(x.power_w != null ? fmt(x.power_w) + "W" : "—", "num") +
+      td(x.sm_clock_mhz != null ? fmt(x.sm_clock_mhz) : "—", "num") +
+      td((x.ecc_uncorr || 0) + " / " + (x.ecc_corr || 0), "num") +
+      td(obsHealthSt(x.health)) + "</tr>";
+  }
+
+  /* SU × 랙 히트맵 — 셀 = 랙 (표본 평균 util · 예외 테두리) */
+  function obsGpuHeatmap(sample) {
+    var bySu = {}, order = [];
+    sample.forEach(function (g) {
+      if (!bySu[g.su_id]) { bySu[g.su_id] = { site: g.site, racks: {}, ro: [] }; order.push(g.su_id); }
+      var su = bySu[g.su_id];
+      if (!su.racks[g.rack_id]) { su.racks[g.rack_id] = { n: 0, u: 0, worst: "ok", alloc: false }; su.ro.push(g.rack_id); }
+      var rk = su.racks[g.rack_id];
+      rk.n++; rk.u += g.util_pct || 0;
+      if (g.tenant_id) rk.alloc = true;
+      if (g.state === "faulted") rk.worst = "crit";
+      else if (g.state === "throttled" && rk.worst !== "crit") rk.worst = "warn";
+    });
+    setHtml("obs-gpu-hm", order.map(function (suId) {
+      var su = bySu[suId];
+      return '<div class="obs-hmrow"><span class="lb">' + esc((su.site || "") + " " + suId) +
+        '</span><span class="obs-hm">' + su.ro.map(function (rid) {
+          var rk = su.racks[rid];
+          var avg = Math.round(rk.u / rk.n);
+          var bg = !rk.alloc ? "var(--ready)"
+            : avg >= 80 ? "var(--green)" : avg >= 40 ? "#5a8f0e" : avg > 0 ? "#3f6a1a" : "var(--amber-dim)";
+          var cls = "hc" + (rk.worst === "crit" ? " crit" : rk.worst === "warn" ? " th" : "") +
+            (obsGpuFilter.su === suId ? " sel" : "");
+          return '<span class="' + cls + '" data-obs-gpusu="' + esc(suId) + '" style="background:' + bg +
+            '" title="' + esc(rid + " — 표본 " + rk.n + "GPU · 평균 util " + avg + "%" +
+            (rk.worst !== "ok" ? " · 예외 발생" : "")) + '"></span>';
+        }).join("") + "</span></div>";
+    }).join("") || '<div style="color:var(--muted);font-size:12px">표본 없음</div>');
+  }
+
+  /* 상태 분해 바 + util/temp 히스토그램 */
+  function obsGpuDist(sample, g) {
+    var act = sample.filter(function (x) { return x.state === "active" || x.state === "throttled"; });
+    var ub = [0,0,0,0,0,0,0,0,0,0], tb = [0,0,0,0,0,0,0,0,0,0];
+    act.forEach(function (x) {
+      ub[Math.min(9, Math.floor((x.util_pct || 0) / 10))]++;
+      tb[Math.max(0, Math.min(9, Math.floor(((x.temp_c || 30) - 30) / 7)))]++;
+    });
+    var um = Math.max.apply(null, ub.concat([1])), tm = Math.max.apply(null, tb.concat([1]));
+    var tot = (g.total || 0) || 1;
+    function seg(n, color) {
+      return '<i style="width:' + Math.max(0.4, (n || 0) / tot * 100) + '%;background:' + color + '"></i>';
+    }
+    setHtml("obs-gpu-dist",
+      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em">상태 분해 — 전체 ' + fmt(g.total || 0) + '기</div>' +
+      '<div class="statebar">' + seg(g.active, "var(--green)") + seg(g.idle, "var(--ready)") +
+        seg((g.throttled || 0) * 40, "var(--amber)") + seg((g.faulted || 0) * 40, "var(--red)") + "</div>" +
+      '<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:10px;color:var(--muted);margin-bottom:10px">' +
+        '<span><span class="leg" style="background:var(--green)"></span> active ' + fmt(g.active || 0) + "</span>" +
+        '<span><span class="leg" style="background:var(--ready)"></span> idle ' + fmt(g.idle || 0) + "</span>" +
+        '<span><span class="leg" style="background:var(--amber)"></span> throttled ' + (g.throttled || 0) + " <em style=\"font-style:normal;color:var(--muted2)\">(확대 표시)</em></span>" +
+        '<span><span class="leg" style="background:var(--red)"></span> faulted ' + (g.faulted || 0) + "</span></div>" +
+      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em">util 분포 (가동 표본 ' + act.length + '기)</div>' +
+      '<div class="hist">' + ub.map(function (n) {
+        return '<i style="height:' + Math.max(4, n / um * 100) + '%"></i>';
+      }).join("") + "</div>" +
+      '<div class="hist-x"><span>0%</span><span>50%</span><span>100%</span></div>' +
+      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin-top:10px">온도 분포</div>' +
+      '<div class="hist">' + tb.map(function (n, i) {
+        return '<i class="' + (i >= 7 ? "hot" : "") + '" style="height:' + Math.max(4, n / tm * 100) + '%"></i>';
+      }).join("") + "</div>" +
+      '<div class="hist-x"><span>30°C</span><span>65°C</span><span>≥93°C</span></div>');
+  }
+
+  /* 예외 우선 리스트 — faulted → throttled → 고온 → ECC → PCIe */
+  function obsGpuAttention(sample) {
+    var rows = [];
+    sample.forEach(function (x) {
+      var sev = null, reason = "";
+      if (x.state === "faulted") {
+        sev = 0; reason = "XID " + ((x.xid_recent || []).join("·") || "—") + " · ECC uncorr " + (x.ecc_uncorr || 0);
+      } else if (x.state === "throttled") {
+        sev = 1; reason = ((x.throttle_reasons || []).join(",") || "clock 제한") + " · " + (x.temp_c || "—") + "°C";
+      } else if ((x.temp_c || 0) >= 85) {
+        sev = 2; reason = "고온 " + x.temp_c + "°C — 냉각 상관 확인 (R13)";
+      } else if ((x.ecc_uncorr || 0) > 0) {
+        sev = 2; reason = "ECC uncorr " + x.ecc_uncorr + " — row-remap 추이 감시";
+      } else if ((x.pcie_replay || 0) >= 3) {
+        sev = 3; reason = "PCIe replay " + x.pcie_replay;
+      }
+      if (sev == null) return;
+      rows.push([sev, x, reason]);
+    });
+    rows.sort(function (a, b) { return a[0] - b[0] || (b[1].temp_c || 0) - (a[1].temp_c || 0); });
+    var top = rows.slice(0, 8);
+    setTxt("obs-gpu-attn-count", rows.length
+      ? rows.length + "기 (표본) — 상위 " + top.length + " 표시" : "예외 없음");
+    setHtml("obs-gpu-attn", top.map(function (rw) {
+      var sev = rw[0], x = rw[1], reason = rw[2];
+      var tag = sev === 0 ? '<span class="sevtag" style="color:var(--red)">CRITICAL</span>'
+        : sev === 1 ? '<span class="sevtag" style="color:var(--amber)">THROTTLE</span>'
+        : '<span class="sevtag" style="color:var(--blue-text,#9fd0ff)">WATCH</span>';
+      var advice = sev === 0 ? "드레인 → RMA 후보 판정"
+        : sev === 1 ? "냉각 · 전력캅 상관 확인" : "추이 관찰 · 임계 시 알림";
+      return '<tr data-obs-gpu="' + esc(x.gpu_uuid) + '" style="cursor:pointer" title="클릭 시 GPU 상세">' +
+        td(obsGpuLoc(x)) +
+        td(tag + ' <span style="color:var(--muted);font-size:11px">' + esc(reason) + "</span>") +
+        td(obsUtilCell(x.util_pct)) +
+        td(obsTempCell(x.temp_c), "num") +
+        td(x.power_w != null ? fmt(x.power_w) + "W" : "—", "num") +
+        td((x.ecc_uncorr || 0) + " / " + (x.ecc_corr || 0), "num") +
+        td('<span class="id" style="color:var(--muted)">' + esc(x.tenant_id || "—") + "</span>") +
+        td('<span style="color:var(--muted2);font-size:10.5px">' + advice + "</span>") + "</tr>";
+    }).join("") || '<tr><td colspan="8" style="color:var(--green-text)">예외 없음 — 전 GPU 정상 범위</td></tr>');
   }
 
   function obsSparkSvg(vals, color) {
@@ -1947,6 +2088,7 @@
       var racks = live ? d : obsMockRacks();
       obsRackList = racks;
       obsSrc("obs-rack", live);
+      obsRackPower(racks);
       var bySu = {}, order = [], ctl = {};
       var offN = 0, cordN = 0, capN = 0, hasCtl = false;
       racks.forEach(function (rk) {
@@ -1967,7 +2109,7 @@
       var vCap = sum && sum.racks_capped != null ? sum.racks_capped : capN;
       if (sum && (sum.racks_off != null || sum.racks_cordoned != null ||
         sum.racks_capped != null)) hasCtl = true;
-      var kb = document.getElementById("obs-rack-kpi");
+      var kb = document.getElementById("obs-rack-ctlkpi");
       if (kb) {
         kb.style.display = hasCtl ? "" : "none";
         if (hasCtl) kb.innerHTML =
@@ -2287,9 +2429,201 @@
           td('<span style="color:var(--green-text)">' + esc(x.recommended_action || "—") + "</span>") +
           "</tr>";
       }).join("") || '<tr><td colspan="7" style="color:var(--green-text)">냉각발 상관 finding 없음 — 정상</td></tr>');
+      obsFabChain(rows);
       setTxt("obs-fab-c", "correlate/cooling — finding " + rows.length + "건" +
         (live ? " (twin 라이브)" : " (mock)"));
     });
+  }
+
+  /* ─ 플릿 감시 헬퍼 — 예외 판정 · 정렬 ─ */
+  function obsGpuIsAttn(x) {
+    return x.state === "faulted" || x.state === "throttled" ||
+      (x.temp_c || 0) >= 78 || (x.ecc_uncorr || 0) > 0 || (x.pcie_replay || 0) >= 3;
+  }
+  function obsGpuSort(arr, k) {
+    if (!k) return;
+    arr.sort(function (a, b) {
+      return k === "temp" ? (b.temp_c || 0) - (a.temp_c || 0)
+        : k === "util" ? (b.util_pct || 0) - (a.util_pct || 0)
+        : k === "ecc" ? ((b.ecc_uncorr || 0) * 1000 + (b.ecc_corr || 0)) -
+                        ((a.ecc_uncorr || 0) * 1000 + (a.ecc_corr || 0))
+        : (b.power_w || 0) - (a.power_w || 0);
+    });
+  }
+
+  /* ─ 랙 · 전력: 사이트별 추이 + 전체 소비 ─ */
+  function obsRackPower(racks) {
+    var ga = 0, an = 0, gaN = 0, anN = 0, maxR = null, allocSum = 0, allocN = 0, head = 0;
+    racks.forEach(function (rk) {
+      var p = rk.it_power_kw || 0;
+      var isGa = rk.site === "가산" || rk.site === "gasan";
+      if (isGa) { ga += p; gaN++; } else { an += p; anN++; }
+      if (!maxR || p > maxR.p) maxR = { p: p, id: rk.rack_id };
+      if (rk.tenant_id) { allocSum += p; allocN++; }
+      head += rk.cooling_headroom_kw || 0;
+    });
+    var tot = ga + an;
+    obsPwrHist.ga.push(ga); obsPwrHist.an.push(an); obsPwrHist.tot.push(tot);
+    ["ga", "an", "tot"].forEach(function (k) { if (obsPwrHist[k].length > 72) obsPwrHist[k].shift(); });
+    setHtml("obs-rack-kpi",
+      kpiCell("전체 IT 전력", (tot / 1000).toFixed(2) + "<small> MW</small>", "",
+        kpiSub(fmt(Math.round(tot)) + " kW · 계약 캡 26.2MW")) +
+      kpiCell("가산", fmt(Math.round(ga)) + "<small> kW</small>", "",
+        kpiSub(gaN + "랙 · 평균 " + (gaN ? Math.round(ga / gaN) : 0) + "kW/랙")) +
+      kpiCell("안산", fmt(Math.round(an)) + "<small> kW</small>", "",
+        kpiSub(anN + "랙 · 평균 " + (anN ? Math.round(an / anN) : 0) + "kW/랙")) +
+      kpiCell("최고 랙", maxR ? fmt(Math.round(maxR.p)) + "<small> kW</small>" : "—",
+        maxR && maxR.p >= 170 ? "amber" : "",
+        kpiSub(maxR ? maxR.id + " · MaxQ 캡 187kW" : "—")) +
+      kpiCell("할당 랙 평균", allocN ? Math.round(allocSum / allocN) + "<small> kW</small>" : "—", "",
+        kpiSub("할당 " + allocN + "랙 기준")) +
+      kpiCell("냉각 헤드룸 합", fmt(Math.round(head)) + "<small> kW</small>", "green",
+        kpiSub("CDU 잔여 제열 여유")));
+    var el;
+    el = $("#obs-pwr-ga"); if (el) el.setAttribute("points", poly(obsPwrHist.ga, 560, 48));
+    el = $("#obs-pwr-an"); if (el) el.setAttribute("points", poly(obsPwrHist.an, 560, 48));
+    el = $("#obs-pwr-tot"); if (el) el.setAttribute("points", poly(obsPwrHist.tot, 560, 48));
+    setTxt("obs-pwr-ga-v", fmt(Math.round(ga)) + " kW");
+    setTxt("obs-pwr-an-v", fmt(Math.round(an)) + " kW");
+    setTxt("obs-pwr-tot-v", (tot / 1000).toFixed(2) + " MW");
+    setTxt("obs-pwr-note", "누적 " + obsPwrHist.tot.length + "샘플 (5s 간격 · 화면 활성 시에만 수집)");
+    function capRow(lb, v, cap, col) {
+      var pct = Math.min(100, v / cap * 100);
+      return '<div class="evrow"><span class="lb" style="width:120px">' + lb +
+        '</span><i style="max-width:none"><b style="width:' + pct.toFixed(1) + "%;background:" + col +
+        '"></b></i><em style="width:130px">' + (v / 1000).toFixed(2) + " / " + (cap / 1000).toFixed(1) +
+        "MW</em></div>";
+    }
+    setHtml("obs-pwr-caps",
+      capRow("가산 · 전력 캡", ga, 6700, "var(--green)") +
+      capRow("안산 · 전력 캡", an, 19400, "#5aa7e8") +
+      capRow("전체 · 계약 캡", tot, 26200, "var(--amber)") +
+      '<div style="color:var(--muted2);font-size:10px;margin-top:6px">IT 전력 기준 (냉각 부대전력 제외) · PUE 1.18 적용 시 시설 전력 ≈ ' +
+      ((tot * 1.18) / 1000).toFixed(2) + "MW</div>");
+  }
+
+  /* ─ GPU 패브릭 (UFM) — 사이트별 토폴로지 · 장애 인지 ─ */
+  var OBS_FT_FAULTS = { "an:su-6:A:3": "warn", "ga:su-2:B:1": "watch" };
+  var OBS_FT_SPFAULTS = { "an:A:2": "watch" };
+  function renderObsFabTopo() {
+    obsSrc("obs-fabtopo", false);
+    setHtml("obs-ft-kpi",
+      kpiCell("IB 스위치", "192", "", kpiSub("리프 176 · 스파인 16 (2사이트)")) +
+      kpiCell("활성 링크", "12,672", "green", kpiSub("가동률 99.98%")) +
+      kpiCell("이상 링크", "3", "amber", kpiSub("warn 1 · watch 2 — 아래 표")) +
+      kpiCell("flap (24h)", "2", "", kpiSub("an-leafA-su6-03:p14")) +
+      kpiCell("rail 우회", "1", "amber", kpiSub("성능 영향 &lt;1% · rail-B 부담 +6%")) +
+      kpiCell("예측 교체", "1", "amber", kpiSub("케이블 1 — 07-14 창 편성")));
+    function cells(sk, su) {
+      var h = "";
+      ["A", "B"].forEach(function (rail) {
+        for (var i = 0; i < 8; i++) {
+          var fl = OBS_FT_FAULTS[sk + ":" + su + ":" + rail + ":" + i];
+          h += '<span class="ftc ' + (rail === "B" ? "b" : "") + (fl ? " " + fl : "") +
+            '" title="' + su + " leaf" + rail + "-" + obsPad2(i) +
+            (fl === "warn" ? " — SymbolErr 증가 · flap 2회 · 케이블 열화 예측"
+              : fl === "watch" ? " — 관찰 (RX power 저하)" : " — 정상") + '"></span>';
+        }
+        if (rail === "A") h += '<span style="width:10px;display:inline-block"></span>';
+      });
+      return h;
+    }
+    function spines(sk) {
+      var h = "";
+      ["A", "B"].forEach(function (rail) {
+        for (var i = 0; i < 4; i++) {
+          var fl = OBS_FT_SPFAULTS[sk + ":" + rail + ":" + i];
+          h += '<span class="ft-sp ' + (rail === "B" ? "b" : "") + (fl ? " " + fl : "") + '" title="' +
+            (fl ? "CRC 산발 · BER 경계 — 관찰" : "정상") + '">' + rail + "-" + i + "</span>";
+        }
+      });
+      return h;
+    }
+    var sites = [
+      { k: "ga", nm: "가산", ufm: "ufm-ga (HA 이중화) — 정상", sus: ["su-1", "su-2", "su-3"], pk: "P_Key 3 (acme · beta · 예약)" },
+      { k: "an", nm: "안산", ufm: "ufm-an (HA 이중화) — 정상", sus: ["su-4", "su-5", "su-6", "su-7", "su-8", "su-9", "su-10", "su-11"], pk: "P_Key 2 (fin-corp 0x8012 · gamma 예약 0x8014)" },
+    ];
+    setHtml("obs-ft-topo", sites.map(function (s) {
+      return '<div class="ft-site">' +
+        '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:9px">' +
+        '<b style="color:#fff;font-size:12.5px">' + s.nm + " — 독립 IB 패브릭</b>" +
+        '<span style="color:var(--muted);font-size:10.5px">' + s.ufm + "</span>" +
+        '<span style="margin-left:auto;color:var(--muted2);font-size:10px;font-family:Menlo,monospace">' + s.pk + "</span></div>" +
+        '<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:9px"><span style="color:var(--muted2);font-size:9.5px;width:56px">스파인</span>' +
+        spines(s.k) + "</div>" +
+        s.sus.map(function (su) {
+          return '<div class="ft-su"><span class="lb">' + su + '</span><span class="cells">' + cells(s.k, su) + "</span></div>";
+        }).join("") +
+        '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:10px;color:var(--muted)">' +
+        '<span><span class="leg" style="background:#1c2f4a"></span> rail-A 리프 (8/SU)</span>' +
+        '<span><span class="leg" style="background:#2a2140"></span> rail-B 리프 (8/SU)</span>' +
+        '<span style="color:var(--amber)">□ warn (예측 포함)</span>' +
+        '<span style="color:var(--amber)">╌ watch</span>' +
+        '<span style="color:var(--red)">□ crit</span></div></div>';
+    }).join(""));
+    var links = [
+      ["an-leafA-su6-03 : p14", "leaf ↔ host (su-6-rack-07 tray-02)",
+       "SymbolErr 4.2e-6 ↑ (+38%/7d) · flap 2회/24h",
+       '<span style="color:var(--amber)">rail-A 우회 중</span> — fin-corp 성능 영향 &lt;1%',
+       '<b style="color:var(--amber)">14일 내 링크다운</b> · conf 0.74',
+       "07-14 IB 창에 케이블 교체 편성 (CAB-89)"],
+      ["ga-leafB-su2-01 : p07", "leaf ↔ host (su-2-rack-01 tray-08)",
+       "RX power -1.8dBm 저하 — 광모듈 열화 의심",
+       "영향 없음 — 정상 마진 내",
+       "관찰 · conf 0.52",
+       "예비 광모듈 확보됨 — 임계 도달 시 교체"],
+      ["an-spineA-2 : p33", "spine ↔ leaf (su-9)",
+       "CRC 오류 산발 — BER 1e-9 경계",
+       "영향 없음 — ECMP 분산",
+       "관찰 · conf 0.38",
+       "추이 감시 · 재발 시 포트 이전"],
+    ];
+    setHtml("obs-ft-links", links.map(function (l) {
+      return "<tr>" + td('<span class="id" style="color:#fff">' + l[0] + "</span>") +
+        td('<span style="color:var(--muted)">' + l[1] + "</span>") + td(l[2]) + td(l[3]) + td(l[4]) +
+        td('<span style="color:var(--green-text)">' + l[5] + "</span>") + "</tr>";
+    }).join(""));
+    setTxt("obs-ft-links-c", "이상 3건 · 예측 1건 — SymbolErr · BER · flap · 광모듈");
+  }
+
+  /* ─ 크로스 상관 체인 상세 ─ */
+  function obsFabChain(rows) {
+    var f = rows && rows[0];
+    var cdu = f && f.cdu_id ? f.cdu_id : "cdu-su-5";
+    var racks = f && (f.affected_racks || []).length ? f.affected_racks : ["su-5-rack-03", "su-5-rack-07", "su-5-rack-11"];
+    var gpus = f && f.affected_gpus != null ? f.affected_gpus : 18;
+    function stg(dom, col, m, v, t, s) {
+      return '<div class="stg"><div class="d" style="color:' + col + '">' + dom +
+        ' <span style="color:var(--muted2);font-weight:400;float:right">' + t + "</span></div>" +
+        '<div class="m">' + m + '</div><div class="v">' + v + '</div><div class="s">' + s + "</div></div>";
+    }
+    var arr = '<span class="arr">→</span>';
+    setHtml("obs-fab-chain",
+      '<div style="color:var(--muted);font-size:11px;margin-bottom:10px">' +
+      (f ? "활성 체인 — " + esc(f.finding || "냉각발 성능 저하") + " (룰 R13)"
+         : "세션 내 활성 체인 없음 — 최근 확정 사례 표시 (R13 · 07-08 06:12 발생분)") + "</div>" +
+      '<div class="chain">' +
+      stg("COOLING", "#5ad0c8", esc(cdu) + " 2차측 유량 저하", "-8.2% (840→771 LPM)", "T+0s",
+        "CDM 밸브 개도 불변 — 펌프측 원인 추정 · 누수 0건") + arr +
+      stg("RACK", "var(--amber)", racks.length + "개 랙 inlet 상승", "+1.9°C (10분 창)", "T+118s",
+        esc(racks.join(" · "))) + arr +
+      stg("GPU", "var(--red)", "고온 → thermal throttle", fmt(gpus) + "기 · 최고 84.1°C", "T+241s",
+        "HW_SLOWDOWN · SM clock 1,410→980MHz") + arr +
+      stg("FABRIC", "#9fd0ff", "집합통신 지연 전파", "NCCL allreduce p99 +9%", "T+299s",
+        "leaf 트래픽 재조정 · 링크다운 없음 — straggler 효과") + arr +
+      stg("TENANT", "#c8a5e8", "fin-corp 성능 저하", "MFU -4.1pp · goodput -2.8%", "T+310s",
+        "가용성 미차감 — 성능 SLA 협의 대상 기록") + "</div>" +
+      '<div class="grid" style="margin-top:14px">' +
+      '<div><div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin-bottom:5px">R13 신뢰도 구성 — conf 0.91</div>' +
+      '<div class="evrow"><span class="lb">시간 순서 정합 (유량→온도→throttle)</span><i><b style="width:28%"></b></i><em>0.28</em></div>' +
+      '<div class="evrow"><span class="lb">유량–온도 상관 r = -0.81</span><i><b style="width:26%"></b></i><em>0.26</em></div>' +
+      '<div class="evrow"><span class="lb">공간 일치 — 동일 CDU 배관 계통</span><i><b style="width:22%"></b></i><em>0.22</em></div>' +
+      '<div class="evrow"><span class="lb">반증 부재 — 전력캡 · 워크로드 불변</span><i><b style="width:15%"></b></i><em>0.15</em></div></div>' +
+      '<div><div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin-bottom:5px">자동 그룹화 · 권고</div>' +
+      '<div style="font-size:11px;color:var(--muted);line-height:1.8">' +
+      '이 체인으로 <b style="color:#fff">GPU 고온 14 · 스로틀 6 · inlet 3건</b>이 1개 인시던트로 억제됨 — 개별 페이징 없음<br>' +
+      '권고: <b style="color:var(--green-text)">standby 펌프 전환 (무중단 · N+1)</b> → 실패 시 워크로드 마이그레이션 (su-5-r03 우선)<br>' +
+      '연계: 패브릭 측 이상 없음 확인됨 (GPU 패브릭 화면) · SLO 영향은 SLA · Error Budget 화면에 자동 집계</div></div></div>');
   }
 
   /* ── ⑱ SLA · Error Budget ─────────────────────────────── */
@@ -2380,6 +2714,23 @@
     if (rb) { obsRackCtlClick(rb, null); return; }
     var rb1 = e.target.closest("[data-obs-rctl1]");      // 단일 랙 제어 (상세)
     if (rb1) { obsRackCtlClick(rb1, rb1.dataset.rack); return; }
+    var hs = e.target.closest("[data-obs-gpusu]");
+    if (hs) {
+      obsGpuFilter.su = obsGpuFilter.su === hs.dataset.obsGpusu ? "" : hs.dataset.obsGpusu;
+      var suSel = document.getElementById("obs-gf-su");
+      if (suSel) suSel.value = obsGpuFilter.su;
+      obsGpuFilter.offset = 0;
+      renderObsGpu();
+      return;
+    }
+    var at = e.target.closest("#obs-gf-attn");
+    if (at) {
+      obsGpuFilter.attn = !obsGpuFilter.attn;
+      at.classList.toggle("on", obsGpuFilter.attn);
+      obsGpuFilter.offset = 0;
+      renderObsGpu();
+      return;
+    }
     var rc = e.target.closest("[data-obs-rack]");
     if (rc) {
       obsRackSel = obsRackSel === rc.dataset.obsRack ? null : rc.dataset.obsRack;
@@ -2439,7 +2790,7 @@
       o.textContent = s[1] + " (" + s[0] + ")";
       su.appendChild(o);
     });
-    [["obs-gf-site", "site"], ["obs-gf-su", "su"], ["obs-gf-state", "state"]].forEach(function (p) {
+    [["obs-gf-site", "site"], ["obs-gf-su", "su"], ["obs-gf-state", "state"], ["obs-gf-sort", "sort"]].forEach(function (p) {
       var el = document.getElementById(p[0]);
       if (el) el.addEventListener("change", function () {
         obsGpuFilter[p[1]] = el.value;
@@ -2898,6 +3249,7 @@
       /* 통합 Observability — NICo Emulator obs API (5s 폴링 · 활성 시만) */
       "obs-overview": function () { obsPoll("obs-overview", renderObsOverview); },
       "obs-gpu": function () { obsPoll("obs-gpu", renderObsGpu); },
+      "obs-fabtopo": function () { obsPoll("obs-fabtopo", renderObsFabTopo); },
       "obs-rack": function () { obsPoll("obs-rack", renderObsRack); },
       "obs-dlc": function () { obsPoll("obs-dlc", renderObsDlc); },
       "obs-fabric": function () { obsPoll("obs-fabric", renderObsFabric); },

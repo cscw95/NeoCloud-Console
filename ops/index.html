@@ -149,6 +149,43 @@
 .pumpchip.bad{color:var(--red);border-color:var(--red-line)}
 .obs-dcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;cursor:pointer}
 .obs-dcard:hover{border-color:var(--muted2)}
+/* obs-gpu 가독성 개선 — util 바 · 온도 칩 · 히스토그램 · 상태 분해 */
+.ubar{display:inline-flex;align-items:center;gap:6px;min-width:104px;width:100%}
+.ubar>i{flex:1;height:5px;border-radius:3px;background:var(--track);overflow:hidden;display:block;min-width:56px}
+.ubar>i>b{display:block;height:100%;border-radius:3px}
+.ubar>em{font-style:normal;font-variant-numeric:tabular-nums;font-size:11px;width:34px;text-align:right;color:var(--soft)}
+.tchip{font-variant-numeric:tabular-nums;font-weight:700}
+.sevtag{font-size:9.5px;font-weight:800;letter-spacing:.06em;white-space:nowrap}
+.hist{display:flex;align-items:flex-end;gap:2px;height:50px;margin-top:4px}
+.hist>i{flex:1;background:var(--ready);border-radius:2px 2px 0 0;min-height:2px}
+.hist>i.hot{background:var(--amber-dim)}
+.hist-x{display:flex;justify-content:space-between;color:var(--muted2);font-size:9.5px;font-family:Menlo,monospace;margin-top:3px}
+.statebar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--track);margin:6px 0 8px}
+.statebar>i{display:block;height:100%}
+/* GPU 패브릭 토폴로지 (obs-fabtopo) */
+.ft-site{background:#0d141d;border:1px solid var(--line);border-radius:9px;padding:12px 14px;margin-bottom:12px}
+.ft-sp{font-family:Menlo,monospace;font-size:9.5px;padding:2px 8px;border-radius:4px;background:#13314f;color:#9fd0ff;border:1px solid #2a4868}
+.ft-sp.b{background:#241b3a;color:#c8a5e8;border-color:#463366}
+.ft-sp.watch{outline:1px dashed var(--amber)}
+.ftc{width:13px;height:13px;border-radius:3px;display:inline-block;background:#1c2f4a}
+.ftc.b{background:#2a2140}
+.ftc.warn{outline:2px solid var(--amber)}.ftc.watch{outline:1px dashed var(--amber)}.ftc.crit{outline:2px solid var(--red)}
+.ft-su{display:flex;align-items:center;gap:8px;padding:2.5px 0}
+.ft-su .lb{font-family:Menlo,monospace;font-size:10px;color:var(--muted);width:56px;flex:none}
+.ft-su .cells{display:flex;gap:2px;flex-wrap:wrap;align-items:center}
+/* 크로스 상관 체인 */
+.chain{display:flex;flex-wrap:wrap;gap:6px;align-items:stretch}
+.chain .stg{flex:1 1 150px;min-width:150px;background:#0d141d;border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+.chain .stg .d{font-size:9.5px;font-weight:800;letter-spacing:.06em}
+.chain .stg .m{color:#fff;font-size:11.5px;font-weight:700;margin-top:2px}
+.chain .stg .v{font-size:11px;color:var(--soft);font-variant-numeric:tabular-nums}
+.chain .stg .s{color:var(--muted2);font-size:9.5px;margin-top:3px;line-height:1.5}
+.chain .arr{align-self:center;color:var(--muted2);flex:none}
+.evrow{display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--muted);padding:2.5px 0}
+.evrow .lb{width:190px;flex:none}
+.evrow i{flex:1;height:5px;border-radius:3px;background:var(--track);overflow:hidden;display:block;max-width:170px}
+.evrow i b{display:block;height:100%;background:var(--amber);border-radius:3px}
+.evrow em{font-style:normal;font-variant-numeric:tabular-nums;color:var(--soft);width:34px;text-align:right}
 </style>
 </head>
 <body>
@@ -191,9 +228,10 @@
       <div class="sb-grp">통합 OBSERVABILITY</div>
       <a class="mi" href="#/obs-overview" data-route="obs-overview"><span class="dot"></span>종합 상황판</a>
       <a class="mi" href="#/obs-gpu" data-route="obs-gpu"><span class="dot"></span>GPU · 컴퓨트 (DCGM)</a>
+      <a class="mi" href="#/obs-fabtopo" data-route="obs-fabtopo"><span class="dot"></span>GPU 패브릭 (UFM)</a>
       <a class="mi" href="#/obs-rack" data-route="obs-rack"><span class="dot"></span>랙 · 전력 (DCIM)</a>
       <a class="mi" href="#/obs-dlc" data-route="obs-dlc"><span class="dot"></span>냉각 · DLC (SMCI CDU)</a>
-      <a class="mi" href="#/obs-fabric" data-route="obs-fabric"><span class="dot"></span>패브릭 상관</a>
+      <a class="mi" href="#/obs-fabric" data-route="obs-fabric"><span class="dot"></span>크로스 상관 (RCA)</a>
       <a class="mi" href="#/obs-slo" data-route="obs-slo"><span class="dot"></span>SLA · Error Budget</a>
       <a class="mi" href="#/obs-alerts" data-route="obs-alerts"><span class="dot"></span>알림 · 이벤트 <span class="bd amber" id="bd-obs-alerts" style="display:none">0</span></a>
     </nav>
@@ -887,11 +925,46 @@
           <select id="obs-gf-state" class="chip" style="appearance:auto;cursor:pointer">
             <option value="">상태: 전체</option><option value="active">active</option><option value="idle">idle</option><option value="throttled">throttled</option><option value="faulted">faulted</option>
           </select>
-          <span class="rt" style="color:var(--muted2);font-size:10.5px">DCGM 텔레메트리 · 행 클릭 시 GPU 상세</span>
+          <select id="obs-gf-sort" class="chip" style="appearance:auto;cursor:pointer">
+            <option value="">정렬: 위치순</option><option value="temp">온도 ↓</option><option value="util">util ↓</option><option value="ecc">ECC ↓</option><option value="power">전력 ↓</option>
+          </select>
+          <span class="chip" id="obs-gf-attn" style="cursor:pointer" title="faulted · throttled · 고온 · ECC · PCIe replay만 표시">예외만</span>
+          <span class="rt" style="color:var(--muted2);font-size:10.5px">DCGM P0 1s · P1 5s — 예외 우선 표시 · 히트맵 셀 클릭 시 SU 필터</span>
         </div>
         <div class="kpi-band" id="obs-gpu-kpi"></div>
+        <!-- 히트맵 · 분포 — 10,080기를 한눈에 -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:18px;margin-bottom:18px">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">플릿 히트맵 — SU × 랙</span><span class="c">셀 = 랙 · 색 = 평균 util · 테두리 = 예외</span></div>
+            <div id="obs-gpu-hm"></div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:10px;color:var(--muted)">
+              <span><span class="leg" style="background:var(--ready)"></span> 유휴 풀</span>
+              <span><span class="leg" style="background:#3f6a1a"></span> util &lt;40%</span>
+              <span><span class="leg" style="background:#5a8f0e"></span> 40–79%</span>
+              <span><span class="leg" style="background:var(--green)"></span> ≥80%</span>
+              <span><span class="leg" style="background:var(--track);outline:1px solid var(--amber)"></span> throttle</span>
+              <span><span class="leg" style="background:var(--track);outline:2px solid var(--red)"></span> fault</span>
+            </div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">상태 · 분포</span><span class="c">가동 GPU 기준 (표본)</span></div>
+            <div id="obs-gpu-dist"></div>
+          </div>
+        </div>
+        <!-- 예외 우선 -->
+        <div class="panel">
+          <div class="ph"><span class="tick amber"></span><span class="t">주의 필요 GPU — 예외 우선</span><span class="c" id="obs-gpu-attn-count">—</span>
+            <span class="rt" style="color:var(--muted2);font-size:10.5px">faulted → throttled → 고온 → ECC 순 · 행 클릭 시 상세</span>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="tbl">
+              <thead><tr><th>위치 (트레이 · GPU)</th><th>상태 · 사유</th><th style="min-width:120px">util</th><th class="num">temp</th><th class="num">전력</th><th class="num">ECC u/c</th><th>테넌트</th><th>권고</th></tr></thead>
+              <tbody id="obs-gpu-attn"></tbody>
+            </table>
+          </div>
+        </div>
         <div class="panel" style="margin-bottom:0">
-          <div class="ph"><span class="tick"></span><span class="t">GPU 플릿</span><span class="c" id="obs-gpu-count">—</span>
+          <div class="ph"><span class="tick"></span><span class="t">GPU 플릿 (전체)</span><span class="c" id="obs-gpu-count">—</span>
             <span class="rt">
               <button class="btn-ghost" style="padding:4px 11px;font-size:11px" data-obs-page="prev">← 이전</button>
               <button class="btn-ghost" style="padding:4px 11px;font-size:11px" data-obs-page="next">다음 →</button>
@@ -899,7 +972,7 @@
           </div>
           <div style="overflow-x:auto">
             <table class="tbl">
-              <thead><tr><th>GPU UUID</th><th>위치</th><th>테넌트</th><th class="num">util</th><th class="num">temp</th><th class="num">전력</th><th class="num">SM clock</th><th>throttle</th><th>health</th></tr></thead>
+              <thead><tr><th>위치</th><th>테넌트</th><th>상태</th><th style="min-width:120px">util</th><th class="num">temp</th><th class="num">전력</th><th class="num">SM clock</th><th class="num">ECC u/c</th><th>health</th></tr></thead>
               <tbody id="obs-gpu-body"></tbody>
             </table>
           </div>
@@ -907,13 +980,32 @@
       </section>
 
       <!-- ════════ ⑮ OBS — 랙 · 전력 (DCIM) ════════ -->
+      <section data-screen="obs-fabtopo">
+        <div class="filters" style="margin-bottom:14px">
+          <span class="obs-src mock" id="obs-src-obs-fabtopo">◌ UFM 미연동 — mock</span>
+          <span style="color:var(--muted2);font-size:10.5px">사이트별 IB 듀얼 패브릭 A/B — 셀 = SU 리프 · 테두리 = 이상 · UFM Telemetry 5s</span>
+        </div>
+        <div class="kpi-band" id="obs-ft-kpi"></div>
+        <div id="obs-ft-topo"></div>
+        <div class="panel" style="margin-bottom:0">
+          <div class="ph"><span class="tick amber"></span><span class="t">이상 링크 — 예측 포함</span><span class="c" id="obs-ft-links-c">SymbolErr · BER · flap · 광모듈 열화</span></div>
+          <div style="overflow-x:auto">
+            <table class="tbl">
+              <thead><tr><th>링크 (스위치 : 포트)</th><th>구간</th><th>증상</th><th>영향 · 우회</th><th>예측 · 신뢰도</th><th>권고</th></tr></thead>
+              <tbody id="obs-ft-links"></tbody>
+            </table>
+          </div>
+          <div class="callout" style="margin-top:10px">rail-optimized 듀얼 패브릭 — 단일 링크 장애는 반대 rail로 우회되어 서비스 영향 없음 · 예측 이상은 정비 창에 자동 편성 제안</div>
+        </div>
+      </section>
+
       <section data-screen="obs-rack">
         <div class="filters" style="margin-bottom:14px">
           <span class="obs-src mock" id="obs-src-obs-rack">◌ twin 미연동 — mock</span>
           <span style="color:var(--muted2);font-size:10.5px">it_power_kw 히트맵 — 셀 클릭 시 랙 상세 · MaxQ 캡 187kW 기준</span>
           <span class="rt" style="gap:12px;font-size:10px;color:var(--muted)" id="obs-rack-leg"></span>
         </div>
-        <div class="kpi-band" id="obs-rack-kpi" style="display:none"></div>
+        <div class="kpi-band" id="obs-rack-ctlkpi" style="display:none"></div>
         <div class="panel">
           <div class="ph"><span class="tick amber"></span><span class="t">전체 랙 제어 — 데모</span><span class="c">Emulator twin 대상 · 실설비 아님 · 1차 클릭 후 3초 내 재클릭 시 실행</span></div>
           <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
@@ -945,6 +1037,29 @@
           </div>
           <div style="color:var(--muted2);font-size:10px;margin-top:8px">전원 Off·Cordon은 테넌트 워크로드 영향 — 인라인 확인 후 실행 · twin 미연동 시 로컬 데모 반영</div>
         </div>
+        <div class="kpi-band" id="obs-rack-kpi"></div>
+        <div class="grid" style="margin-bottom:16px">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">사이트별 전력 추이</span><span class="c">IT 전력 합 · 5s 폴링 누적 (세션)</span></div>
+            <div class="spark">
+              <div class="hd"><span style="color:var(--green-text);font-weight:700">가산</span><span class="v" id="obs-pwr-ga-v">—</span></div>
+              <svg width="100%" height="48" viewBox="0 0 560 48" preserveAspectRatio="none"><polyline id="obs-pwr-ga" points="" fill="none" stroke="var(--green)" stroke-width="1.7"></polyline></svg>
+            </div>
+            <div class="spark" style="margin-top:8px">
+              <div class="hd"><span style="color:#9fd0ff;font-weight:700">안산</span><span class="v" id="obs-pwr-an-v">—</span></div>
+              <svg width="100%" height="48" viewBox="0 0 560 48" preserveAspectRatio="none"><polyline id="obs-pwr-an" points="" fill="none" stroke="#5aa7e8" stroke-width="1.7"></polyline></svg>
+            </div>
+            <div style="color:var(--muted);font-size:11px;margin-top:8px" id="obs-pwr-note">샘플 수집 중…</div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">전체 소비 전력</span><span class="c">IT 합계 · 계약 전력 캡 대비</span></div>
+            <div class="spark">
+              <div class="hd"><span style="color:var(--amber);font-weight:700">전체 IT 전력</span><span class="v" id="obs-pwr-tot-v">—</span></div>
+              <svg width="100%" height="48" viewBox="0 0 560 48" preserveAspectRatio="none"><polyline id="obs-pwr-tot" points="" fill="none" stroke="var(--amber)" stroke-width="1.7"></polyline></svg>
+            </div>
+            <div id="obs-pwr-caps" style="margin-top:12px"></div>
+          </div>
+        </div>
         <div class="panel">
           <div class="ph"><span class="tick"></span><span class="t" id="obs-rack-title">랙 전력 히트맵</span><span class="c" id="obs-rack-c">DCIM · 랙 단위 실측</span></div>
           <div id="obs-rack-map"></div>
@@ -969,7 +1084,7 @@
       <section data-screen="obs-fabric">
         <div class="filters" style="margin-bottom:14px">
           <span class="obs-src mock" id="obs-src-obs-fabric">◌ twin 미연동 — mock</span>
-          <span style="color:var(--muted2);font-size:10.5px">냉각 ↔ GPU ↔ 패브릭 크로스 도메인 상관 분석 (RCA)</span>
+          <span style="color:var(--muted2);font-size:10.5px">냉각 ↔ GPU ↔ 패브릭 크로스 도메인 상관 — 전파 체인 · 증거 기여도 · 자동 그룹화</span>
         </div>
         <div class="grid" style="margin-bottom:16px">
           <div class="panel" style="margin-bottom:0">
@@ -985,8 +1100,12 @@
             <div id="obs-fab-sum"></div>
           </div>
         </div>
+        <div class="panel">
+          <div class="ph"><span class="tick amber"></span><span class="t">상관 체인 상세 — 냉각 → 랙 → GPU → 패브릭 → 테넌트</span><span class="c">시간 순서 · 계층 전파 · 증거</span></div>
+          <div id="obs-fab-chain"></div>
+        </div>
         <div class="panel" style="margin-bottom:0">
-          <div class="ph"><span class="tick red"></span><span class="t">냉각 → 컴퓨트 상관 RCA</span><span class="c" id="obs-fab-c">correlate/cooling</span></div>
+          <div class="ph"><span class="tick red"></span><span class="t">냉각 → GPU → 패브릭 상관 RCA</span><span class="c" id="obs-fab-c">correlate/cooling</span></div>
           <div style="overflow-x:auto">
             <table class="tbl">
               <thead><tr><th>CDU</th><th>Finding</th><th class="num">신뢰도</th><th>영향 랙</th><th class="num">영향 GPU</th><th>테넌트 영향</th><th>권고 조치</th></tr></thead>
