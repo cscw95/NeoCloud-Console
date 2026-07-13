@@ -181,11 +181,11 @@
       </div>
     </div>
 
-    <!-- 유지보수 모드 배너 — 콘솔 정책 레이어 (vrcm 글로벌 모드 API 없음 · localStorage 유지) -->
+    <!-- 유지보수 모드 배너 — 콘솔 정책 레이어 (nocp 글로벌 모드 API 없음 · localStorage 유지) -->
     <div id="maint-banner" class="strip" style="display:none;background:var(--warn-bg);border-bottom:1px solid var(--amber-line)">
       <span class="st amber" style="display:flex;align-items:center;gap:6px"><span class="dot amber"></span>유지보수 모드</span>
       <span style="font-size:12px;color:var(--amber)"><b>신규 프로비저닝 승인 보류 권고</b> · ON <span class="mono tabnum" id="maint-since">—</span></span>
-      <span style="color:var(--muted);font-size:11px">콘솔 정책 레이어 — vrcm 글로벌 모드 API 없음 · 승인 시 경고 확인 1단계 추가</span>
+      <span style="color:var(--muted);font-size:11px">콘솔 정책 레이어 — nocp 글로벌 모드 API 없음 · 승인 시 경고 확인 1단계 추가</span>
       <button class="btn-cancel" style="margin-left:auto;padding:4px 11px;font-size:11px;flex:none" data-act="maint-mode">해제</button>
     </div>
 
@@ -662,7 +662,7 @@
           </div>
         </div>
         <div class="panel" id="perf-strag-panel" style="margin-top:16px;margin-bottom:0;display:none">
-          <div class="ph"><span class="tick amber"></span><span class="t">스트래글러 · 장애 이벤트 — 실시간</span><span class="c">vrcm EMU faults · 미해결 우선</span></div>
+          <div class="ph"><span class="tick amber"></span><span class="t">스트래글러 · 장애 이벤트 — 실시간</span><span class="c">nocp EMU faults · 미해결 우선</span></div>
           <div id="perf-strag-list"></div>
         </div>
       </section>
@@ -712,7 +712,7 @@
           </div>
         </div>
         <div class="panel" id="sec-audit-panel" style="margin-bottom:16px;display:none">
-          <div class="ph"><span class="tick"></span><span class="t">감사 로그 — 최근</span><span class="c" id="sec-audit-c">vrcm 공유 감사 스트림 · 실데이터</span></div>
+          <div class="ph"><span class="tick"></span><span class="t">감사 로그 — 최근</span><span class="c" id="sec-audit-c">nocp 공유 감사 스트림 · 실데이터</span></div>
           <table class="tbl">
             <thead><tr><th style="width:110px">시간</th><th>행위자</th><th>액션</th><th>대상</th><th>결과</th></tr></thead>
             <tbody id="sec-audit-body"></tbody>
@@ -758,7 +758,7 @@
           </div>
         </div>
         <div class="panel" id="chg-equip-panel" style="margin-bottom:16px;display:none">
-          <div class="ph"><span class="tick amber"></span><span class="t">정비 대상 — 실장비 (vrcm)</span><span class="c" id="chg-equip-c">health/equipment · faulted · maintenance · breakfix</span></div>
+          <div class="ph"><span class="tick amber"></span><span class="t">정비 대상 — 실장비 (nocp)</span><span class="c" id="chg-equip-c">health/equipment · faulted · maintenance · breakfix</span></div>
           <table class="tbl">
             <thead><tr><th>종류</th><th>장비 ID</th><th>상태</th><th>테넌트</th><th class="num">조치</th></tr></thead>
             <tbody id="chg-equip-body"></tbody>
@@ -904,7 +904,7 @@
     </table>
     <div style="display:flex;gap:9px;align-items:center;margin-top:12px;background:var(--card-sub);border:1px solid var(--line);border-radius:7px;padding:9px 12px">
       <input type="checkbox" id="cab-apply-now" style="accent-color:var(--amber);margin:0;flex:none">
-      <label for="cab-apply-now" style="margin:0;cursor:pointer;color:var(--muted);font-size:11.5px">즉시 적용 — 승인 즉시 대상 트레이 1대를 <b style="color:var(--amber)">maintenance</b>로 실전환 (vrcm equipment/state · 기본 off = 데모 접수)</label>
+      <label for="cab-apply-now" style="margin:0;cursor:pointer;color:var(--muted);font-size:11.5px">즉시 적용 — 승인 즉시 대상 트레이 1대를 <b style="color:var(--amber)">maintenance</b>로 실전환 (nocp equipment/state · 기본 off = 데모 접수)</label>
     </div>
   </div>
   <div class="mf">
@@ -1002,7 +1002,7 @@
       <div><label>대상 리소스</label><select><option>선택</option><option>su-5-rack-03</option><option>cdu-an-1f-02</option></select></div>
       <div><label>담당</label><select><option>온콜 자동</option><option>oncall-kim</option><option>박준호</option></select></div>
     </div>
-    <div class="callout" style="margin-top:12px">라이브 연동 시 첫 활성 테넌트 앞으로 실 티켓 생성 (P1→critical · P2→high · P3→medium) — vrcm 미기동 시 데모 접수</div>
+    <div class="callout" style="margin-top:12px">라이브 연동 시 첫 활성 테넌트 앞으로 실 티켓 생성 (P1→critical · P2→high · P3→medium) — nocp 미기동 시 데모 접수</div>
   </div>
   <div class="mf">
     <button class="btn-cancel" data-close>취소</button>
@@ -1073,7 +1073,7 @@
 
 <script src="../shared/app.js"></script>
 <script src="../shared/mock-api.js"></script>
-<script src="../shared/vrcm-api.js"></script>
+<script src="../shared/nocp-api.js"></script>
 <script src="../shared/palette.js"></script>
 <script src="app.js"></script>
 </body>

@@ -1,12 +1,12 @@
 /* NeoCloud Biz 콘솔 — 화면 데이터 바인딩 · 모달 액션.
    공통 런타임(../shared/app.js) + mock API(../shared/mock-api.js) 위에서 동작하며,
-   ../shared/vrcm-api.js 가 NC.api 를 교체해 vrcm(:8000) 기동 시 실데이터로 전환된다
+   ../shared/nocp-api.js 가 NC.api 를 교체해 nocp(:8000) 기동 시 실데이터로 전환된다
    (NC.live 플래그 · getter 단위 mock 폴백 · 반환 shape 동일 ·
     라이브 전용 getter(billingUsage/billingRates 등)는 폴백 시 null → 반드시 가드).
    핵심 시나리오:
    - delta-corp 24랙 협상(90%) · 소프트 홀드 su-9·10 D-14 → convert 모달 확정 시
      NC.api.convertDeal("delta-corp") →
-       라이브: 실제 vrcm 테넌트 + 승인 모드 개통 주문 생성({order,pending} 토스트)
+       라이브: 실제 nocp 테넌트 + 승인 모드 개통 주문 생성({order,pending} 토스트)
        폴백:   수주 전환 + 계약 CT-2026-007 추가 → 재렌더
    - "개통 중" 계약 — provision.approved({id,pending,state}) 수신 시 상태 문구 갱신
      (mock 은 gamma-labs ord-9 · 라이브는 note 의 주문 id 로 행 매칭)
@@ -260,7 +260,7 @@
        찾아 신규 리드는 racks 폴백(24)이 되므로, 보드 딜은 racks 를 명시해
        Control-Plane 에 직접 테넌트 + 랙 주문(approval_mode)을 생성한다.
        (delta-corp 만 기존 convert 모달 → NC.api.convertDeal 경로 유지) ── */
-  var CP_BASE = localStorage.getItem("nc-vrcm") || "http://127.0.0.1:8000";
+  var CP_BASE = localStorage.getItem("nc-nocp") || "http://127.0.0.1:8000";
   function cpPost(path, body) {
     return fetch(CP_BASE + path, {
       method: "POST",

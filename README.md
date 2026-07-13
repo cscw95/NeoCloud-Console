@@ -3,7 +3,7 @@
 Three independent single-page-application (SPA) portals for the NeoCloud (GPUaaS)
 business, built from a high-fidelity design handoff. They share one design system
 and a single data scenario, and integrate live with the
-[NeoCloud OS emulator (VRCM)](https://github.com/cscw95/NICo-Emulator).
+[NeoCloud OS emulator (NOCP)](https://github.com/cscw95/NICo-Emulator).
 
 ## Quick Start
 
@@ -17,8 +17,8 @@ bash run.sh        # serves http://127.0.0.1:8090
 | Operations Portal (SRE/NOC) | `/ops/` | oncall-kim | 12 / 13 |
 | Business Portal | `/biz/` | Seoyeon Park (Head of Business) | 11 / 7 |
 
-Optionally start the VRCM backend (`./run.sh` in the NICo-Emulator repo, port 8000)
-— the consoles auto-detect it and switch to live data (a "VRCM live" badge appears
+Optionally start the NOCP backend (`./run.sh` in the NICo-Emulator repo, port 8000)
+— the consoles auto-detect it and switch to live data (a "NOCP live" badge appears
 in the top bar). Without it, every screen falls back to scenario mock data.
 
 ## Project Layout
@@ -32,8 +32,8 @@ shared/app.js        Hash router (#/<menu-id>), modal manager (data-open /
 shared/palette.js    ⌘K command palette (menus + live entities: tenants,
                      orders, tickets, hosts) and notification dropdown
 shared/mock-api.js   Scenario dataset + action API (Promise-based)
-shared/vrcm-api.js   Live adapter — same API surface as the mock, backed by
-                     VRCM REST with per-getter mock fallback
+shared/nocp-api.js   Live adapter — same API surface as the mock, backed by
+                     NOCP REST with per-getter mock fallback
 <console>/index.html Screens (`section[data-screen]`) and dialogs
                      (`.modal-ov[data-modal]`) — tokenized markup
 <console>/app.js     Screen renderers, live bindings, action handlers
@@ -46,16 +46,16 @@ shared/vrcm-api.js   Live adapter — same API surface as the mock, backed by
 - **Cross-portal effects** propagate over the `NC.bus` event bus
   (e.g. `provision.approved`, `deal.converted`, `incident.resolved`).
 
-## Live NeoCloud OS Control Plane (VRCM) Integration
+## Live NeoCloud OS Control Plane (NOCP) Integration
 
-`shared/vrcm-api.js` probes VRCM at `http://127.0.0.1:8000`. When reachable, all
+`shared/nocp-api.js` probes NOCP at `http://127.0.0.1:8000`. When reachable, all
 getters return live data; on failure each getter falls back to the mock
 individually, so the consoles always work.
 
 End-to-end flow that runs for real:
 
 1. **Business** — converting a pipeline deal creates a real tenant and an
-   approval-mode provisioning order in VRCM.
+   approval-mode provisioning order in NOCP.
 2. **Operations** — the approval gate advances the order one lifecycle stage per
    click (7 gates: intake → policy/placement → reserve → provision → isolate →
    storage → acceptance) until delivery.
@@ -71,11 +71,11 @@ The Operations console also supports a **site scope** (All / Gasan / Ansan) that
 re-aggregates the Overview KPIs, rack map, incidents and alerts per site —
 deep-linkable via `#/overview?scope=ansan`.
 
-Domains without a VRCM counterpart (sales pipeline, capacity expansion plan,
+Domains without a NOCP counterpart (sales pipeline, capacity expansion plan,
 sanitization walkthrough) stay on scenario mock data by design.
 
-To point at a different VRCM host:
-`localStorage.setItem("nc-vrcm", "http://<host>:<port>")`.
+To point at a different NOCP host:
+`localStorage.setItem("nc-nocp", "http://<host>:<port>")`.
 
 ## Data Scenario (consistent across all three consoles)
 
@@ -91,7 +91,7 @@ To point at a different VRCM host:
 
 ## Production Adoption Notes
 
-1. Replace the getters in `shared/vrcm-api.js` with your production REST calls
+1. Replace the getters in `shared/nocp-api.js` with your production REST calls
    (keep the signatures).
 2. Keep optimistic updates for action APIs; re-emit bus events after server
    confirmation.

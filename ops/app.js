@@ -1,6 +1,6 @@
 /* NeoCloud Ops 콘솔 — 화면 렌더 + NC.api 바인딩
    (shared/app.js: 라우터·모달·토스트·버스 / shared/mock-api.js: mock 데이터 /
-    shared/vrcm-api.js: vrcm(:8000) 기동 시 NC.api 라이브 교체 · NC.live 플래그)
+    shared/nocp-api.js: nocp(:8000) 기동 시 NC.api 라이브 교체 · NC.live 플래그)
    라이브 시: provisioning은 단계 게이트(1회 승인 = 1단계 전진), overview KPI는
    scale()/equipment()/incidents() 실수치, capacity 사이트 표는 sitesInventory(). */
 (function () {
@@ -11,7 +11,7 @@
   /* 상태 캐시 (NC.api 결과) */
   var prov = null;   // 프로비저닝 승인 대기 주문 (mock: ord-9)
   var incs = null;   // 인시던트 목록
-  /* ── 라이브 연동 캐시 (vrcm 실데이터 · mock 시 null) ── */
+  /* ── 라이브 연동 캐시 (nocp 실데이터 · mock 시 null) ── */
   var assetsCache = null;                       // fake-nico hosts 전체
   var assetsFilter = { site: "", state: "", q: "", offset: 0 };
   var PAGE = 12;
@@ -249,7 +249,7 @@
         /* ── 사이트 스코프: 해당 사이트 집계로 전환 ── */
         if (scopeName()) { renderScopedKpi(el, list, r[1] || []); return; }
 
-        /* ── 라이브: vrcm 인벤토리 실수치 (null 안전) ── */
+        /* ── 라이브: nocp 인벤토리 실수치 (null 안전) ── */
         if (NC.live && s && s.capped_mw != null) {
           var racks = s.racks_total || 0;
           var sites = s.sites || [];
@@ -277,7 +277,7 @@
               unhealthy ? "amber" : "green",
               kpiSub(breakfix != null ? "breakfix 노드 " + fmt(breakfix) : "equipment 집계 없음")) +
             kpiCell("알림 (24h)", String(alerts), alerts ? "amber" : "green",
-              kpiSub("vrcm 장애 이벤트 기반"));
+              kpiSub("nocp 장애 이벤트 기반"));
           return;
         }
 
@@ -313,10 +313,10 @@
   }
 
   /* ══ ④ 프로비저닝 — 승인 게이트 ═══════════════════════════
-     라이브(vrcm): 단계 게이트 — pending_stage가 다음 관문, 1회 승인 = 1단계 전진.
+     라이브(nocp): 단계 게이트 — pending_stage가 다음 관문, 1회 승인 = 1단계 전진.
      mock: ord-9 단일 승인(approval_pending → provisioning).                    */
   var PROV_STEPS = ["접수", "정책·배치", "예약", "프로비저닝", "격리", "스토리지", "인수검증", "인도"];
-  /* vrcm 주문 단계명 — PROV_STEPS와 1:1 매핑 */
+  /* nocp 주문 단계명 — PROV_STEPS와 1:1 매핑 */
   var PROV_STAGES = ["received", "validated", "reserved", "provisioning",
                      "isolating", "storage_binding", "acceptance", "delivered"];
 
@@ -373,7 +373,7 @@
         '<div style="color:var(--muted);font-size:11.5px;margin-top:8px;' +
         'border-top:1px dashed var(--line);padding-top:8px">' +
         (NC.live
-          ? "vrcm 승인 게이트 — 1회 승인 = 1단계 전진 · P_Key " + (p.pkey_reserved || "—") +
+          ? "nocp 승인 게이트 — 1회 승인 = 1단계 전진 · P_Key " + (p.pkey_reserved || "—") +
             " · 접수 " + (p.requested_at || "—") +
             (delivered ? " · 전체 게이트 통과 (인도 완료)"
               : pendStage ? " · 잔여 게이트 " +
@@ -555,7 +555,7 @@
       : "■ " + resvName + " 예약 (" + prov.id + ")";
   }
 
-  /* ══ ⑧ 인시던트 — 라이브: vrcm 장애 이벤트 리스트 · mock: INC-0412 ══ */
+  /* ══ ⑧ 인시던트 — 라이브: nocp 장애 이벤트 리스트 · mock: INC-0412 ══ */
   function liveIncCard(i) {
     var resolved = i.state === "resolved";
     var last = (i.timeline && i.timeline.length)
@@ -831,7 +831,7 @@
     apiOr("hostHardware", hostId).then(function (h) {
       if (!h) {
         setHtml("hw-body",
-          '<div style="color:var(--muted);font-size:12px">하드웨어 정보 없음 — vrcm 미기동(mock) 상태</div>');
+          '<div style="color:var(--muted);font-size:12px">하드웨어 정보 없음 — nocp 미기동(mock) 상태</div>');
         return;
       }
       var fw = h.firmware || {};
@@ -1029,7 +1029,7 @@
             }).join("");
             return rows;
           }).join("");
-          setTxt("pw-sites-c", "vrcm 인벤토리 + EMU 실측 — 사이트 배분은 GPU 할당 비례 추정");
+          setTxt("pw-sites-c", "nocp 인벤토리 + EMU 실측 — 사이트 배분은 GPU 할당 비례 추정");
         }
         var line = $("#pw-spark-line");
         if (line) line.setAttribute("points",
@@ -1140,7 +1140,7 @@
     }).join("") ||
       '<div style="color:var(--muted);font-size:11.5px;margin-top:6px">활성 세션 없음 — [+ 세션 열기]로 실세션 생성</div>';
     setTxt("kpi-pam", String(act.length));
-    setTxt("kpi-pam-s", act.length ? "녹화 중 · vrcm 실세션" : "활성 없음 · PAM 실연동");
+    setTxt("kpi-pam-s", act.length ? "녹화 중 · nocp 실세션" : "활성 없음 · PAM 실연동");
   }
 
   function renderSecurityLive() {
@@ -1163,7 +1163,7 @@
               td('<span class="st ' + (ok ? "green" : "red") + '">' + esc(a.result || "—") + "</span>") +
               "</tr>";
           }).join("");
-          setTxt("sec-audit-c", "vrcm 감사 스트림 — 최근 " + audit.length + "건 (실데이터)");
+          setTxt("sec-audit-c", "nocp 감사 스트림 — 최근 " + audit.length + "건 (실데이터)");
         }
         /* ② PAM 세션 목록 — 실데이터 */
         if (pams) renderPamList(pams);
@@ -1200,7 +1200,7 @@
             box.style.display = "";
             box.innerHTML =
               '<div style="font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px">' +
-              "실 Sanitize 리포트 — " + esc(rep.host_id || cand.host_id) + " (vrcm)</div>" +
+              "실 Sanitize 리포트 — " + esc(rep.host_id || cand.host_id) + " (nocp)</div>" +
               '<div class="mono" style="font-size:10.5px;color:var(--soft);word-break:break-all">' +
               esc(JSON.stringify(rep).slice(0, 400)) + "</div>";
           });
@@ -1216,7 +1216,7 @@
       panel.style.display = "";
       var tot = eq.totals || {};
       setTxt("chg-equip-c", "unhealthy " + (tot.unhealthy_equipment != null ? tot.unhealthy_equipment : "—") +
-        " · breakfix " + (tot.breakfix_nodes != null ? tot.breakfix_nodes : "—") + " — vrcm 실장비 상태");
+        " · breakfix " + (tot.breakfix_nodes != null ? tot.breakfix_nodes : "—") + " — nocp 실장비 상태");
       var list = eq.faulted_equipment || [];
       body.innerHTML = list.map(function (x) {
         return "<tr>" + td(esc(x.kind || "—")) +
@@ -1249,7 +1249,7 @@
   }
 
   /* ══ 톱바 보조 기능 ═══════════════════════════════════════ */
-  /* ① 유지보수 모드 — 콘솔 정책 레이어 토글 (vrcm 글로벌 모드 API 없음).
+  /* ① 유지보수 모드 — 콘솔 정책 레이어 토글 (nocp 글로벌 모드 API 없음).
      ON: amber 배너 + 버튼 활성 + provisioning 승인에 confirm 1단계.
      상태는 localStorage(nc-ops-maint = ON ISO 시각)로 유지. */
   var MAINT_KEY = "nc-ops-maint";
@@ -1458,7 +1458,7 @@
       if (NC.live && rmaTarget) {
         apiOr("equipmentSet", "tray", rmaTarget, "maintenance").then(function (r) {
           NC.closeModal("rma");
-          if (!r) { NC.toast("장비 전환 실패 — vrcm 응답 없음", "warn"); return; }
+          if (!r) { NC.toast("장비 전환 실패 — nocp 응답 없음", "warn"); return; }
           NC.toast("RMA 발행 — " + rmaTarget + " → maintenance 전환 (실장비) · 반출 전 Sanitization 자동", "warn");
           rmaTarget = null;
           renderAssets(); renderChange(); renderOverviewKpi();
@@ -1495,7 +1495,7 @@
       }
     } else if (act === "equip-restore") {       // 정비 대상 목록 → 복구
       apiOr("equipmentSet", el.dataset.kind || "tray", el.dataset.id, "ready").then(function (r) {
-        if (!r) { NC.toast("복구 실패 — vrcm 응답 없음", "warn"); return; }
+        if (!r) { NC.toast("복구 실패 — nocp 응답 없음", "warn"); return; }
         NC.toast((el.dataset.id || "") + " → " + (r.state || "ready") + " 복구 완료 (실장비)");
         renderChange(); renderAssets(); renderOverviewKpi();
       });
@@ -1504,19 +1504,19 @@
       var pRsn = (($("#pam-reason") || {}).value || "").trim() || "운영 점검";
       apiOr("pamOpen", { operator: "oncall-kim", target: pTgt, reason: pRsn }).then(function (r) {
         NC.closeModal("pam_new");
-        if (!r) { NC.toast("PAM 세션 생성 (데모) — vrcm 미기동 시뮬레이션", "warn"); return; }
+        if (!r) { NC.toast("PAM 세션 생성 (데모) — nocp 미기동 시뮬레이션", "warn"); return; }
         NC.toast(r.id + " 세션 열림 — " + pTgt + " · TTL " +
           Math.round((r.ttl_s || 900) / 60) + "분 · 녹화 시작", "warn");
         apiOr("pamSessions").then(function (p) { if (p) renderPamList(p); });
       });
     } else if (act === "pam-close") {           // PAM 세션 실 종료
       apiOr("pamClose", el.dataset.id).then(function (r) {
-        if (!r) { NC.toast("세션 종료 실패 — vrcm 응답 없음", "warn"); return; }
+        if (!r) { NC.toast("세션 종료 실패 — nocp 응답 없음", "warn"); return; }
         NC.toast(el.dataset.id + " 세션 종료 — 녹화 봉인 · 감사 로그 기록");
         apiOr("pamSessions").then(function (p) { if (p) renderPamList(p); });
       });
     } else if (act === "iso-recheck") {         // 격리 재검증
-      if (NC.live) { renderSecurityLive(); NC.toast("격리 재검증 실행 — vrcm isolation 4-plane 검사"); }
+      if (NC.live) { renderSecurityLive(); NC.toast("격리 재검증 실행 — nocp isolation 4-plane 검사"); }
       else NC.toast(el.dataset.msg || "재검증 시작", el.dataset.kind);
     } else if (act === "maint-mode") {          // 유지보수 모드 토글 (콘솔 정책 레이어)
       if (maintOn()) {
@@ -1524,7 +1524,7 @@
         NC.toast("유지보수 모드 해제 — 프로비저닝 승인 경고 확인 제거 (원복)");
       } else {
         try { localStorage.setItem(MAINT_KEY, new Date().toISOString()); } catch (e) {}
-        NC.toast("유지보수 모드 ON — 신규 프로비저닝 승인 보류 권고 · 콘솔 정책 레이어 (vrcm 글로벌 모드 아님)", "warn");
+        NC.toast("유지보수 모드 ON — 신규 프로비저닝 승인 보류 권고 · 콘솔 정책 레이어 (nocp 글로벌 모드 아님)", "warn");
       }
       renderMaintMode();
     } else if (act === "incident-create") {     // 인시던트 수동 생성 → 실 티켓
@@ -1543,7 +1543,7 @@
         if (ti) ti.value = "";
         if (res) {
           NC.toast(res.tk.id + " 실 티켓 생성 — " + (res.tenant.name || res.tenant.id) +
-            " · " + sevP + "→" + (res.tk.severity || "") + " (vrcm)");
+            " · " + sevP + "→" + (res.tk.severity || "") + " (nocp)");
           renderIncidents();
         } else {
           NC.toast("인시던트 생성 (데모) — 온콜 자동 배정 · 알림 룰 연동", "warn");
@@ -1566,7 +1566,7 @@
       if (!applyNow || !NC.live) {
         NC.closeModal("cab");
         NC.toast(applyNow && !NC.live
-          ? "즉시 적용 불가 — vrcm 미기동 · 데모 접수로 처리"
+          ? "즉시 적용 불가 — nocp 미기동 · 데모 접수로 처리"
           : (el.dataset.msg || "CAB 변경 승인 (데모 접수)"),
           applyNow && !NC.live ? "warn" : undefined);
       } else {                                  // on: 대상 트레이 1대 실전환
@@ -1583,7 +1583,7 @@
             }
             apiOr("equipmentSet", "tray", cand.tray_id, "maintenance").then(function (r) {
               NC.closeModal("cab");
-              if (!r) { NC.toast("즉시 적용 실패 — vrcm 응답 없음 (데모 접수)", "warn"); return; }
+              if (!r) { NC.toast("즉시 적용 실패 — nocp 응답 없음 (데모 접수)", "warn"); return; }
               NC.toast("CAB-88 승인 + 즉시 적용 — " + cand.tray_id +
                 " → maintenance 실전환 (변경 창 07-21 유지)", "warn");
               renderChange(); renderAssets(); renderOverviewKpi();

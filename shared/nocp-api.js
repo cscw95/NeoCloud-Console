@@ -1,11 +1,11 @@
-/* VRCM 실연동 어댑터 — mock-api.js 다음에 로드되어 NC.api를 라이브 구현으로 교체.
-   원칙: ① mock과 동일한 반환 shape ② vrcm(:8000) 미기동 시 getter 단위 mock 폴백
-   ③ vrcm에 대응물이 없는 도메인(pipeline·expansion·sanitization)은 mock 유지.
+/* NOCP 실연동 어댑터 — mock-api.js 다음에 로드되어 NC.api를 라이브 구현으로 교체.
+   원칙: ① mock과 동일한 반환 shape ② nocp(:8000) 미기동 시 getter 단위 mock 폴백
+   ③ nocp에 대응물이 없는 도메인(pipeline·expansion·sanitization)은 mock 유지.
    크로스 포털 흐름: 비즈 convertDeal→실제 테넌트+승인주문 생성 → 운영 approve→
    POST /orders/{id}/approve (단계 게이트) → 고객 콘솔에서 실 클러스터 조회. */
 (function () {
   const NC = (window.NC = window.NC || {});
-  const BASE = localStorage.getItem("nc-vrcm") || "http://127.0.0.1:8000";
+  const BASE = localStorage.getItem("nc-nocp") || "http://127.0.0.1:8000";
   const V = BASE + "/api/v1";
   const mock = Object.assign({}, NC.api);   // 폴백 보관
 
@@ -200,7 +200,7 @@
       });
     },
 
-    /* ── 액션: 실제 vrcm 라이프사이클 ───────────────────── */
+    /* ── 액션: 실제 nocp 라이프사이클 ───────────────────── */
     async approveProvision() {
       const p = await liveApi.provisioning();
       if (!p || p.state !== "approval_pending")
@@ -338,7 +338,7 @@
     wrapped[k] = async function (...args) {
       if (liveApi[k] && await live()) {
         try { return await liveApi[k](...args); }
-        catch (e) { console.warn("[vrcm-api]", k, "폴백:", e.message); }
+        catch (e) { console.warn("[nocp-api]", k, "폴백:", e.message); }
       }
       return mock[k](...args);
     };
@@ -347,7 +347,7 @@
     if (!wrapped[k]) wrapped[k] = async function (...args) {
       if (await live()) {
         try { return await liveApi[k](...args); } catch (e) {
-          console.warn("[vrcm-api]", k, e.message); return null; }
+          console.warn("[nocp-api]", k, e.message); return null; }
       }
       return null;
     };

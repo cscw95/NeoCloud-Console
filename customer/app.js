@@ -1,7 +1,7 @@
 /* NeoCloud 고객 콘솔 — 화면 렌더러 · Control-Plane 실연동 + mock 폴백.
    라우팅/모달/토스트/버스는 ../shared/app.js,
-   데이터는 ../shared/mock-api.js → ../shared/vrcm-api.js 가 NC.api를
-   라이브 어댑터로 교체(vrcm :8000 기동 시 실데이터, 아니면 mock 폴백).
+   데이터는 ../shared/mock-api.js → ../shared/nocp-api.js 가 NC.api를
+   라이브 어댑터로 교체(nocp :8000 기동 시 실데이터, 아니면 mock 폴백).
    테넌트 스코프: NC.api.currentTenant() 기준 — 사이드바 select로 전환.
    2차 풀연동: clusters(emuClusters+setWorkload 전환) · images(spec 카탈로그)
    · settings(iamRealm) · alerts(faultMetrics KPI) · network(leases 필터)
@@ -154,7 +154,7 @@
     };
   }
 
-  /* ══ 현재 테넌트 (라이브: vrcm 테넌트 / 폴백: mock fin-corp) ═══ */
+  /* ══ 현재 테넌트 (라이브: nocp 테넌트 / 폴백: mock fin-corp) ═══ */
   var curTenant = null;
   function loadTenant() {
     if (!NC.api || !NC.api.currentTenant) return Promise.resolve(curTenant);
@@ -458,7 +458,7 @@
         : '<div class="ccard" style="color:var(--muted);font-size:11.5px">' +
           "클러스터 없음 — 주문 승인·프로비저닝 완료 후 표시됩니다</div>";
       if (mine.length) {
-        // vrcm /tenants 목록엔 allocations가 없어 racks=0으로 옴 —
+        // nocp /tenants 목록엔 allocations가 없어 racks=0으로 옴 —
         // emu 텔레메트리로 보정 (NVL72: 트레이 18개/랙 · GPU 72/랙)
         var gpus = mine.reduce(function (a, c) { return a + (c.gpus || 0); }, 0);
         var racks = Math.round(mine.reduce(function (a, c) {
@@ -1261,7 +1261,7 @@
 
   /* ══ 클러스터 — emuClusters() 실카드 + 워크로드 프로파일 전환 ═══
      라이브: #cl-live에 패널 렌더·정적(#cl-static) 숨김 · KPI 실집계.
-     폴백(vrcm 다운): emuClusters()가 null → 정적 prod-training 패널 유지 */
+     폴백(nocp 다운): emuClusters()가 null → 정적 prod-training 패널 유지 */
   var WL_PROFILES = ["training", "inference"];
 
   function clusterLivePanel(c, t) {
@@ -1360,7 +1360,7 @@
   /* ══ 이미지 — spec() 블루프린트 카탈로그 실렌더 (폴백: 정적 표 유지)
      상세 사양(세대·MaxQ/MaxP)은 /api/v1/blueprints 보강 — 실패해도
      spec 기반으로 렌더. 커스텀 이미지 행(#images-custom)은 항상 유지 */
-  var VRCM_BASE = localStorage.getItem("nc-vrcm") || "http://127.0.0.1:8000";
+  var NOCP_BASE = localStorage.getItem("nc-nocp") || "http://127.0.0.1:8000";
 
   function bpRow(key, b, sp) {
     var perSu = (sp.racks_per_su || {})[key];
@@ -1388,7 +1388,7 @@
     if (!NC.api.spec) return;
     NC.api.spec().then(function (sp) {
       if (!sp || !sp.blueprints || !sp.blueprints.length) return; // 폴백
-      fetch(VRCM_BASE + "/api/v1/blueprints")
+      fetch(NOCP_BASE + "/api/v1/blueprints")
         .then(function (r) { return r.ok ? r.json() : null; })
         .catch(function () { return null; })
         .then(function (bps) {
@@ -1409,7 +1409,7 @@
 
   /* ══ 설정 — iamRealm(tid): realm·롤 3종·클라이언트 표 실렌더.
      apikey 발급 이력(localStorage)을 클라이언트별로 연계 표기.
-     폴백(vrcm 다운): iamRealm null → 패널 숨김 · 정적 멤버 표 유지 */
+     폴백(nocp 다운): iamRealm null → 패널 숨김 · 정적 멤버 표 유지 */
   function renderSettings() {
     loadTenant().then(function (t) {
       var panel = $("#iam-realm-panel");
@@ -1478,7 +1478,7 @@
   /* ══ 모달 확정 액션 ═══════════════════════════════════════════
      라이브 실연동: ticket(createTicket) · create_cluster/resize(createOrder)
      · reclaim(terminateOrder) · apikey(iamToken).
-     vrcm 대응물 없는 액션·폴백: 데모 토스트 유지 — "(PoC 미연동)" 명시. */
+     nocp 대응물 없는 액션·폴백: 데모 토스트 유지 — "(PoC 미연동)" 명시. */
   var ACTION_TOAST = {
     create_cluster: "클러스터 주문 요청이 접수되었습니다 (데모) — 운영 승인 게이트로 전달",
     resize:         "사이즈 조정(32→40랙) 요청이 접수되었습니다 (데모)",
