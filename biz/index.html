@@ -339,7 +339,7 @@
             <div class="ph"><span class="tick"></span><span class="t">RFI / RFQ 접수함</span><span class="c">응답 SLA 5영업일</span></div>
             <div class="deal blue">
               <div class="hd"><b class="id" style="font-size:11px">RFQ-031</b><span class="soft" style="font-size:12px">공공 AI 센터 — 32랙 · CSAP 필수</span><span class="fr st blue">응답 D-3</span></div>
-              <div class="sub">견적 자동산정 완료 · 물리 분리 구성안 첨부 대기 — <a href="#/rfq" style="font-weight:700">응답서 편집 →</a></div>
+              <div class="sub">견적 자동산정 완료 · 물리 분리 구성안 첨부 대기 — <a style="font-weight:700;color:var(--soft);cursor:pointer" data-demo="RFQ-031 응답서 편집기 열기">응답서 편집 →</a></div>
             </div>
             <div class="deal done">
               <div class="hd"><b class="id mut" style="font-size:11px">RFQ-030</b><span class="soft" style="font-size:12px">kappa-search — 8랙</span><span class="fr st green">응답 완료</span></div>
@@ -349,23 +349,23 @@
             </div>
           </div>
           <div class="panel" style="margin-bottom:0">
-            <div class="ph"><span class="tick"></span><span class="t">견적 자동산정</span><span class="c">랙 수 · 전력 · GPU 기반 · 가격표 v2.4</span></div>
+            <div class="ph"><span class="tick"></span><span class="t">견적 자동산정</span><span class="c" id="rfq-rate-cap">랙 수 · 전력 · GPU 기반 · 가격표 v2.4</span></div>
             <div class="qchips">
               <span class="qchip">VR NVL72 ▾</span>
               <span class="qchip">랙 32</span>
               <span class="qchip">reserved 3y ▾</span>
-              <button class="btn" type="button">산정</button>
+              <button class="btn" id="rfq-calc-btn" type="button">산정</button>
             </div>
             <table class="tbl">
               <tbody>
-                <tr><td>컴퓨트 32랙 × $686/rack-h (3y -30%)</td><td class="num id">$15.8M/월</td></tr>
+                <tr><td>컴퓨트 32랙 × <span id="rfq-rate-txt">$686</span>/rack-h (3y -30%)</td><td class="num id" id="rfq-compute">$15.8M/월</td></tr>
                 <tr><td>스토리지 16PB · QoS 1,280GB/s</td><td class="num id">$0.4M/월</td></tr>
-                <tr><td style="font-weight:700;color:var(--strong)">36개월 TCV</td><td class="num id" style="color:var(--green-text);font-weight:700;font-size:12px">$583.2M</td></tr>
+                <tr><td style="font-weight:700;color:var(--strong)">36개월 TCV</td><td class="num id" id="rfq-tcv" style="color:var(--green-text);font-weight:700;font-size:12px">$583.2M</td></tr>
               </tbody>
             </table>
             <div style="display:flex;gap:8px;margin-top:10px">
-              <button class="btn-ghost" type="button">견적서 PDF ↓</button>
-              <button class="btn-plain" type="button">CRM에 저장</button>
+              <button class="btn-ghost" type="button" data-demo="RFQ-031 견적서 PDF 생성">견적서 PDF ↓</button>
+              <button class="btn-plain" type="button" data-demo="견적을 CRM 딜에 저장">CRM에 저장</button>
             </div>
           </div>
         </div>
@@ -385,7 +385,7 @@
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick amber"></span><span class="t">갱신 · 해지 알림</span></div>
             <div class="list">
-              <div class="li"><span class="dot amber"></span><span><b class="soft">acme-ai 갱신 <span class="js-acme-d">D-83</span></b> — util 64% 축소 리스크 · on-demand 전환 + 업셀 제안</span><span class="rt" style="color:var(--green);font-weight:700;cursor:pointer">플레이북 →</span></div>
+              <div class="li"><span class="dot amber"></span><span><b class="soft">acme-ai 갱신 <span class="js-acme-d">D-83</span></b> — util 64% 축소 리스크 · on-demand 전환 + 업셀 제안</span><span class="rt" style="color:var(--green);font-weight:700;cursor:pointer" data-demo="acme-ai 갱신 플레이북 — EBO 미팅·사용량 리뷰·확장 제안">플레이북 →</span></div>
               <div class="li"><span class="dot blue"></span><span><b class="soft">beta-ai 갱신 D-267</b> — 확장 의향 조사 예정 (Q4)</span></div>
               <div class="li"><span class="dot green"></span><span><b class="soft">fin-corp</b> — 안정 · 분기 리뷰 07-22</span></div>
             </div>
