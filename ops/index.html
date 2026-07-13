@@ -120,10 +120,21 @@
 .obs-hmrow{display:flex;align-items:flex-start;gap:8px;padding:4px 0}
 .obs-hmrow .lb{font-family:Menlo,monospace;font-size:10px;color:var(--muted);width:96px;flex:none;padding-top:4px}
 .obs-hm{display:flex;gap:3px;flex-wrap:wrap;align-items:center}
-.obs-hm .hc{width:20px;height:20px;border-radius:4px;background:var(--track);cursor:pointer;flex:none}
+.obs-hm .hc{width:20px;height:20px;border-radius:4px;background:var(--track);cursor:pointer;flex:none;position:relative;display:flex;align-items:center;justify-content:center;font-family:Menlo,monospace;font-size:6px;font-weight:800;letter-spacing:0}
 .obs-hm .hc.th{outline:1px solid var(--amber)}
 .obs-hm .hc.crit{outline:2px solid var(--red)}
 .obs-hm .hc.sel{outline:2px solid #fff}
+/* 랙 제어 상태 — OFF / cordon(사선) / power cap(하단 파란 보더) */
+.obs-hm .hc.off{background:#1a212b;color:#5f6f82;outline:1px solid #2a3644}
+.obs-hm .hc.off.sel{outline:2px solid #fff}
+.obs-hm .hc.cord::after{content:"";position:absolute;inset:0;border-radius:4px;background:repeating-linear-gradient(45deg,transparent 0 3px,rgba(240,163,176,.45) 3px 5px);pointer-events:none}
+.obs-hm .hc.capd{box-shadow:inset 0 -3px 0 var(--blue)}
+/* 랙 제어 버튼 — 2단계 인라인 확인(armed) */
+.obs-rcb{padding:6px 12px;font-size:11px}
+.obs-rcb.armed{background:var(--amber);color:#241c05;border-color:var(--amber);font-weight:800}
+.btn-danger.obs-rcb.armed{background:var(--red);color:#2a0f15;border-color:var(--red)}
+.obs-inp{background:var(--card-sub);border:1px solid var(--line);border-radius:7px;padding:6px 10px;color:#fff;font-size:11.5px;font-family:inherit;width:86px}
+.obs-inp:focus{outline:none;border-color:var(--muted2)}
 .cdu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;align-items:start}
 .cdu-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px 15px;cursor:pointer}
 .cdu-card>div{align-items:center}
@@ -901,6 +912,38 @@
           <span class="obs-src mock" id="obs-src-obs-rack">◌ twin 미연동 — mock</span>
           <span style="color:var(--muted2);font-size:10.5px">it_power_kw 히트맵 — 셀 클릭 시 랙 상세 · MaxQ 캡 187kW 기준</span>
           <span class="rt" style="gap:12px;font-size:10px;color:var(--muted)" id="obs-rack-leg"></span>
+        </div>
+        <div class="kpi-band" id="obs-rack-kpi" style="display:none"></div>
+        <div class="panel">
+          <div class="ph"><span class="tick amber"></span><span class="t">전체 랙 제어 — 데모</span><span class="c">Emulator twin 대상 · 실설비 아님 · 1차 클릭 후 3초 내 재클릭 시 실행</span></div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+            <select id="obs-rc-scope" class="chip" style="appearance:auto;cursor:pointer">
+              <option value="all">범위: 전체 140랙</option>
+              <option value="site:gasan">사이트: 가산</option>
+              <option value="site:ansan">사이트: 안산</option>
+            </select>
+            <button class="btn-ghost obs-rcb" data-obs-rctl="power_on" data-key="bulk:power_on">전원 On</button>
+            <button class="btn-danger obs-rcb" data-obs-rctl="power_off" data-key="bulk:power_off">전원 Off</button>
+            <button class="btn-warn obs-rcb" data-obs-rctl="restart" data-key="bulk:restart">재시작</button>
+            <button class="btn-warn obs-rcb" data-obs-rctl="cordon" data-key="bulk:cordon">Cordon</button>
+            <button class="btn-ghost obs-rcb" data-obs-rctl="uncordon" data-key="bulk:uncordon">Uncordon</button>
+            <span style="width:1px;height:22px;background:var(--line);flex:none"></span>
+            <input id="obs-rc-cap" class="obs-inp" type="number" min="1" step="1" placeholder="Cap 값">
+            <select id="obs-rc-capu" class="chip" style="appearance:auto;cursor:pointer">
+              <option value="kw">kW</option><option value="pct">%</option>
+            </select>
+            <button class="btn-warn obs-rcb" data-obs-rctl="power_cap" data-key="bulk:power_cap">Power Cap 적용</button>
+            <button class="btn-ghost obs-rcb" data-obs-rctl="power_uncap" data-key="bulk:power_uncap">Cap 해제</button>
+            <span style="width:1px;height:22px;background:var(--line);flex:none"></span>
+            <select id="obs-rc-profile" class="chip" style="appearance:auto;cursor:pointer">
+              <option value="idle">프로필: idle</option>
+              <option value="steady" selected>프로필: steady</option>
+              <option value="train">프로필: train</option>
+              <option value="burst">프로필: burst</option>
+            </select>
+            <button class="btn-ghost obs-rcb" data-obs-rctl="workload" data-key="bulk:workload">프로필 적용</button>
+          </div>
+          <div style="color:var(--muted2);font-size:10px;margin-top:8px">전원 Off·Cordon은 테넌트 워크로드 영향 — 인라인 확인 후 실행 · twin 미연동 시 로컬 데모 반영</div>
         </div>
         <div class="panel">
           <div class="ph"><span class="tick"></span><span class="t" id="obs-rack-title">랙 전력 히트맵</span><span class="c" id="obs-rack-c">DCIM · 랙 단위 실측</span></div>
