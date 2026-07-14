@@ -174,9 +174,14 @@
     },
     async alerts() {
       const f = await raw(V + "/emu/faults");
-      const a = (f.recent || []).slice(0, 5).map((x, i) => ({
+      const rec = (f.recent || []).slice();
+      // firing 우선 상위 6건 — 트윈 전 도메인(랙 제어·냉각·패브릭·스토리지) 포함
+      rec.sort((x, y) => (x.resolved === y.resolved) ? 0 : (x.resolved ? 1 : -1));
+      const a = rec.slice(0, 6).map((x, i) => ({
         id: "AL-" + (300 + i), sev: x.resolved ? "info" : "warn",
-        msg: `${x.tray_id || "tray"} XID ${x.xid}` +
+        msg: (x.kind && x.kind !== "reprovision" && x.detail
+                ? x.detail.slice(0, 72)
+                : `${x.tray_id || "tray"} XID ${x.xid}`) +
              (x.resolved ? " — 복구 완료" : " — 대응 중"),
         at: (x.at || "").slice(5, 16) }));
       return a.length ? a : mock.alerts();
