@@ -106,15 +106,29 @@
         var nm = (st.name || "").indexOf("가산") >= 0 ? "가산"
                : (st.name || "").indexOf("안산") >= 0 ? "안산" : st.name;
         (st.sus || []).forEach(function (su) {
+          var ids = [];
           var cells = (su.racks || []).map(function (r) {
+            ids.push(r.rack_id || null);
             return r.tenant_id ? "A" : "R";
           }).join("");
-          if (cells) rows.push([nm + " " + (su.su_id || ""), cells, ""]);
+          if (cells) rows.push([nm + " " + (su.su_id || ""), cells, "", ids]);
         });
       });
       if (rows.length) return rows;
     }
     return RACK_ROWS;
+  }
+
+  /* twin 오버레이 — mock 행(단일 su 라벨)도 su-N-rack-MM 규칙으로 id 유도 */
+  function rackRowIds(row) {
+    if (row[3]) return row[3];
+    var lb = row[0] || "";
+    if (/[,~]/.test(lb)) return null;                 // 합산 행 — 매칭 불가
+    var m = /su-\d+/.exec(lb);
+    if (!m) return null;
+    var ids = [];
+    for (var i = 0; i < row[1].length; i++) ids.push(m[0] + "-rack-" + obsPad2(i));
+    return ids;
   }
 
   function renderRackMap() {
@@ -127,21 +141,29 @@
       : (siteScope === "gasan" ? 36 : siteScope === "ansan" ? 104 : 140);
     setTxt("rackmap-title", "랙 상태 맵 — " + fmt(nRacks) + "랙" +
       (scopeName() ? " · " + scopeName() : ""));
-    if (liveRows) {                          // 라이브 범례: 할당/ready 실집계
-      var nA = 0, nR = 0;
-      rows.forEach(function (r) {
-        nA += (r[1].match(/A/g) || []).length;
-        nR += (r[1].match(/R/g) || []).length;
-      });
-      var leg = document.getElementById("rackmap-leg");
-      if (leg) leg.innerHTML =
-        '<span><span class="leg" style="background:var(--green)"></span> 할당 ' + nA + "</span>" +
-        '<span><span class="leg" style="background:var(--ready)"></span> ready ' + nR + "</span>" +
-        '<span style="color:var(--muted2)">fabric/ib 실데이터</span>';
-    }
+    var twin = ovTwinRacks;                  // twin 상태 오버레이 (미연동 시 null)
+    var nOff = 0, nCord = 0, nFault = 0, nThr = 0;
     box.innerHTML = rows.map(function (row) {
-      var cells = row[1].split("").map(function (c) {
-        return '<span class="cell ' + CELL_CLS[c] + '"></span>';
+      var ids = twin ? rackRowIds(row) : null;
+      var cells = row[1].split("").map(function (c, i) {
+        var cls = "cell " + CELL_CLS[c];
+        var txt = "", ttl = "";
+        var rk = ids && ids[i] && twin[ids[i]];
+        if (rk) {
+          var off = rk.power_state === "off";
+          var crit = rk.health === "critical" || rk.health === "faulted" || c === "F";
+          var thr = (rk.throttled_gpus || 0) > 0;
+          if (off) { cls += " off"; txt = "OFF"; nOff++; }
+          if (rk.cordoned) { cls += " cordon"; nCord++; }
+          if (crit) { cls += " crit"; nFault++; }
+          else if (thr) { cls += " throt"; nThr++; }
+          ttl = ids[i] + " — 전원 " + (rk.power_state || "on") +
+            (rk.cordoned ? " · cordoned" : "") +
+            (thr ? " · throttled " + rk.throttled_gpus : "") +
+            " · health " + (rk.health || "ok") + " (twin)";
+        }
+        return '<span class="' + cls + '"' + (ttl ? ' title="' + esc(ttl) + '"' : "") +
+          ">" + txt + "</span>";
       }).join("");
       var note = row[2]
         ? '<span style="color:var(--muted2);font-size:10px;padding-left:4px">' + row[2] + "</span>"
@@ -149,6 +171,24 @@
       return '<div class="rackrow"><span class="lb">' + row[0] +
         '</span><span class="cells">' + cells + note + "</span></div>";
     }).join("");
+    var leg = document.getElementById("rackmap-leg");
+    if (leg && (liveRows || twin)) {         // 라이브/트윈 범례: 실집계
+      var nA = 0, nR = 0;
+      rows.forEach(function (r) {
+        nA += (r[1].match(/A/g) || []).length;
+        nR += (r[1].match(/R/g) || []).length;
+      });
+      leg.innerHTML =
+        '<span><span class="leg" style="background:var(--green)"></span> 할당 ' + nA + "</span>" +
+        '<span><span class="leg" style="background:var(--ready)"></span> ready ' + nR + "</span>" +
+        (twin
+          ? '<span><span class="leg" style="background:#1a212b;outline:1px solid #2a3644"></span> OFF ' + nOff + "</span>" +
+            '<span><span class="leg" style="background:repeating-linear-gradient(45deg,transparent 0 2px,rgba(240,163,176,.5) 2px 4px)"></span> cordon ' + nCord + "</span>" +
+            '<span style="color:var(--red)">□ fault ' + nFault + "</span>" +
+            '<span style="color:var(--amber)">□ throttle ' + nThr + "</span>" +
+            '<span style="color:var(--muted2)">twin 오버레이</span>'
+          : '<span style="color:var(--muted2)">fabric/ib 실데이터</span>');
+    }
   }
 
   function kpiCell(k, v, tone, s) {
@@ -172,6 +212,252 @@
           if (scopeName()) renderOverviewKpi(); }   // SU 매핑 정밀화 재렌더
       }).catch(function () {});
     }
+    ovPollStart();          // 테넌트 현황(5s) · twin 랙 오버레이(5s) · 장애 피드(10s)
+  }
+
+  /* ══ Overview 라이브 확장 — 테넌트 운영 현황 · twin 랙 오버레이 · 장애 피드 ══ */
+  var ovTwinRacks = null;   // rack_id → twin rack (obs /racks) — 랙 맵 오버레이
+  var ovTimer = null, ovTick = 0;
+
+  function ovPollStart() {
+    if (ovTimer) { clearInterval(ovTimer); ovTimer = null; }
+    ovTick = 0;
+    ovPollOnce();
+    ovTimer = setInterval(function () {
+      if (currentRoute() !== "overview") {
+        clearInterval(ovTimer); ovTimer = null;
+        return;
+      }
+      ovTick++;
+      ovPollOnce();
+    }, 5000);
+  }
+  function ovPollOnce() {
+    ovFetchTwinRacks();
+    renderOvTenants();
+    if (ovTick % 2 === 0) renderOvFaults();   // 10s
+  }
+  function ovFetchTwinRacks() {
+    obsGet("/racks").then(function (d) {
+      if (Array.isArray(d) && d.length) {
+        ovTwinRacks = {};
+        d.forEach(function (rk) { if (rk.rack_id) ovTwinRacks[rk.rack_id] = rk; });
+      } else {
+        ovTwinRacks = null;                   // twin 미연동 — NOCP 상태만 (회귀 없음)
+      }
+      if (currentRoute() === "overview") renderRackMap();
+    });
+  }
+
+  /* ── 테넌트 운영 현황 — fabric/ib + tickets(NOCP) · slo + alerts(twin) 병합 ── */
+  var ovTenShort = function (id) { return String(id || "").replace(/^tnt-/, ""); };
+
+  function renderOvTenants() {
+    var body = document.getElementById("ov-tenants");
+    if (!body) return;
+    Promise.all([
+      apiOr("fabric"),
+      NC.api.tickets ? NC.api.tickets().catch(function () { return []; }) : Promise.resolve([]),
+      obsGet("/slo"),
+      obsGet("/alerts?limit=100"),
+    ]).then(function (r) {
+      var fabLive = !!(r[0] && r[0].tenants && r[0].tenants.length);
+      var sloLive = !!(r[2] && r[2].tenants);
+      var tickets = r[1] || [];
+      var sloMap = {};
+      (sloLive ? r[2].tenants : obsMockSlo().tenants).forEach(function (t) {
+        sloMap[t.tenant_id] = t;
+        sloMap[ovTenShort(t.tenant_id)] = t;
+      });
+      var alerts = Array.isArray(r[3]) ? r[3] : [];
+      var tenP = fabLive
+        ? Promise.resolve(r[0].tenants.map(function (t) {
+            return { id: t.tenant_id, name: t.name || ovTenShort(t.tenant_id),
+              racks: t.racks || 0, gpus: t.gpus != null ? t.gpus : (t.racks || 0) * 72,
+              sus: t.sus || [], site: t.site || "—", pkey: t.pkey || "—" };
+          }))
+        : NC.api.tenants().then(function (ts) {
+            return (ts || []).map(function (t) {
+              return { id: t.id, name: t.name || t.id, racks: t.racks || 0,
+                gpus: t.gpus || (t.racks || 0) * 72, sus: t.sus || [],
+                site: t.site || "—", pkey: t.pkey || "—" };
+            });
+          }).catch(function () { return []; });
+      tenP.then(function (list) {
+        obsSrc("ov-tenants", fabLive || sloLive,
+          fabLive && sloLive ? "● NOCP + Twin 라이브"
+            : fabLive ? "● NOCP 라이브 · twin 미연동 (SLO mock)"
+            : sloLive ? "● Twin 라이브 · NOCP 미연동" : "◌ 미연동 — mock");
+        setTxt("ov-ten-c", "테넌트 " + list.length + " · 5s 폴링" +
+          (fabLive ? " · fabric/ib 정본" : " (mock)"));
+        body.innerHTML = list.map(function (t) {
+          var short = ovTenShort(t.id);
+          var s = sloMap[t.id] || sloMap[short] || {};
+          var open = tickets.filter(function (x) {
+            var xt = String(x.tenant || x.tenant_id || "");
+            var st = String(x.state || x.status || "");
+            return st !== "resolved" &&
+              (xt === t.id || xt === short || ovTenShort(xt) === short);
+          }).length;
+          var firing = alerts.filter(function (a) {
+            if (a.state !== "firing") return false;
+            var sum = String(a.summary || "");
+            return sum.indexOf(t.id) >= 0 || sum.indexOf(short) >= 0;
+          }).length;
+          var avail = s.gpu_availability_pct, tgt = s.slo_target_pct;
+          var okA = avail == null || tgt == null || avail >= tgt;
+          var eb = s.error_budget_remaining_pct;
+          var ebCol = eb == null ? "var(--muted)" : eb < 20 ? "var(--red)"
+            : eb < 50 ? "var(--amber)" : "var(--green)";
+          return '<tr data-nav="obs-slo" style="cursor:pointer" title="클릭 시 SLA · Error Budget">' +
+            td("<b>" + esc(t.name) + "</b>" +
+              '<div style="color:var(--muted2);font-size:9.5px" class="id">' + esc(t.id) + "</div>") +
+            td(muted(esc(t.site)) + (t.sus.length
+              ? ' <span class="id" style="color:var(--muted2);font-size:10px">' +
+                t.sus.map(esc).join("·") + "</span>" : "")) +
+            td('<b class="tabnum">' + fmt(t.racks) + "랙</b> <span style='color:var(--muted)'>/ " +
+              fmt(t.gpus) + " GPU</span>", "num") +
+            td(avail != null
+              ? fmt(s.available_gpus != null ? s.available_gpus : 0) +
+                ' · <span style="color:' + (okA ? "var(--green-text)" : "var(--red)") +
+                ';font-weight:700">' + (+avail).toFixed(2) + "%</span>" +
+                (tgt != null ? '<div style="color:var(--muted2);font-size:9.5px">SLO ' + tgt + "%</div>" : "")
+              : muted("—"), "num") +
+            td(eb != null
+              ? '<span class="pb" style="width:90px"><span style="width:' +
+                Math.max(0, Math.min(100, eb)) + "%;background:" + ebCol +
+                '"></span></span> <span style="font-weight:700;color:' + ebCol + '">' +
+                obsN1(eb) + "%</span>"
+              : muted("—")) +
+            td(firing
+              ? '<span class="st red" data-nav="obs-alerts" style="cursor:pointer" title="클릭 시 알림 · 이벤트">● ' +
+                firing + "건</span>"
+              : '<span class="st green">정상</span>', "num") +
+            td(open
+              ? '<span class="st amber">' + open + "건</span>"
+              : muted("0"), "num") +
+            td('<span class="id" style="color:var(--muted)">' + esc(t.pkey) + "</span>") +
+            "</tr>";
+        }).join("") || '<tr><td colspan="8" style="color:var(--muted)">할당 테넌트 없음</td></tr>';
+      });
+    });
+  }
+
+  /* ── 주요 장애 · 이벤트 + 발생 통계 — NOCP /emu/faults 전 도메인 피드 ── */
+  var OV_DOM_KO = { gpu: "GPU", cooling: "COOLING", fabric: "FABRIC",
+    storage: "STORAGE", reprovision: "REPROV", provisioning: "REPROV" };
+
+  function ovFaultsMock() {
+    return [
+      { tray_id: "su-5-rack-03", kind: "gpu", severity: "critical",
+        detail: "XID 63 — GPU faulted · row-remap pending (INC-0412 연계)",
+        at: "2026-07-13T06:19:42Z", resolved: false },
+      { tray_id: "cdu-su-5", kind: "cooling", severity: "major",
+        detail: "FILTER_DP_HIGH — 2차측 필터 차압 41kPa (임계 35)",
+        at: "2026-07-13T08:02:11Z", resolved: false },
+      { tray_id: "an-leafA-su6-03:p14", kind: "fabric", severity: "warning",
+        detail: "IB 링크 flap ×2 — 케이블 점검 제안",
+        at: "2026-07-13T09:42:05Z", resolved: false },
+      { tray_id: "vast-ansan", kind: "storage", severity: "warning",
+        detail: "VAST capacity 88% — 관찰 (임계 90%)",
+        at: "2026-07-13T05:10:00Z", resolved: true },
+      { tray_id: "su-6-rack-07", kind: "gpu", severity: "warning",
+        detail: "SM clock 저하 2 GPU — HW_SLOWDOWN",
+        at: "2026-07-13T05:12:44Z", resolved: true },
+      { tray_id: "su-8-rack-00-tray-03", kind: "reprovision", severity: "minor",
+        detail: "트레이 재프로비저닝 완료 — 재조인 63s",
+        at: "2026-07-12T22:41:00Z", resolved: true },
+    ];
+  }
+
+  function ovSevChip(sv) {
+    return sv === "critical" ? '<span class="st red">CRITICAL</span>'
+      : sv === "major" ? '<span class="st red">MAJOR</span>'
+      : sv === "warning" ? '<span class="st amber">WARNING</span>'
+      : '<span class="st blue">' + esc(String(sv || "info").toUpperCase()) + "</span>";
+  }
+
+  function renderOvFaults() {
+    var body = document.getElementById("ov-faults");
+    if (!body) return;
+    apiOr("faultMetrics").then(function (f) {
+      var live = !!(f && f.recent);
+      var rec = (live ? f.recent : ovFaultsMock()).slice();
+      rec.sort(function (a, b) {
+        var fa = a.resolved ? 1 : 0, fb = b.resolved ? 1 : 0;
+        if (fa !== fb) return fa - fb;                       // firing 우선
+        return String(b.at || "").localeCompare(String(a.at || ""));
+      });
+      var firing = rec.filter(function (x) { return !x.resolved; }).length;
+      body.innerHTML = rec.slice(0, 30).map(function (x) {
+        var dom = OV_DOM_KO[x.kind] || String(x.kind || "—").toUpperCase();
+        return '<tr class="' + (x.resolved ? "" : "firing") +
+          '" data-nav="obs-alerts" title="클릭 시 통합 Observability 알림 · 이벤트">' +
+          td(obsAt(x.at), "num") +
+          td('<span class="id" style="color:var(--muted)">' + esc(dom) + "</span>") +
+          td(ovSevChip(x.severity)) +
+          td('<span class="id">' + esc(x.tray_id || x.host_id || "—") + "</span>") +
+          td(esc((x.detail || "—").slice(0, 96))) +
+          td(x.resolved ? '<span class="st gray">resolved</span>'
+                        : '<span class="st red">● firing</span>') + "</tr>";
+      }).join("") || '<tr><td colspan="6" style="color:var(--green-text)">장애 이벤트 없음</td></tr>';
+      setTxt("ov-faults-c", "firing " + firing + " · 전체 " + rec.length + "건 표시 " +
+        Math.min(rec.length, 30) + " · 10s" + (live ? " (NOCP 라이브)" : " (mock)"));
+      renderOvFaultStats(rec, live);
+    });
+  }
+
+  function renderOvFaultStats(rec, live) {
+    var box = document.getElementById("ov-fstats");
+    if (!box) return;
+    var byDom = {}, bySev = {}, firing = 0, resolved = 0;
+    var now = Date.now(), n1h = 0, n24h = 0;
+    rec.forEach(function (x) {
+      var d = OV_DOM_KO[x.kind] || String(x.kind || "기타").toUpperCase();
+      byDom[d] = (byDom[d] || 0) + 1;
+      var sv = x.severity || "info";
+      bySev[sv] = (bySev[sv] || 0) + 1;
+      if (x.resolved) resolved++; else firing++;
+      var t = Date.parse(x.at || "");
+      if (!isNaN(t)) {
+        if (now - t <= 3600e3) n1h++;
+        if (now - t <= 86400e3) n24h++;
+      }
+    });
+    var doms = ["GPU", "COOLING", "FABRIC", "STORAGE", "REPROV"];
+    Object.keys(byDom).forEach(function (d) { if (doms.indexOf(d) < 0) doms.push(d); });
+    var mx = Math.max.apply(null, doms.map(function (d) { return byDom[d] || 0; }).concat([1]));
+    var domCol = { GPU: "var(--green)", COOLING: "#5ad0c8", FABRIC: "#9fd0ff",
+      STORAGE: "#c8a5e8", REPROV: "var(--amber)" };
+    var tot = firing + resolved || 1;
+    box.innerHTML =
+      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin-bottom:5px">도메인별 발생</div>' +
+      doms.map(function (d) {
+        var n = byDom[d] || 0;
+        return '<div class="evrow"><span class="lb" style="width:84px">' + d +
+          '</span><i><b style="width:' + (n / mx * 100).toFixed(1) + "%;background:" +
+          (domCol[d] || "var(--ready)") + '"></b></i><em>' + n + "</em></div>";
+      }).join("") +
+      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin:12px 0 6px">심각도</div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+      [["critical", "red"], ["major", "red"], ["warning", "amber"], ["minor", "blue"]]
+        .map(function (p) {
+          return '<span class="st ' + p[1] + '">' + p[0].toUpperCase() + " " +
+            (bySev[p[0]] || 0) + "</span>";
+        }).join("") + "</div>" +
+      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin:12px 0 6px">firing vs resolved</div>' +
+      '<div class="statebar">' +
+      '<i style="width:' + (firing / tot * 100).toFixed(1) + '%;background:var(--red)"></i>' +
+      '<i style="width:' + (resolved / tot * 100).toFixed(1) + '%;background:var(--green)"></i></div>' +
+      '<div style="display:flex;gap:12px;font-size:10px;color:var(--muted)" class="tabnum">' +
+      '<span><span class="leg" style="background:var(--red)"></span> firing ' + firing + "</span>" +
+      '<span><span class="leg" style="background:var(--green)"></span> resolved ' + resolved + "</span></div>" +
+      '<div style="display:flex;gap:10px;margin-top:12px">' +
+      '<div class="sub" style="flex:1;text-align:center"><div style="color:var(--muted2);font-size:9.5px;font-weight:700">최근 1h</div>' +
+      '<div style="color:#fff;font-size:17px;font-weight:800" class="tabnum">' + fmt(n1h) + "</div></div>" +
+      '<div class="sub" style="flex:1;text-align:center"><div style="color:var(--muted2);font-size:9.5px;font-weight:700">최근 24h</div>' +
+      '<div style="color:#fff;font-size:17px;font-weight:800" class="tabnum">' + fmt(n24h) + "</div></div></div>";
+    setTxt("ov-fstats-c", "표본 " + rec.length + "건" + (live ? " · NOCP 라이브" : " · mock"));
   }
 
   function renderScopedKpi(el, incList, alertList) {
@@ -716,6 +1002,50 @@
     maintenance: ["amber", "정비 중"], faulted: ["red", "faulted"],
   };
 
+  /* ── twin 랙 상태 병합 (obs /racks) — 전원 On/Off·cordon·health 배지 ──
+     트레이 자산은 소속 랙(su-N-rack-MM) 상태를 상속 표기. twin 미연동 시 미표시. */
+  var assetsTwinMap = null, assetsTwinTimer = null;
+  function assetsTrayRack(tid) { return String(tid || "").replace(/-tray-\d+$/, ""); }
+  function assetsPowerBadge(h) {
+    if (!assetsTwinMap) return "";
+    var rk = assetsTwinMap[assetsTrayRack(h.tray_id)];
+    if (!rk) return "";
+    var ps = rk.power_state || "on";
+    var chip = ps === "off"
+      ? '<span class="st gray" title="랙 전원 Off (twin) — 소속 랙 상태 상속">전원 Off</span>'
+      : ps === "mixed"
+        ? '<span class="st amber" title="랙 전원 mixed (twin)">전원 mixed</span>'
+        : '<span class="st green" title="랙 전원 On (twin)">전원 On</span>';
+    var extra = (rk.cordoned ? ' <span class="st amber">랙 cordon</span>' : "") +
+      (rk.health === "critical" ? ' <span class="st red">랙 crit</span>'
+        : rk.health === "warn" || rk.health === "warning"
+          ? ' <span class="st amber">랙 warn</span>' : "");
+    return '<div style="margin-top:3px">' + chip + extra + "</div>";
+  }
+  function assetsTwinPoll() {               // 화면 활성 시만 5s
+    if (assetsTwinTimer) { clearInterval(assetsTwinTimer); assetsTwinTimer = null; }
+    function once() {
+      obsGet("/racks").then(function (d) {
+        var had = !!assetsTwinMap;
+        if (Array.isArray(d) && d.length) {
+          assetsTwinMap = {};
+          d.forEach(function (rk) { if (rk.rack_id) assetsTwinMap[rk.rack_id] = rk; });
+        } else {
+          assetsTwinMap = null;              // twin 미연동 — 기존 표시 유지 (회귀 없음)
+        }
+        if ((had || assetsTwinMap) && currentRoute() === "assets") renderAssetsTable();
+      });
+    }
+    once();
+    assetsTwinTimer = setInterval(function () {
+      if (currentRoute() !== "assets") {
+        clearInterval(assetsTwinTimer); assetsTwinTimer = null;
+        return;
+      }
+      once();
+    }, 5000);
+  }
+
   function renderAssetsTable() {
     var body = $("#assets-body");
     if (!body || !assetsCache || !assetsCache.length) return;   // mock: 정적 표 유지
@@ -724,7 +1054,8 @@
     var a = assetsFilter.offset, b = Math.min(a + PAGE, list.length);
     var head = $("#assets-head");
     if (head) head.innerHTML =
-      "<th>호스트</th><th>트레이 / SKU</th><th>사이트</th><th>상태</th>" +
+      "<th>호스트</th><th>트레이 / SKU</th><th>사이트</th><th>상태" +
+      (assetsTwinMap ? " · 전원 (twin)" : "") + "</th>" +
       "<th>펌웨어 · 증명</th><th>테넌트 / 인스턴스</th><th class='num'>조치</th>";
     body.innerHTML = list.slice(a, b).map(function (h) {
       var st = HOST_ST[h.state] || ["gray", h.state || "—"];
@@ -735,7 +1066,8 @@
            '<div style="color:var(--muted2);font-size:10px">' + esc(h.sku || "—") + "</div>") +
         td(muted(esc(h.site || "—"))) +
         td('<span class="st ' + st[0] + '"><span class="dot ' + st[0] + '"></span> ' + esc(st[1]) + "</span>" +
-           (h.cordoned ? ' <span class="st red">cordon</span>' : "")) +
+           (h.cordoned ? ' <span class="st red">cordon</span>' : "") +
+           assetsPowerBadge(h)) +
         td('<span class="st ' + (h.firmware_ok ? "green" : "amber") + '">fw ' +
            (h.firmware_ok ? "OK" : "드리프트") + "</span> " +
            '<span class="st ' + (h.attested ? "green" : "red") + '">attest ' +
@@ -1258,7 +1590,8 @@
       var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
       var tid = ctrl ? setTimeout(function () { ctrl.abort(); }, 3000) : null;
       if (ctrl) (opts = opts || {}).signal = ctrl.signal;
-      var base = (path.indexOf("/ufm/") === 0 || path.indexOf("/netq/") === 0) ? OBS_ROOT : OBS_BASE;
+      var base = (path.indexOf("/ufm/") === 0 || path.indexOf("/netq/") === 0 ||
+        path.indexOf("/emulator/") === 0) ? OBS_ROOT : OBS_BASE;
       return fetch(base + path, opts || {}).then(function (r) {
         if (tid) clearTimeout(tid);
         if (!r.ok) return null;
@@ -1284,6 +1617,12 @@
       body: JSON.stringify(body || {}),
     }, true);
   }
+  /* 캐시 무효화 — prefix 일치 경로 전부 제거 (장애 주입 후 즉시 재조회용) */
+  function obsClearCache(prefix) {
+    Object.keys(obsCacheMap).forEach(function (k) {
+      if (k.indexOf(prefix) === 0) delete obsCacheMap[k];
+    });
+  }
 
   /* 표기 헬퍼 — null 가드 */
   function obsNum(v) { return v == null ? "—" : fmt(v); }
@@ -1298,6 +1637,7 @@
   function obsHealthSt(h) {
     return h === "critical" ? '<span class="st red">critical</span>'
       : h === "warn" || h === "warning" ? '<span class="st amber">warn</span>'
+      : h === "unknown" ? '<span class="st gray" title="전원 Off — OOB 텔레메트리만 수집">unknown</span>'
       : '<span class="st green">' + esc(h || "ok") + "</span>";
   }
   function obsSevSt(s) {
@@ -1705,6 +2045,9 @@
           kpiSub("클록 제한 중")) +
         kpiCell("faulted", obsNum(g.faulted), g.faulted ? "red" : "green",
           kpiSub("XID · cordon")) +
+        (g.off != null && g.off > 0
+          ? kpiCell("off (전원)", obsNum(g.off), "", kpiSub("랙 Off — OOB 텔레메트리만"))
+          : "") +
         kpiCell("평균 util", obsN1(s.avg_util_pct) + "<small>%</small>", "",
           kpiSub("할당 GPU 기준")));
       var suSum = live && r[2] && r[2].sus && r[2].sus.length ? r[2] : null;
@@ -1735,7 +2078,9 @@
   function obsStateChip(st) {
     return st === "faulted" ? '<span class="st red">faulted</span>'
       : st === "throttled" ? '<span class="st amber">throttled</span>'
-      : st === "active" ? '<span class="st green">active</span>' : muted("idle");
+      : st === "active" ? '<span class="st green">active</span>'
+      : st === "off" ? '<span class="st gray" title="랙 전원 Off — in-band 텔레메트리 없음 (OOB만)">OFF</span>'
+      : muted("idle");
   }
   function obsGpuLoc(x) {
     return '<span class="id" style="color:#fff">' + esc(x.tray_id || (x.rack_id || "—")) +
@@ -1744,7 +2089,10 @@
       esc(x.site || "—") + " " + esc(x.su_id || "") + "</div>";
   }
   function obsGpuRow(x) {
-    return '<tr data-obs-gpu="' + esc(x.gpu_uuid) + '" style="cursor:pointer" title="클릭 시 GPU 상세">' +
+    return '<tr data-obs-gpu="' + esc(x.gpu_uuid) + '" style="cursor:pointer' +
+      (x.state === "off" ? ";opacity:.62" : "") + '" title="' +
+      (x.state === "off" ? "랙 전원 Off — in-band 텔레메트리 없음 (OOB만) · 클릭 시 GPU 상세"
+        : "클릭 시 GPU 상세") + '">' +
       td(obsGpuLoc(x)) +
       td('<span class="id" style="color:var(--muted)">' + esc(x.tenant_id || "—") + "</span>") +
       td(obsStateChip(x.state)) +
@@ -1775,13 +2123,19 @@
           '</span><span class="obs-hm">' + bySite[siteNm].map(function (su) {
             var avg = Math.round(su.avg_util_pct || 0);
             var alloc = (su.active || 0) > 0;
-            var bg = !alloc ? "var(--ready)"
+            /* 전원 Off 비중이 높은 SU — 회색 (in-band 텔레메트리 없음) */
+            var offN = su.off || 0;
+            var offMost = (su.gpus || 0) > 0 && offN / su.gpus >= 0.5;
+            var bg = offMost ? "#1a212b"
+              : !alloc ? "var(--ready)"
               : avg >= 80 ? "var(--green)" : avg >= 40 ? "#5a8f0e" : avg > 0 ? "#3f6a1a" : "var(--amber-dim)";
             var worst = (su.faulted || 0) > 0 ? " crit" : (su.throttled || 0) > 0 ? " th" : "";
             var cls = "hc" + worst + (obsGpuFilter.su === su.su_id ? " sel" : "");
             return '<span class="' + cls + '" data-obs-gpusu="' + esc(su.su_id) + '" style="background:' + bg +
+              (offMost ? ";outline:1px solid #2a3644;color:#5f6f82" : "") +
               '" title="' + esc(su.su_id + " — " + fmt(su.gpus || 0) + "GPU · active " + fmt(su.active || 0) +
                 " · 평균 util " + avg + "% · 최고 " + obsN1(su.max_temp_c) + "°C" +
+                (offN ? " · off " + fmt(offN) + " (OOB만)" : "") +
                 ((su.faulted || 0) ? " · faulted " + su.faulted : "") +
                 ((su.throttled || 0) ? " · throttled " + su.throttled : "") +
                 ((su.ecc_uncorr || 0) ? " · ECC uncorr " + su.ecc_uncorr : "")) +
@@ -1919,9 +2273,13 @@
   }
 
   function obsSparkSvg(vals, color) {
+    /* 값 없음(랙 Off 등 in-band 텔레메트리 부재) — 문구로 대체 */
+    var has = (vals || []).some(function (v) { return v != null && !isNaN(+v); });
+    if (!has) return '<div style="height:46px;display:flex;align-items:center;justify-content:center;' +
+      'color:var(--muted2);font-size:11px">데이터 없음 — in-band 텔레메트리 미수집</div>';
     return '<svg width="100%" height="46" viewBox="0 0 520 46" preserveAspectRatio="none">' +
-      '<polyline points="' + poly(vals || [], 520, 46) + '" fill="none" stroke="' + color +
-      '" stroke-width="1.6"></polyline></svg>';
+      '<polyline points="' + poly(vals.map(function (v) { return v == null ? 0 : +v; }), 520, 46) +
+      '" fill="none" stroke="' + color + '" stroke-width="1.6"></polyline></svg>';
   }
 
   function openObsGpuModal(uuid) {
@@ -1938,6 +2296,9 @@
       var h = g.history || {};
       setHtml("obs-gpu-m-body",
         (live ? "" : '<div class="callout warn" style="margin-bottom:10px">twin 미연동 — mock 데이터 표시</div>') +
+        (g.state === "off" || g.telemetry_source === "none"
+          ? '<div class="callout warn" style="margin-bottom:10px">랙 전원 Off — <b>in-band 텔레메트리 없음 (OOB만)</b> · DCGM 계측값은 "—"로 표시됩니다</div>'
+          : "") +
         '<table class="kv tabnum">' +
         "<tr><td>위치</td><td class='id'>" + esc(g.site || "—") + " · " + esc(g.su_id || "—") +
           " · " + esc(g.tray_id || "—") + " · idx " + (g.idx != null ? g.idx : "—") + "</td></tr>" +
@@ -2908,6 +3269,57 @@
     setTxt("obs-ft-links-c", "이상 3건 · 예측 1건 — SymbolErr · BER · flap · 광모듈");
   }
 
+  /* ─ 스위치 개별 장애 주입 (UFM /ufm/v1/faults · NetQ /netq/v1/faults) — 데모 ─
+     냉각·DLC CDU 모달의 주입 버튼과 동일 톤 · 2단계 인라인 확인(obsCtlArmBtn 재사용).
+     mock 폴백(에뮬레이터 미연동) 시 라벨된 데모 토스트로 응답 (무반응 금지). */
+  var OBS_SWF_LBL = {
+    switch_down: "스위치 다운", port_flap: "포트 flap", link_degrade: "링크 열화",
+    bgp_flap: "BGP flap", link_down: "링크 다운", pfc_storm: "PFC 스톰",
+    recover: "recover",
+  };
+  function obsSwFaultRow(kind, target) {
+    function b(cls, act, lbl) {
+      return '<button class="' + cls + ' obs-rcb" data-obs-swfault="' + act +
+        '" data-swkind="' + kind + '" data-target="' + esc(target) +
+        '" data-key="' + esc(kind + ":" + target + ":" + act) + '">' + lbl + "</button>";
+    }
+    var btns = kind === "ufm"
+      ? b("btn-danger", "switch_down", "switch_down 주입") +
+        b("btn-warn", "port_flap", "port_flap 주입") +
+        b("btn-warn", "link_degrade", "link_degrade 주입") +
+        b("btn", "recover", "recover — 정상 복귀")
+      : b("btn-warn", "bgp_flap", "bgp_flap 주입") +
+        b("btn-danger", "link_down", "link_down 주입") +
+        b("btn-warn", "pfc_storm", "pfc_storm 주입") +
+        b("btn", "recover", "recover — 정상 복귀");
+    return '<div class="callout warn" style="margin-top:14px">장애 주입 — <b>데모 시나리오</b> (' +
+      (kind === "ufm" ? "UFM" : "NetQ") + " Emulator twin 전용 · 실설비 아님) · 대상 <b>" +
+      esc(target) + "</b> · 1차 클릭 후 3초 내 재클릭 시 실행</div>" +
+      '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px">' + btns + "</div>";
+  }
+  function obsSwFaultRun(kind, action, target) {
+    if (!target) return;
+    var base = kind === "netq" ? "/netq/v1/faults/" : "/ufm/v1/faults/";
+    var isRec = action === "recover";
+    obsPost(base + (isRec ? "recover" : "inject"),
+      isRec ? { target: target } : { kind: action, target: target }).then(function (r) {
+      var live = r != null;
+      NC.toast((isRec ? target + " recover — 정상 상태 복귀"
+          : target + " " + action + " (" + (OBS_SWF_LBL[action] || action) + ") 주입") +
+        " · 데모 시나리오" +
+        (live ? " (" + (kind === "netq" ? "NetQ" : "UFM") + " twin 반영)"
+              : " (mock — twin 미연동 · 실주입 없음)"),
+        isRec ? undefined : "warn");
+      if (!live) return;
+      /* twin 반영 — UFM·NetQ 캐시 무효화 후 열린 모달 새로고침 + 화면 폴링 갱신 */
+      obsClearCache("/ufm/");
+      obsClearCache("/netq/");
+      if (obsFtSwCur && obsFtSwCur.kind === "ufm") openObsFtSwModal(obsFtSwCur.id);
+      else if (obsFtSwCur && obsFtSwCur.kind === "netq") openObsNqSwModal(obsFtSwCur.id);
+      if (currentRoute() === "obs-fabtopo") renderObsFabTopo();
+    });
+  }
+
   /* ─ 스위치 상세 모달 (obs_ftsw) — UFM 스위치 · NetQ 스위치 · mock 데모 공용 ─ */
   var obsFtSwCur = null;   // {kind:"ufm"|"netq"|"mock", id}  — 새로고침 버튼용
   var OBS_FTSW_LOADING = '<div style="color:var(--muted);font-size:12px">불러오는 중…</div>';
@@ -3015,7 +3427,8 @@
       }
       setTxt("obs-ftsw-m-title", "IB 스위치 상세 — " + ((meta || {}).name || guid));
       setHtml("obs-ftsw-m-body", obsFtSwBody(meta || { guid: guid },
-        ports, obsFtList(r[2], "links").concat(obsFtList(r[3], "links")), false));
+        ports, obsFtList(r[2], "links").concat(obsFtList(r[3], "links")), false) +
+        obsSwFaultRow("ufm", guid));
     });
   }
 
@@ -3043,7 +3456,8 @@
         counters: { symbol_err: 0, link_error_recovery: 0, link_downed: 0, rcv_errors: 0, tx_gbps: 512.9, rx_gbps: 520.4 } },
     ];
     setTxt("obs-ftsw-m-title", "IB 스위치 상세 — " + label + " (데모)");
-    setHtml("obs-ftsw-m-body", obsFtSwBody(meta, ports, [], true));
+    setHtml("obs-ftsw-m-body", obsFtSwBody(meta, ports, [], true) +
+      obsSwFaultRow("ufm", label));
     NC.openModal("obs_ftsw");
   }
 
@@ -3114,7 +3528,8 @@
             td(fmt(c.carrier_transitions || 0), "num") +
             td(obsN1(c.tx_gbps) + " / " + obsN1(c.rx_gbps), "num") + "</tr>";
         }).join("") || '<tr><td colspan="7" style="color:var(--muted)">인터페이스 데이터 없음</td></tr>') +
-        "</tbody></table></div>");
+        "</tbody></table></div>" +
+        obsSwFaultRow("netq", name));
     });
   }
 
@@ -3238,8 +3653,238 @@
     });
   }
 
+  /* ── ⑳ 트레이 수명주기 (obs-trayops) — 재기동·HW 교체 파이프라인 ──
+     GET  /emulator/v1/obs/tray-ops → {inflight, history, kpi}
+     POST /emulator/v1/trayops/{tray_id}/reboot | /replace
+     twin 미배포 시 mock 폴백(대표 데이터) + 로컬 데모 진행. */
+  var obsToMockInflight = [];   // mock 트리거 로컬 진행 {tray_id, op, tenant_id, t0}
+  var obsToMockHist = [];       // mock 로컬 완료 이력
+  var OBS_TO_TPL = {            // [단계명, 데모 소요 s | null=skip]
+    reboot: [["전원 재기동", 18], ["Discovery", 42], ["IP 할당", 8],
+             ["OS 설치", null], ["테넌트 재조인", 63]],
+    replace: [["트레이 교체 검증", 25], ["Discovery", 48], ["IP 할당", 9],
+              ["OS 설치", 176], ["테넌트 재조인", 71]],
+  };
+  function obsToOpLbl(op) {
+    return op === "replace" ? "HW 교체" : op === "reboot" ? "재기동" : esc(op || "—");
+  }
+  function obsToOpChip(op) {
+    return op === "replace"
+      ? '<span class="st amber">HW 교체</span>'
+      : op === "reboot" ? '<span class="st blue">재기동</span>'
+      : '<span class="st gray">' + esc(op || "—") + "</span>";
+  }
+  function obsToFmtS(v) {
+    if (v == null || isNaN(+v)) return "—";
+    v = Math.round(+v);
+    return v >= 60 ? Math.floor(v / 60) + "m " + (v % 60 < 10 ? "0" : "") + (v % 60) + "s" : v + "s";
+  }
+  /* history.stage_durations{} 키명 계약 편차 흡수 — 정규식 매칭 */
+  function obsToSd(sd, re) {
+    sd = sd || {};
+    var ks = Object.keys(sd);
+    for (var i = 0; i < ks.length; i++) if (re.test(ks[i])) return sd[ks[i]];
+    return null;
+  }
+  function obsToMockTenant(tid) {
+    var m = /^(su-\d+)/.exec(String(tid || ""));
+    var su = OBS_SUS.filter(function (s) { return m && s[1] === m[1]; })[0];
+    return (su && su[3]) || null;
+  }
+  /* 로컬 트리거 진행 계산 — 완료 시 이력으로 이동 */
+  function obsToMockRow(t) {
+    var tpl = OBS_TO_TPL[t.op] || OBS_TO_TPL.reboot;
+    var el = Math.round((Date.now() - t.t0) / 1000);
+    var acc = 0, stages = [], curName = null, curIdx = -1;
+    tpl.forEach(function (s, i) {
+      if (s[1] == null) { stages.push({ name: s[0], status: "skipped", duration_s: null }); return; }
+      var st = el >= acc + s[1] ? "done" : el >= acc ? "running" : "pending";
+      if (st === "running") { curName = s[0]; curIdx = i; }
+      stages.push({ name: s[0], status: st, duration_s: st === "done" ? s[1] : null });
+      acc += s[1];
+    });
+    if (el >= acc) {                       // 완료 → 이력 편입 (1회)
+      if (!t.archived) {
+        t.archived = true;
+        obsToMockHist.unshift({
+          tray_id: t.tray_id, op: t.op, tenant_id: t.tenant_id, total_s: acc,
+          stage_durations: {
+            discovery: tpl[1][1], ip: tpl[2][1],
+            os_install: tpl[3][1] || 0, rejoin: tpl[4][1],
+          },
+          succeeded: true,
+          at: new Date().toISOString().slice(0, 16).replace("T", " "),
+        });
+      }
+      return null;
+    }
+    return { tray_id: t.tray_id, op: t.op, tenant_id: t.tenant_id,
+      stage: curName, stage_idx: curIdx, stages: stages, elapsed_s: el };
+  }
+  function obsMockTrayOpsData() {
+    var inflight = obsToMockInflight.map(obsToMockRow).filter(Boolean);
+    inflight.push({                        // 대표 표본 — 항상 1건 표시 (mock)
+      tray_id: "su-6-rack-07-tray-02", op: "replace", tenant_id: "fin-corp",
+      stage: "OS 설치", stage_idx: 3,
+      stages: [
+        { name: "트레이 교체 검증", status: "done", duration_s: 25 },
+        { name: "Discovery", status: "done", duration_s: 48 },
+        { name: "IP 할당", status: "done", duration_s: 9 },
+        { name: "OS 설치", status: "running", duration_s: null },
+        { name: "테넌트 재조인", status: "pending", duration_s: null },
+      ],
+      elapsed_s: 141,
+    });
+    var history = obsToMockHist.concat([
+      { tray_id: "su-5-rack-03-tray-11", op: "replace", tenant_id: "fin-corp", total_s: 322,
+        stage_durations: { discovery: 51, ip: 9, os_install: 181, rejoin: 74 },
+        succeeded: true, at: "2026-07-13 22:41" },
+      { tray_id: "su-1-rack-04-tray-02", op: "reboot", tenant_id: "acme-ai", total_s: 138,
+        stage_durations: { discovery: 41, ip: 8, os_install: 0, rejoin: 62 },
+        succeeded: true, at: "2026-07-13 18:07" },
+      { tray_id: "su-2-rack-01-tray-08", op: "reboot", tenant_id: "beta-ai", total_s: 131,
+        stage_durations: { discovery: 39, ip: 7, os_install: 0, rejoin: 58 },
+        succeeded: true, at: "2026-07-13 11:32" },
+      { tray_id: "su-9-rack-02-tray-05", op: "replace", tenant_id: null, total_s: 301,
+        stage_durations: { discovery: 47, ip: 9, os_install: 172, rejoin: null },
+        succeeded: false, at: "2026-07-12 20:15" },
+      { tray_id: "su-5-rack-07-tray-14", op: "reboot", tenant_id: "fin-corp", total_s: 142,
+        stage_durations: { discovery: 44, ip: 8, os_install: 0, rejoin: 64 },
+        succeeded: true, at: "2026-07-12 09:48" },
+    ]);
+    return { inflight: inflight, history: history,
+      kpi: { ops_24h: 14, reboots: 9, replacements: 5, avg_discovery_s: 44,
+        avg_ip_s: 8, avg_os_install_s: 176, avg_rejoin_s: 63, avg_total_s: 291,
+        rejoin_success_pct: 97.8 } };
+  }
+  /* 단계 스텝퍼 — done green · running amber · pending muted · skipped 점선 */
+  function obsToStepper(stages) {
+    return '<span class="to-steps">' + (stages || []).map(function (s, i) {
+      var st = s.status === "done" ? "done" : s.status === "running" ? "run"
+        : s.status === "skipped" ? "skip" : "";
+      return (i ? '<span class="to-bar' +
+          (s.status === "done" ? " done" : "") + '"></span>' : "") +
+        '<span class="to-step ' + st + '" title="' + esc((s.name || "") + " — " +
+          (s.status || "pending") +
+          (s.duration_s != null ? " · " + obsToFmtS(s.duration_s) : "")) +
+        '"><span class="nd"></span>' + esc(s.name || "") +
+        (s.status === "done" && s.duration_s != null ? " " + obsToFmtS(s.duration_s) : "") +
+        (s.status === "skipped" ? " (생략)" : "") + "</span>";
+    }).join("") + "</span>";
+  }
+  function renderObsTrayOps(cb) {
+    obsFetch("/tray-ops", { cache: "no-store" }).then(function (d) {
+      var live = !!(d && (d.inflight || d.history || d.kpi));
+      var v = live ? d : obsMockTrayOpsData();
+      obsSrc("obs-trayops", live);
+      var k = v.kpi || {};
+      setHtml("obs-to-kpi",
+        kpiCell("작업 (24h)", obsNum(k.ops_24h), "",
+          kpiSub("재기동 " + obsNum(k.reboots) + " · 교체 " + obsNum(k.replacements))) +
+        kpiCell("평균 Discovery", obsToFmtS(k.avg_discovery_s), "",
+          kpiSub("NICo 재발견")) +
+        kpiCell("평균 IP 할당", obsToFmtS(k.avg_ip_s), "",
+          kpiSub("언더레이 · DHCP")) +
+        kpiCell("평균 OS 설치", obsToFmtS(k.avg_os_install_s), "",
+          kpiSub("이미지 프로비저닝")) +
+        kpiCell("평균 재조인", obsToFmtS(k.avg_rejoin_s), "",
+          kpiSub("P_Key · 스토리지 재바인딩")) +
+        kpiCell("MTTR (avg_total)", obsToFmtS(k.avg_total_s),
+          k.avg_total_s != null && k.avg_total_s > 600 ? "amber" : "green",
+          kpiSub("시작 → 재조인 완료")) +
+        kpiCell("재조인 성공률", obsN1(k.rejoin_success_pct) + "<small>%</small>",
+          k.rejoin_success_pct != null && k.rejoin_success_pct < 95 ? "amber" : "green",
+          kpiSub("24h 완료 작업 기준")));
+      var inf = v.inflight || [];
+      setHtml("obs-to-inflight", inf.map(function (t) {
+        return "<tr>" +
+          td('<span class="id" style="color:#fff">' + esc(t.tray_id || "—") + "</span>") +
+          td(obsToOpChip(t.op)) +
+          td('<span class="id" style="color:var(--muted)">' + esc(t.tenant_id || "—") + "</span>") +
+          td(obsToStepper(t.stages) +
+            (t.stage ? '<div style="color:var(--amber);font-size:9.5px;margin-top:3px">현재: ' +
+              esc(t.stage) + "</div>" : "")) +
+          td('<span class="tabnum" style="color:var(--soft);font-weight:700">' +
+            obsToFmtS(t.elapsed_s) + "</span>", "num") + "</tr>";
+      }).join("") || '<tr><td colspan="5" style="color:var(--muted)">진행 중 작업 없음</td></tr>');
+      setTxt("obs-to-inflight-c", inf.length
+        ? "진행 " + inf.length + "건 · 3s 폴링" + (live ? " (twin 라이브)" : " (mock)")
+        : "진행 중 작업 없음 · 5s 폴링" + (live ? " (twin 라이브)" : " (mock)"));
+      var hist = (v.history || []).slice(0, 12);
+      setHtml("obs-to-hist", hist.map(function (hrow) {
+        var sd = hrow.stage_durations || {};
+        return "<tr>" +
+          td('<span class="id" style="color:#fff">' + esc(hrow.tray_id || "—") + "</span>" +
+            '<div style="color:var(--muted2);font-size:9.5px">' + esc(hrow.at || "—") + "</div>") +
+          td(obsToOpChip(hrow.op)) +
+          td('<span class="id" style="color:var(--muted)">' + esc(hrow.tenant_id || "—") + "</span>") +
+          td(obsToFmtS(obsToSd(sd, /disc/i)), "num") +
+          td(obsToFmtS(obsToSd(sd, /dhcp|(^|_)ip(_|$)|assign/i)), "num") +
+          td(obsToFmtS(obsToSd(sd, /os_install|pxe|image|(^|_)os(_|$)/i)), "num") +
+          td(obsToFmtS(obsToSd(sd, /rejoin|join/i)), "num") +
+          td('<b class="tabnum" style="color:#fff">' + obsToFmtS(hrow.total_s) + "</b>", "num") +
+          td(hrow.succeeded === false
+            ? '<span class="st red">실패</span>'
+            : '<span class="st green">성공</span>') + "</tr>";
+      }).join("") || '<tr><td colspan="9" style="color:var(--muted)">이력 없음</td></tr>');
+      setTxt("obs-to-hist-c", "최근 " + hist.length + "건" + (live ? " (twin 라이브)" : " (mock 대표 데이터)"));
+      if (cb) cb(inf.length > 0);
+    });
+  }
+  /* 적응 폴링 — 진행 중 3s · 유휴 5s (화면 활성 시에만) */
+  function obsTrayPoll() {
+    if (obsTimer) { clearInterval(obsTimer); obsTimer = null; }
+    (function tick() {
+      if (currentRoute() !== "obs-trayops") { obsTimer = null; return; }
+      renderObsTrayOps(function (busy) {
+        if (currentRoute() !== "obs-trayops") return;
+        obsTimer = setTimeout(tick, busy ? 3000 : 5000);
+      });
+    })();
+  }
+  function obsTrayOpRun(tid, op) {
+    obsPost("/emulator/v1/trayops/" + encodeURIComponent(tid) + "/" + op, {})
+      .then(function (r) {
+        var live = r != null && !(r && r.detail === "Not Found");
+        if (live) {
+          NC.toast(tid + " " + obsToOpLbl(op) + " 시작 — 테넌트 워크로드 중단 · 데모 (twin 반영)", "warn");
+        } else {
+          obsToMockInflight.push({ tray_id: tid, op: op,
+            tenant_id: obsToMockTenant(tid), t0: Date.now() });
+          NC.toast(tid + " " + obsToOpLbl(op) + " 시작 — 데모 (twin 미연동 · mock 로컬 진행)", "warn");
+        }
+        renderObsTrayOps();
+      });
+  }
+
   /* ── obs 액션 (전용 data-obs-* 속성 — 기존 data-act와 분리) ── */
   document.addEventListener("click", function (e) {
+    var swf = e.target.closest("[data-obs-swfault]");   // 스위치 장애 주입 (모달)
+    if (swf) {
+      var swAct = swf.dataset.obsSwfault;
+      var swWarn = swAct === "recover" ? "확인 — 원복 실행"
+        : swAct === "switch_down" || swAct === "link_down"
+          ? "확인 — 다운 주입 · 테넌트 영향 (데모)"
+          : "확인 — 장애 주입 (데모)";
+      if (!obsCtlArmBtn(swf, swf.dataset.key, swWarn)) return;
+      obsSwFaultRun(swf.dataset.swkind, swAct, swf.dataset.target);
+      return;
+    }
+    var top = e.target.closest("[data-obs-trayop]");    // 트레이 수명주기 데모 트리거
+    if (top) {
+      var toInp = document.getElementById("obs-to-tray");
+      var toId = ((toInp || {}).value || "").trim();
+      if (!toId) {
+        NC.toast("tray_id를 입력하세요 — 예: su-1-rack-00-tray-05", "warn");
+        return;
+      }
+      var toOp = top.dataset.obsTrayop;
+      if (!obsCtlArmBtn(top, "trayop:" + toOp + ":" + toId,
+        toOp === "replace" ? "확인 — HW 교체 · 테넌트 워크로드 중단"
+                           : "확인 — 재기동 · 테넌트 워크로드 중단")) return;
+      obsTrayOpRun(toId, toOp);
+      return;
+    }
     var g = e.target.closest("[data-obs-gpu]");
     if (g) { openObsGpuModal(g.dataset.obsGpu); return; }
     var fsw = e.target.closest("[data-obs-ftsw]");           // UFM 스위치 (spine 칩·leaf 셀)
@@ -3426,6 +4071,7 @@
     var m = location.hash.match(/[?&]q=([^&]+)/);
     if (m) applyAssetsQuery(decodeURIComponent(m[1]));
     renderAssets();
+    assetsTwinPoll();                           // twin 전원/상태 병합 (5s · 활성 시만)
   }
 
   /* ④ 내보내기 공통 — Blob 다운로드 · 유지보수 캘린더 iCal */
@@ -3800,6 +4446,7 @@
       "obs-fabric": function () { obsPoll("obs-fabric", renderObsFabric); },
       "obs-slo": function () { obsPoll("obs-slo", renderObsSlo); },
       "obs-alerts": function () { obsPoll("obs-alerts", renderObsAlerts); },
+      "obs-trayops": obsTrayPoll,   // 진행 중 3s · 유휴 5s 적응 폴링
     });
   }
   if (document.readyState === "loading") {

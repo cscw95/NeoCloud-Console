@@ -195,6 +195,24 @@
 .evrow i{flex:1;height:5px;border-radius:3px;background:var(--track);overflow:hidden;display:block;max-width:170px}
 .evrow i b{display:block;height:100%;background:var(--amber);border-radius:3px}
 .evrow em{font-style:normal;font-variant-numeric:tabular-nums;color:var(--soft);width:34px;text-align:right}
+/* 트레이 수명주기 (obs-trayops) — 단계 스텝퍼 (done green · running amber · pending muted · skipped 점선) */
+.to-steps{display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.to-step{display:inline-flex;align-items:center;gap:5px;font-size:9.5px;color:var(--muted2);white-space:nowrap;font-family:Menlo,monospace}
+.to-step .nd{width:9px;height:9px;border-radius:50%;background:var(--card-sub);border:1.5px solid var(--dot-off);flex:none}
+.to-step.done{color:var(--green-text)} .to-step.done .nd{background:var(--green);border-color:var(--green)}
+.to-step.run{color:var(--amber);font-weight:800} .to-step.run .nd{background:var(--amber);border-color:var(--amber);box-shadow:0 0 0 3px rgba(232,198,106,.18)}
+.to-step.skip{color:var(--muted2)} .to-step.skip .nd{background:transparent;border:1.5px dashed var(--muted2)}
+.to-bar{width:14px;height:2px;background:var(--track);flex:none}
+.to-bar.done{background:var(--green)}
+/* 관제 Overview — 랙 상태 맵 twin 오버레이 (OFF · cordon · fault · throttle) */
+.cell{position:relative;display:inline-flex;align-items:center;justify-content:center}
+.cell.off{background:#1a212b !important;outline:1px solid #2a3644;color:#5f6f82;font-family:Menlo,monospace;font-size:5.5px;font-weight:800;letter-spacing:0}
+.cell.cordon::after{content:"";position:absolute;inset:0;border-radius:3px;background:repeating-linear-gradient(45deg,transparent 0 2px,rgba(240,163,176,.5) 2px 4px);pointer-events:none}
+.cell.crit{outline:2px solid var(--red)}
+.cell.throt{outline:1px solid var(--amber)}
+/* 관제 Overview — 주요 장애·이벤트 알람 뷰 */
+#ov-faults tr.firing td{background:rgba(240,163,176,.05)}
+#ov-faults tr{cursor:pointer}
 </style>
 </head>
 <body>
@@ -243,6 +261,7 @@
       <a class="mi" href="#/obs-fabric" data-route="obs-fabric"><span class="dot"></span>크로스 상관 (RCA)</a>
       <a class="mi" href="#/obs-slo" data-route="obs-slo"><span class="dot"></span>SLA · Error Budget</a>
       <a class="mi" href="#/obs-alerts" data-route="obs-alerts"><span class="dot"></span>알림 · 이벤트 <span class="bd amber" id="bd-obs-alerts" style="display:none">0</span></a>
+      <a class="mi" href="#/obs-trayops" data-route="obs-trayops"><span class="dot"></span>트레이 수명주기</a>
     </nav>
     <div style="margin-top:auto">
       <div style="display:flex;align-items:center;gap:8px;padding:8px 6px">
@@ -332,6 +351,36 @@
                 <tr><td class="id">클러스터 평균</td><td class="num" style="color:var(--green-text);font-weight:700">58.3%</td><td style="color:var(--muted)">Goodput 96.1%</td></tr>
               </tbody></table>
             </div>
+          </div>
+        </div>
+
+        <!-- 테넌트 운영 현황 — NOCP fabric·tickets + twin slo·alerts 병합 (5s 폴링) -->
+        <div class="panel" style="margin-top:16px">
+          <div class="ph"><span class="tick"></span><span class="t">테넌트 운영 현황</span>
+            <span class="c" id="ov-ten-c">수집 중…</span>
+            <span class="obs-src mock" id="obs-src-ov-tenants" style="margin-left:auto">◌ 수집 중…</span>
+          </div>
+          <div style="overflow-x:auto"><table class="tbl">
+            <thead><tr><th>테넌트</th><th>사이트 · SU</th><th class="num">할당 (랙 / GPU)</th><th class="num">가용 GPU · 가용성</th><th>에러버짓 잔여</th><th class="num">열린 장애</th><th class="num">티켓 (open)</th><th>P_Key</th></tr></thead>
+            <tbody id="ov-tenants"><tr><td colspan="8" style="color:var(--muted)">수집 중…</td></tr></tbody>
+          </table></div>
+        </div>
+
+        <!-- 주요 장애 · 이벤트 + 발생 통계 — NOCP emu/faults 전 도메인 피드 (10s 폴링) -->
+        <div class="grid">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick red"></span><span class="t">주요 장애 · 이벤트</span>
+              <span class="c" id="ov-faults-c">emu/faults 전 도메인 피드 · 10s</span>
+              <span class="lnk" style="margin-left:auto" data-nav="obs-alerts">알림 · 이벤트 전체 →</span>
+            </div>
+            <div style="overflow-x:auto;max-height:300px;overflow-y:auto"><table class="tbl">
+              <thead><tr><th class="num">시각</th><th>도메인</th><th>심각도</th><th>리소스</th><th>요약</th><th>상태</th></tr></thead>
+              <tbody id="ov-faults"><tr><td colspan="6" style="color:var(--muted)">수집 중…</td></tr></tbody>
+            </table></div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">발생 통계</span><span class="c" id="ov-fstats-c">같은 피드 기준</span></div>
+            <div id="ov-fstats"><div style="color:var(--muted);font-size:12px">수집 중…</div></div>
           </div>
         </div>
       </section>
@@ -932,7 +981,7 @@
           </select>
           <select id="obs-gf-su" class="chip" style="appearance:auto;cursor:pointer"><option value="">SU: 전체</option></select>
           <select id="obs-gf-state" class="chip" style="appearance:auto;cursor:pointer">
-            <option value="">상태: 전체</option><option value="active">active</option><option value="idle">idle</option><option value="throttled">throttled</option><option value="faulted">faulted</option>
+            <option value="">상태: 전체</option><option value="active">active</option><option value="idle">idle</option><option value="throttled">throttled</option><option value="faulted">faulted</option><option value="off">off (전원)</option>
           </select>
           <select id="obs-gf-sort" class="chip" style="appearance:auto;cursor:pointer">
             <option value="">정렬: 위치순</option><option value="temp">온도 ↓</option><option value="util">util ↓</option><option value="ecc">ECC ↓</option><option value="power">전력 ↓</option>
@@ -1141,6 +1190,35 @@
             <thead><tr><th>상태</th><th>심각도</th><th>도메인</th><th>리소스</th><th>요약</th><th class="num">시각</th></tr></thead>
             <tbody id="obs-alerts-body"></tbody>
           </table>
+        </div>
+      </section>
+
+      <!-- ════════ ⑳ 트레이 수명주기 (obs-trayops) ════════ -->
+      <section data-screen="obs-trayops">
+        <div class="filters">
+          <span class="obs-src mock" id="obs-src-obs-trayops">◌ twin 미연동 — mock</span>
+          <span style="color:var(--muted2);font-size:10.5px">reboot · replace → Discovery → IP 할당 → OS 설치 → 테넌트 재조인</span>
+          <span class="rt" style="gap:7px">
+            <input id="obs-to-tray" class="obs-inp" style="width:230px" placeholder="tray_id — 예: su-1-rack-00-tray-05">
+            <button class="btn-warn obs-rcb" data-obs-trayop="reboot" data-key="trayop:reboot">재기동</button>
+            <button class="btn-danger obs-rcb" data-obs-trayop="replace" data-key="trayop:replace">HW 교체</button>
+          </span>
+        </div>
+        <div class="callout warn" style="margin-bottom:16px">데모 트리거 — <b>Emulator twin 대상 (실설비 아님)</b> · 재기동/교체 시 해당 트레이의 테넌트 워크로드가 중단됩니다 · 1차 클릭 후 3초 내 재클릭 시 실행</div>
+        <div class="kpi-band" id="obs-to-kpi"></div>
+        <div class="panel">
+          <div class="ph"><span class="tick amber"></span><span class="t">진행 중 작업</span><span class="c" id="obs-to-inflight-c">—</span></div>
+          <div style="overflow-x:auto"><table class="tbl">
+            <thead><tr><th>트레이</th><th>작업</th><th>테넌트</th><th>단계 진행</th><th class="num">경과</th></tr></thead>
+            <tbody id="obs-to-inflight"></tbody>
+          </table></div>
+        </div>
+        <div class="panel" style="margin-bottom:0">
+          <div class="ph"><span class="tick"></span><span class="t">작업 이력 — 최근</span><span class="c" id="obs-to-hist-c">—</span></div>
+          <div style="overflow-x:auto"><table class="tbl">
+            <thead><tr><th>트레이</th><th>작업</th><th>테넌트</th><th class="num">Discovery</th><th class="num">IP 할당</th><th class="num">OS 설치</th><th class="num">재조인</th><th class="num">총 소요</th><th>결과</th></tr></thead>
+            <tbody id="obs-to-hist"></tbody>
+          </table></div>
         </div>
       </section>
     </div>
