@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NeoCloud Ops — Operations Portal</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%232e5a38'/%3E%3Ctext x='8' y='12' font-size='11' font-weight='bold' text-anchor='middle' fill='%23cfe8a0' font-family='sans-serif'%3EN%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/shell.css">
+<style>
+/* ── Ops 전용 파생 토큰 (레퍼런스 고유색) ───────────────── */
+:root{
+  --ready:#2e5a38; --fault:#b04a5a; --track:#233043; --amber-dim:#6a5f22;
+  --line2:#2a3848; --ok-bg:#1c2e20; --warn-bg:#332c14; --ghost-bg:#3a1f25;
+  --resolved:#3a5a40; --teal:#5ad0c8; --orange:#e8a55a;
+  --purple:#b48ce8; --purple-text:#c8a5e8; --pink-soft:#f0c2cb;
+  --fabA-bg:#13314f; --fabA-line:#2a4868; --fabB-bg:#241b3a; --fabB-line:#463366;
+  --leaf-bg:#0f1722; --leaf-text:#9fb8d0; --leaf-green:#cfe8a0;
+  --blue-bg:#0e2438; --blue-line:#1f4a6a;
+}
+[data-screen]{max-width:1340px}
+.lnk{color:var(--green);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+.rt{margin-left:auto;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.sub{background:var(--card-sub);border:1px solid var(--line);border-radius:8px;padding:11px 13px}
+.sub.hl{border-color:var(--line2)}
+.filters{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.chip{background:var(--card-sub);border:1px solid var(--line);border-radius:7px;padding:6px 12px;color:var(--soft);font-size:11.5px;cursor:pointer;white-space:nowrap}
+.chip.dim{color:var(--muted2)}
+.chip.on{background:var(--green);color:var(--on-green);border-color:var(--green);font-weight:700}
+.scope-chip{flex:1;text-align:center;border:1px solid var(--line);border-radius:6px;padding:4px 0;color:var(--muted);font-size:10.5px;font-weight:700;cursor:pointer}
+.scope-chip.act{background:var(--menu-act);border-color:var(--green-line);color:#fff}
+.btn-cancel{background:none;color:var(--muted);border:1px solid var(--line);border-radius:7px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn-cancel:hover{color:#fff;border-color:var(--muted2)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+/* 랙 맵 */
+.rackrow{display:flex;align-items:center;gap:8px;padding:3px 0}
+.rackrow .lb{font-family:Menlo,monospace;font-size:10px;color:var(--muted);width:96px;flex:none}
+.rackrow .cells{display:flex;gap:2px;flex-wrap:wrap;align-items:center}
+.cell{width:14px;height:14px;border-radius:3px;background:var(--track)}
+.cell.a{background:var(--green)} .cell.r{background:var(--ready)}
+.cell.l{background:var(--amber-bg);border:1px solid var(--amber-dim)}
+.cell.f{background:var(--fault);outline:2px solid var(--red)}
+.leg{display:inline-block;width:9px;height:9px;border-radius:2px;vertical-align:-1px}
+/* 로그 / 타임라인 */
+.log{font-family:Menlo,monospace;font-size:10.5px;color:var(--muted);line-height:2.1}
+.log .ts{color:var(--muted2)}
+/* 프로비저닝 스텝 */
+.steps{display:flex;align-items:center;padding:0 4px;min-width:600px}
+.step{display:flex;flex-direction:column;align-items:center;gap:5px;flex:none;width:62px}
+.step .nd{width:14px;height:14px;border-radius:50%;background:var(--card-sub);border:2px solid var(--dot-off)}
+.step .lb{font-size:10px;color:var(--muted2)}
+.step.done .nd{background:var(--green);border-color:var(--green)}
+.step.done .lb{color:var(--green-text);font-weight:700}
+.step.cur .nd{background:var(--amber);border-color:var(--amber);box-shadow:0 0 0 4px rgba(232,198,106,.18)}
+.step.cur .lb{color:var(--amber);font-weight:800}
+.step-bar{flex:1;height:2px;background:var(--track);margin-bottom:18px}
+.step-bar.done{background:var(--green)}
+/* 알림 · 인시던트 카드 */
+.acard{background:var(--card-sub);border:1px solid var(--line2);border-left:3px solid var(--red);border-radius:8px;padding:10px 13px;margin-bottom:8px}
+.acard.warn{border-left-color:var(--amber)} .acard.info{border-left-color:var(--blue)}
+.acard.ok{border-left-color:var(--resolved)}
+.acard .hd{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.acard .sv{font-size:9.5px;font-weight:800;letter-spacing:.06em}
+.acard .meta{color:var(--muted);font-size:11px;margin-top:3px}
+.acard .tm{margin-left:auto;color:var(--muted2);font-size:10.5px}
+/* Sanitization 진행 */
+.sanseg{display:flex;gap:3px;margin-top:8px}
+.sanseg span{flex:1;height:5px;border-radius:3px;background:var(--track)}
+.sanseg span.d{background:var(--green)} .sanseg span.c{background:var(--amber)}
+.sanlbl{display:flex;justify-content:space-between;color:var(--muted2);font-size:9.5px;margin-top:4px;font-family:Menlo,monospace}
+/* 격리 검증 */
+.iso{padding:5px 10px;border-radius:6px;background:var(--ok-bg);color:var(--green-text);font-size:11.5px;margin-bottom:4px}
+.iso.w{background:var(--warn-bg);color:var(--amber)}
+.iso.g{background:var(--ghost-bg);color:var(--red)}
+/* GPU Fabric 다이어그램 */
+.fab-wrap{background:var(--card-sub);border:1px solid var(--line);border-radius:8px;padding:14px;overflow-x:auto}
+.fab-min{min-width:760px}
+.fab-spines{display:flex;gap:8px;margin-bottom:6px}
+.fab-spineA{flex:1;background:var(--fabA-bg);border:1px solid var(--fabA-line);border-radius:6px;padding:7px;text-align:center;color:var(--blue-text);font-size:10.5px;font-weight:700}
+.fab-spineB{flex:1;background:var(--fabB-bg);border:1px solid var(--fabB-line);border-radius:6px;padding:7px;text-align:center;color:var(--purple-text);font-size:10.5px;font-weight:700}
+.fab-links{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;text-align:center;color:var(--dot-off);font-size:11px;margin-bottom:4px}
+.fab-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
+.fab-su{text-align:center}
+.fab-leaf{background:var(--leaf-bg);border:1px solid var(--line2);border-radius:4px;padding:3px 0;font-size:8.5px;color:var(--leaf-text)}
+.fab-cells{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-top:4px}
+.fab-cells span{height:13px;border-radius:2px;background:var(--track)}
+.fab-su .cap{font-size:9px;color:var(--muted);margin-top:3px}
+.fab-su.fin .fab-leaf{border-color:var(--green);color:var(--leaf-green)}
+.fab-su.fin .fab-cells span{background:var(--green)}
+.fab-su.fin .cap{color:var(--leaf-green)}
+.fab-su.resv .fab-leaf{border-color:var(--amber-dim);color:var(--amber)}
+.fab-su.resv .fab-cells span{background:var(--amber-dim)}
+.fab-su.resv .cap{color:var(--amber)}
+/* 스파크 박스 */
+.spark{background:var(--card-sub);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.spark .hd{display:flex;justify-content:space-between;font-size:10.5px;margin-bottom:5px}
+.spark .v{color:#fff;font-family:Menlo,monospace}
+/* 테이블 내 진행바 · 시뮬 막대 */
+.pb{display:inline-block;width:110px;height:6px;border-radius:3px;background:var(--track);vertical-align:middle}
+.pb>span{display:block;height:100%;border-radius:3px;background:var(--green)}
+.simrow{display:flex;align-items:center;gap:9px;font-size:11px;margin-bottom:7px;font-variant-numeric:tabular-nums}
+.simrow .lb{width:110px;flex:none;color:var(--muted)}
+.simrow .bar{flex:1;height:12px;border-radius:6px;background:var(--track);overflow:hidden;display:flex}
+.simrow .bar>span{height:100%}
+.simrow .val{width:52px;text-align:right;font-weight:700}
+/* 상태 소스 칩 (텔레메트리) */
+.srcchip{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:11.5px}
+/* 캘린더 · 온보딩 행 */
+.calrow{display:flex;gap:10px;align-items:center;font-size:11.5px;padding:3px 0}
+.calrow .ts{font-family:Menlo,monospace;font-size:10px;color:var(--muted);width:96px;flex:none}
+.tick-row{display:flex;gap:9px;align-items:center;font-size:11.5px;color:var(--muted);padding:3px 0}
+.tick-row .ck{color:var(--green-text);font-weight:800}
+/* 톱바 알림 배지 · 유지보수 모드 토글 */
+.nbadge{display:inline-block;margin-left:6px;background:var(--amber-bg);color:var(--amber);border-radius:8px;padding:0 6px;font-size:9.5px;font-weight:800;font-family:Menlo,monospace}
+#btn-maint-mode.solid{font-weight:800}
+/* ── 통합 Observability (obs-*) ───────────────────────── */
+.obs-src{display:inline-flex;align-items:center;gap:7px;background:var(--card-sub);border:1px solid var(--line);border-radius:7px;padding:5px 12px;font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap}
+.obs-src.live{color:var(--green-text);border-color:var(--green-line)}
+.obs-src.mock{color:var(--amber);border-color:var(--amber-line)}
+.obs-hmrow{display:flex;align-items:flex-start;gap:8px;padding:4px 0}
+.obs-hmrow .lb{font-family:Menlo,monospace;font-size:10px;color:var(--muted);width:96px;flex:none;padding-top:4px}
+.obs-hm{display:flex;gap:3px;flex-wrap:wrap;align-items:center}
+.obs-hm .hc{width:20px;height:20px;border-radius:4px;background:var(--track);cursor:pointer;flex:none}
+.obs-hm .hc.th{outline:1px solid var(--amber)}
+.obs-hm .hc.crit{outline:2px solid var(--red)}
+.obs-hm .hc.sel{outline:2px solid #fff}
+.cdu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;align-items:start}
+.cdu-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px 15px;cursor:pointer}
+.cdu-card>div{align-items:center}
+.cdu-card:hover{border-color:var(--muted2)}
+.cdu-card.alarm{border-color:var(--amber-line)}
+.cdu-card.leak{border-color:var(--red-line)}
+.gauge{height:7px;border-radius:4px;background:var(--track);overflow:hidden;margin:8px 0 7px}
+.gauge>i{display:block;height:100%;background:var(--green)}
+.pumpchip{display:inline-block;width:max-content;flex:0 0 auto;line-height:1.5;border:1px solid var(--line);border-radius:5px;padding:1px 7px;font-size:9.5px;font-family:Menlo,monospace;color:var(--muted);white-space:nowrap}
+.pumpchip.on{color:var(--green-text);border-color:var(--green-line)}
+.pumpchip.stby{color:var(--muted2)}
+.pumpchip.bad{color:var(--red);border-color:var(--red-line)}
+.obs-dcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;cursor:pointer}
+.obs-dcard:hover{border-color:var(--muted2)}
+/* obs-gpu 가독성 개선 — util 바 · 온도 칩 · 히스토그램 · 상태 분해 */
+.ubar{display:inline-flex;align-items:center;gap:6px;min-width:104px;width:100%}
+.ubar>i{flex:1;height:5px;border-radius:3px;background:var(--track);overflow:hidden;display:block;min-width:56px}
+.ubar>i>b{display:block;height:100%;border-radius:3px}
+.ubar>em{font-style:normal;font-variant-numeric:tabular-nums;font-size:11px;width:34px;text-align:right;color:var(--soft)}
+.tchip{font-variant-numeric:tabular-nums;font-weight:700}
+.sevtag{font-size:9.5px;font-weight:800;letter-spacing:.06em;white-space:nowrap}
+.hist{display:flex;align-items:flex-end;gap:2px;height:50px;margin-top:4px}
+.hist>i{flex:1;background:var(--ready);border-radius:2px 2px 0 0;min-height:2px}
+.hist>i.hot{background:var(--amber-dim)}
+.hist-x{display:flex;justify-content:space-between;color:var(--muted2);font-size:9.5px;font-family:Menlo,monospace;margin-top:3px}
+.statebar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--track);margin:6px 0 8px}
+.statebar>i{display:block;height:100%}
+/* GPU 패브릭 토폴로지 (obs-fabtopo) */
+.ft-site{background:#0d141d;border:1px solid var(--line);border-radius:9px;padding:12px 14px;margin-bottom:12px}
+.ft-sp{font-family:Menlo,monospace;font-size:9.5px;padding:2px 8px;border-radius:4px;background:#13314f;color:#9fd0ff;border:1px solid #2a4868}
+.ft-sp.b{background:#241b3a;color:#c8a5e8;border-color:#463366}
+.ft-sp.watch{outline:1px dashed var(--amber)}
+.ftc{width:13px;height:13px;border-radius:3px;display:inline-block;background:#1c2f4a}
+.ftc.b{background:#2a2140}
+.ftc.warn{outline:2px solid var(--amber)}.ftc.watch{outline:1px dashed var(--amber)}.ftc.crit{outline:2px solid var(--red)}
+.ft-su{display:flex;align-items:center;gap:8px;padding:2.5px 0}
+.ft-su .lb{font-family:Menlo,monospace;font-size:10px;color:var(--muted);width:56px;flex:none}
+.ft-su .cells{display:flex;gap:2px;flex-wrap:wrap;align-items:center}
+/* 크로스 상관 체인 */
+.chain{display:flex;flex-wrap:wrap;gap:6px;align-items:stretch}
+.chain .stg{flex:1 1 150px;min-width:150px;background:#0d141d;border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+.chain .stg .d{font-size:9.5px;font-weight:800;letter-spacing:.06em}
+.chain .stg .m{color:#fff;font-size:11.5px;font-weight:700;margin-top:2px}
+.chain .stg .v{font-size:11px;color:var(--soft);font-variant-numeric:tabular-nums}
+.chain .stg .s{color:var(--muted2);font-size:9.5px;margin-top:3px;line-height:1.5}
+.chain .arr{align-self:center;color:var(--muted2);flex:none}
+.evrow{display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--muted);padding:2.5px 0}
+.evrow .lb{width:190px;flex:none}
+.evrow i{flex:1;height:5px;border-radius:3px;background:var(--track);overflow:hidden;display:block;max-width:170px}
+.evrow i b{display:block;height:100%;background:var(--amber);border-radius:3px}
+.evrow em{font-style:normal;font-variant-numeric:tabular-nums;color:var(--soft);width:34px;text-align:right}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ══ 사이드바 ══ -->
+  <aside class="sb">
+    <div class="sb-brand">
+      <span class="lg">N</span>
+      <div>
+        <div class="t">NeoCloud <span style="color:var(--green)">Ops</span></div>
+        <div class="s">OPERATIONS PORTAL · SRE / NOC</div>
+      </div>
+    </div>
+    <div class="sb-scope">
+      <div class="k">사이트 스코프</div>
+      <div style="display:flex;gap:5px;margin-top:6px">
+        <span class="scope-chip act" data-scope="all">전체</span>
+        <span class="scope-chip" data-scope="gasan">가산</span>
+        <span class="scope-chip" data-scope="ansan">안산</span>
+      </div>
+      <div style="color:var(--muted2);font-size:9.5px;margin-top:6px" class="tabnum">가산 36랙 · 안산 104랙 — 140랙 · 10,080 GPU</div>
+    </div>
+    <nav>
+      <a class="mi" href="#/overview" data-route="overview"><span class="dot"></span>관제 Overview</a>
+      <div class="sb-grp">인프라</div>
+      <a class="mi" href="#/assets" data-route="assets"><span class="dot"></span>자산 인벤토리 (CMDB)</a>
+      <a class="mi" href="#/capacity" data-route="capacity"><span class="dot"></span>용량 관리</a>
+      <a class="mi" href="#/provisioning" data-route="provisioning"><span class="dot"></span>프로비저닝 <span class="bd amber" id="bd-prov">1</span></a>
+      <a class="mi" href="#/network" data-route="network"><span class="dot"></span>네트워크 — IB · NVLink</a>
+      <a class="mi" href="#/power" data-route="power"><span class="dot"></span>전력 · 환경 (DCIM)</a>
+      <div class="sb-grp">관측 · 대응</div>
+      <a class="mi" href="#/telemetry" data-route="telemetry"><span class="dot"></span>텔레메트리</a>
+      <a class="mi" href="#/incidents" data-route="incidents"><span class="dot"></span>인시던트 <span class="bd red" id="bd-inc">1</span></a>
+      <a class="mi" href="#/performance" data-route="performance"><span class="dot"></span>성능 — SLA · MFU</a>
+      <div class="sb-grp">거버넌스</div>
+      <a class="mi" href="#/security" data-route="security"><span class="dot"></span>보안 운영 · Sanitization <span class="bd amber">2</span></a>
+      <a class="mi" href="#/change" data-route="change"><span class="dot"></span>변경 · 유지보수 (CAB)</a>
+      <a class="mi" href="#/orchestration" data-route="orchestration"><span class="dot"></span>오케스트레이션 <span class="bd p2">P2</span></a>
+      <div class="sb-grp">통합 OBSERVABILITY</div>
+      <a class="mi" href="#/obs-overview" data-route="obs-overview"><span class="dot"></span>종합 상황판</a>
+      <a class="mi" href="#/obs-gpu" data-route="obs-gpu"><span class="dot"></span>GPU · 컴퓨트 (DCGM)</a>
+      <a class="mi" href="#/obs-fabtopo" data-route="obs-fabtopo"><span class="dot"></span>GPU 패브릭 (UFM)</a>
+      <a class="mi" href="#/obs-rack" data-route="obs-rack"><span class="dot"></span>랙 · 전력 (DCIM)</a>
+      <a class="mi" href="#/obs-dlc" data-route="obs-dlc"><span class="dot"></span>냉각 · DLC (SMCI CDU)</a>
+      <a class="mi" href="#/obs-fabric" data-route="obs-fabric"><span class="dot"></span>크로스 상관 (RCA)</a>
+      <a class="mi" href="#/obs-slo" data-route="obs-slo"><span class="dot"></span>SLA · Error Budget</a>
+      <a class="mi" href="#/obs-alerts" data-route="obs-alerts"><span class="dot"></span>알림 · 이벤트 <span class="bd amber" id="bd-obs-alerts" style="display:none">0</span></a>
+    </nav>
+    <div style="margin-top:auto">
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 6px">
+        <span class="dot green" style="width:6px;height:6px"></span>
+        <span style="color:var(--green-text);font-size:10.5px;font-weight:700">텔레메트리 스트림 정상 · 4s</span>
+      </div>
+      <div class="sb-user">
+        <span class="av" style="background:var(--amber-bg);color:var(--amber)">OC</span>
+        <div style="min-width:0">
+          <div class="nm">oncall-kim</div>
+          <div class="rl">SRE · 온콜 교대 09:00 – 18:00</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══ 본문 ══ -->
+  <div class="main">
+    <div class="topbar">
+      <span class="crumb" style="font-size:12.5px"><span style="color:var(--muted2);font-size:11.5px;font-weight:400">Ops</span><span class="sep">/</span><span class="cur">관제 Overview</span></span>
+      <span class="search"><span class="mono">⌕</span> 호스트 · 랙 · 인시던트 검색 <span class="mono" style="border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:9.5px">⌘K</span></span>
+      <div class="tb-right">
+        <span class="mono tabnum" style="color:var(--muted);font-size:11px">2026-07-09 10:41 KST</span>
+        <button class="btn-ghost" data-notif title="알림 · 이벤트 드롭다운">알림<span id="notif-badge" class="nbadge" style="display:none">0</span></button>
+        <button class="btn-warn" id="btn-maint-mode" data-act="maint-mode" title="콘솔 정책 레이어 토글 — 신규 프로비저닝 승인 보류 권고">유지보수 모드</button>
+        <button class="btn" data-open="reconcile">Reconcile 실행</button>
+      </div>
+    </div>
+
+    <!-- 유지보수 모드 배너 — 콘솔 정책 레이어 (nocp 글로벌 모드 API 없음 · localStorage 유지) -->
+    <div id="maint-banner" class="strip" style="display:none;background:var(--warn-bg);border-bottom:1px solid var(--amber-line)">
+      <span class="st amber" style="display:flex;align-items:center;gap:6px"><span class="dot amber"></span>유지보수 모드</span>
+      <span style="font-size:12px;color:var(--amber)"><b>신규 프로비저닝 승인 보류 권고</b> · ON <span class="mono tabnum" id="maint-since">—</span></span>
+      <span style="color:var(--muted);font-size:11px">콘솔 정책 레이어 — nocp 글로벌 모드 API 없음 · 승인 시 경고 확인 1단계 추가</span>
+      <button class="btn-cancel" style="margin-left:auto;padding:4px 11px;font-size:11px;flex:none" data-act="maint-mode">해제</button>
+    </div>
+
+    <!-- P2 인시던트 스트립 (overview 상단 · 클릭 시 인시던트로 이동) -->
+    <div class="strip p2" id="p2strip" data-nav="incidents" style="cursor:pointer">
+      <span class="st red" style="display:flex;align-items:center;gap:6px"><span class="dot red"></span>P2 진행 중</span>
+      <span style="font-size:12px"><b>INC-0412</b> su-5-rack-03 tray-11 GPU 장애 — nvsentinel 복구 · RCA 작성 중</span>
+      <span style="color:var(--muted);font-size:11px">경과 4h 22m · 담당 oncall-kim · 고객 영향: fin-corp &lt;0.1%</span>
+      <span style="margin-left:auto;display:flex;gap:7px">
+        <button class="btn-danger" data-open="warroom">워룸 참여</button>
+        <button class="btn-cancel" style="padding:4px 11px;font-size:11px" data-nav="incidents">타임라인</button>
+      </span>
+    </div>
+
+    <div class="content">
+
+      <!-- ════════ ① 관제 Overview ════════ -->
+      <section data-screen="overview">
+        <div class="kpi-band" id="ov-kpi"></div>
+        <div id="ov-reconcile" style="display:none"></div>
+        <div class="grid">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t" id="rackmap-title">랙 상태 맵 — 140랙</span>
+              <span class="rt" id="rackmap-leg" style="gap:12px;font-size:10px;color:var(--muted)">
+                <span><span class="leg" style="background:var(--green)"></span> 할당 52</span>
+                <span><span class="leg" style="background:var(--ready)"></span> ready 83</span>
+                <span><span class="leg" style="background:var(--amber-bg);border:1px solid var(--amber-dim)"></span> 잠김 4</span>
+                <span><span class="leg" style="background:var(--fault)"></span> 장애 1</span>
+              </span>
+            </div>
+            <div id="rackmap"></div>
+            <div style="display:flex;gap:7px;align-items:center;margin-top:12px;background:var(--strip);border:1px solid var(--line);border-radius:7px;padding:8px 12px;font-size:11px;color:var(--muted)">
+              <span class="st red">●</span>
+              <span><b style="color:var(--soft)">su-5-rack-03</b> — tray-11 faulted · M4 배치 자동 제외 · 정비 창 07-09 02:00 예약됨</span>
+              <span class="lnk" style="margin-left:auto;flex:none" data-nav="assets">랙 상세 →</span>
+            </div>
+          </div>
+          <div>
+            <div class="panel">
+              <div class="ph"><span class="tick red"></span><span class="t">인시던트 — INC-0412</span><span class="st red">P2 · 진행 중</span><span class="lnk" style="margin-left:auto" data-nav="incidents">전체 보기 →</span></div>
+              <div class="log">
+                <div><span class="ts">06:19:42</span> <b style="color:var(--red)">XID 63</b> su-5-rack-03-tray-11 GPU2 — row-remap pending</div>
+                <div><span class="ts">06:19:48</span> nvsentinel 자동 대응 — GPU reset → cordon <span style="color:var(--green-text)">(TTA 6s)</span></div>
+                <div><span class="ts">06:20:04</span> 워크로드 재스케줄 — 영향 &lt;0.1% · 고객 알림 발송</div>
+                <div><span class="ts">10:12:40</span> <span style="color:var(--amber)">RCA 작성 중</span> — RMA 후보 판정 대기</div>
+              </div>
+            </div>
+            <div class="panel" style="margin-bottom:0">
+              <div class="ph"><span class="tick"></span><span class="t">스트래글러 탐지</span><span class="c">MFU 편차 기반 · 최근 24h</span><span class="lnk" style="margin-left:auto" data-nav="performance">성능 →</span></div>
+              <table class="tbl"><tbody>
+                <tr><td class="id" style="color:var(--pink-soft)">su-5-r03-t11</td><td class="num" style="color:var(--red);font-weight:700">31.2%</td><td style="color:var(--muted)">GPU fault (INC-0412)</td></tr>
+                <tr><td class="id">su-6-r07-t02</td><td class="num" style="color:var(--amber);font-weight:700">52.4%</td><td style="color:var(--muted)">IB 링크 flap 2회 — 관찰</td></tr>
+                <tr><td class="id">클러스터 평균</td><td class="num" style="color:var(--green-text);font-weight:700">58.3%</td><td style="color:var(--muted)">Goodput 96.1%</td></tr>
+              </tbody></table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ ② 자산 인벤토리 (CMDB) ════════ -->
+      <section data-screen="assets">
+        <div class="filters">
+          <select id="af-site" class="chip" style="appearance:auto;cursor:pointer">
+            <option value="">사이트: 전체</option><option value="가산">가산</option><option value="안산">안산</option>
+          </select>
+          <select id="af-state" class="chip" style="appearance:auto;cursor:pointer">
+            <option value="">상태: 전체</option><option value="allocated">allocated</option><option value="pool_ready">pool_ready</option><option value="maintenance">maintenance</option><option value="faulted">faulted</option>
+          </select>
+          <input id="af-q" class="chip" style="flex:1;max-width:300px;cursor:text" placeholder="호스트 · 트레이 · 테넌트 검색">
+          <span class="rt">
+            <button class="btn-ghost" data-open="export_csv">CSV 내보내기</button>
+            <button class="btn" style="padding:6px 12px;font-size:11.5px" data-open="asset_new">+ 자산 등록</button>
+          </span>
+        </div>
+        <div class="kpi-band" id="assets-kpi">
+          <div class="kpi"><div class="k">총 자산</div><div class="v">5,428</div><div class="s">2개 사이트</div></div>
+          <div class="kpi"><div class="k">NVL72 랙</div><div class="v">140</div><div class="s">트레이 2,520 · GPU 10,080</div></div>
+          <div class="kpi"><div class="k">스위치 (IB·Conv)</div><div class="v">184</div><div class="s">Quantum XDR · Spectrum</div></div>
+          <div class="kpi"><div class="k">DPU</div><div class="v">2,520</div><div class="s">BlueField B4240V</div></div>
+          <div class="kpi"><div class="k">RMA 진행</div><div class="v amber">3</div><div class="s">트레이 1 · GPU 2</div></div>
+          <div class="kpi"><div class="k">보증 만료 90일 내</div><div class="v">0</div><div class="s">최초 만료 2028-03</div></div>
+        </div>
+        <div class="panel">
+          <div class="ph"><span class="tick"></span><span class="t">자산 목록</span><span class="c" id="assets-count">5,428건 중 1–8 표시</span>
+            <span class="rt" id="assets-pager" style="display:none">
+              <button class="btn-ghost" style="padding:4px 11px;font-size:11px" data-act="assets-prev">← 이전</button>
+              <button class="btn-ghost" style="padding:4px 11px;font-size:11px" data-act="assets-next">다음 →</button>
+            </span>
+          </div>
+          <table class="tbl">
+            <thead><tr id="assets-head"><th>자산 ID</th><th>타입 / 모델</th><th>위치</th><th>펌웨어</th><th>라이프사이클</th><th>테넌트</th></tr></thead>
+            <tbody id="assets-body">
+              <tr><td class="id">rack-su-5-03</td><td>랙 · VR NVL72</td><td style="color:var(--muted)">안산 1층 · row-B-07</td><td class="id">vr-1.08</td><td><span class="st red"><span class="dot red"></span> 정비 중</span></td><td class="id" style="color:var(--muted)">fin-corp</td></tr>
+              <tr><td class="id">tray-su5-03-11</td><td>컴퓨트 트레이</td><td style="color:var(--muted)">rack-su-5-03 · U22</td><td class="id">bmc-2.14</td><td><span class="st amber"><span class="dot amber"></span> RMA 발행</span></td><td class="id" style="color:var(--muted)">fin-corp</td></tr>
+              <tr><td class="id">rack-su-1-00</td><td>랙 · VR NVL72</td><td style="color:var(--muted)">가산 1층 · row-A-01</td><td class="id">vr-1.08</td><td><span class="st green"><span class="dot green"></span> 가동</span></td><td class="id" style="color:var(--muted)">acme-ai</td></tr>
+              <tr><td class="id">ibsw-an-spA-01</td><td>IB 스파인 · Quantum XDR</td><td style="color:var(--muted)">안산 1층 · net-row-01</td><td class="id">mlnx-31.2</td><td><span class="st green"><span class="dot green"></span> 가동</span></td><td style="color:var(--muted2)">공용</td></tr>
+              <tr><td class="id">dpu-su1-00-00</td><td>DPU · BlueField B4240V</td><td style="color:var(--muted)">tray-su1-00-00</td><td class="id" style="color:var(--amber)">doca-3.1 <span style="font-size:9px">드리프트</span></td><td><span class="st green"><span class="dot green"></span> 가동</span></td><td class="id" style="color:var(--muted)">acme-ai</td></tr>
+              <tr><td class="id">cdu-an-1f-01</td><td>CDU (DLC 냉각)</td><td style="color:var(--muted)">안산 1층 · hac-5</td><td class="id">cdu-4.2</td><td><span class="st green"><span class="dot green"></span> 가동</span></td><td style="color:var(--muted2)">공용</td></tr>
+              <tr><td class="id">rack-su-12-00</td><td>랙 · VR NVL72</td><td style="color:var(--muted)">안산 2층 (예정)</td><td style="color:var(--muted2)">—</td><td><span class="st blue"><span class="dot blue"></span> 발주 (Q4 입고)</span></td><td style="color:var(--muted2)">—</td></tr>
+              <tr><td class="id">gpu-su6-04-2-1</td><td>GPU · Rubin 288GB</td><td style="color:var(--muted)">반출 — RMA 센터</td><td style="color:var(--muted2)">—</td><td><span class="st" style="color:var(--purple-text)"><span class="dot" style="background:var(--purple)"></span> RMA 반출</span></td><td style="color:var(--muted2)">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="grid">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">라이프사이클 분포</span><span class="c">입고 → 가동 → 정비 → RMA → 폐기</span></div>
+            <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;margin-bottom:8px">
+              <span style="width:4%;background:var(--blue)"></span><span style="width:91%;background:var(--green)"></span><span style="width:2.5%;background:var(--amber)"></span><span style="width:1.5%;background:var(--red)"></span><span style="width:1%;background:var(--dot-off)"></span>
+            </div>
+            <div class="tabnum" style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted)">
+              <span><span style="color:var(--blue-text)">■</span> 입고·발주 217</span>
+              <span><span style="color:var(--green-text)">■</span> 가동 4,940</span>
+              <span><span style="color:var(--amber)">■</span> 정비 136</span>
+              <span><span style="color:var(--red)">■</span> RMA 3</span>
+              <span><span style="color:var(--muted2)">■</span> 폐기 대기 2</span>
+            </div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick amber"></span><span class="t">펌웨어 드리프트 — 14노드</span><span class="lnk" style="margin-left:auto" data-nav="change">일괄 패치 (CAB-88) →</span></div>
+            <table class="tbl"><tbody>
+              <tr><td>DPU DOCA <span class="id" style="color:var(--muted2);font-size:10px">3.1 → 3.2</span></td><td class="num" style="color:var(--amber);font-weight:700">11 노드</td></tr>
+              <tr><td>BMC <span class="id" style="color:var(--muted2);font-size:10px">2.12 → 2.14</span></td><td class="num" style="color:var(--amber);font-weight:700">3 노드</td></tr>
+              <tr><td>IB 스위치 · GPU VBIOS</td><td class="num" style="color:var(--green-text);font-weight:700">일치 100%</td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </section>
+      <!-- ════════ ③ 용량 관리 ════════ -->
+      <section data-screen="capacity">
+        <div class="kpi-band">
+          <div class="kpi"><div class="k">판매 가능 (유효)</div><div class="v green">83<small>랙</small></div><div class="s">5,976 GPU</div></div>
+          <div class="kpi"><div class="k">할당</div><div class="v">52<small> / 140랙</small></div><div class="bar"><i style="width:37%"></i></div></div>
+          <div class="kpi"><div class="k">격리 잠김</div><div class="v amber">4<small>랙</small></div><div class="s">su-2 · beta-ai 부분 점유</div></div>
+          <div class="kpi"><div class="k">전력 여유</div><div class="v">16.4<small> MW</small></div><div class="s">캡 26.2MW 기준</div></div>
+          <div class="kpi"><div class="k">증설 리드타임</div><div class="v" id="kpi-lead">12<small>주</small></div><div class="s" id="kpi-lead-s">su-12·su-13 발주 D-90</div></div>
+        </div>
+        <div class="grid" style="margin-bottom:16px">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">사이트별 할당 현황</span><span class="c">Fulfillment Core 실시간</span></div>
+            <table class="tbl">
+              <thead><tr id="cap-sites-head"><th>사이트 / SU</th><th style="width:160px">할당률</th><th class="num">판매가능</th><th class="num">전력 여유</th><th class="num">최대 단일 계약</th></tr></thead>
+              <tbody id="cap-sites-body">
+                <tr><td><b>가산</b> · su 1–3 (36랙)</td><td><span class="pb"><span style="width:56%"></span></span> 56%</td><td class="num" style="color:var(--green-text);font-weight:700">12랙</td><td class="num">2.9MW</td><td class="num">12랙</td></tr>
+                <tr><td><b>안산</b> · su 4–11 (104랙)</td><td><span class="pb"><span style="width:31%"></span></span> 31%</td><td class="num" style="color:var(--green-text);font-weight:700">71랙</td><td class="num">13.5MW</td><td class="num">48랙</td></tr>
+                <tr><td style="color:var(--muted2)"><b style="color:var(--blue-text)">안산 2층 증설</b> · su-12·13 (32랙)</td><td style="color:var(--muted2)">Q2 '27 가동 목표</td><td class="num" style="color:var(--blue-text);font-weight:700">+32랙</td><td class="num" style="color:var(--muted2)">+6.0MW</td><td class="num" style="color:var(--muted2)">32랙</td></tr>
+              </tbody>
+            </table>
+            <div class="callout warn" style="margin-top:10px">물리 유휴 ≠ 판매 가능 — dedicated 테넌트가 부분 점유한 SU의 잔여 랙(4랙)은 격리 정책으로 잠기며, 점유 테넌트 확장 또는 회수 시에만 풀립니다.</div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">확장 시뮬레이션</span><span class="c">Biz 파이프라인 연동</span></div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+              <span class="chip" id="cap-sim-scn" data-act="poc" data-msg="확장 시나리오 편집">시나리오: gamma 8 + delta 24 + RFQ-031 32랙 ▾</span>
+              <button class="btn" style="padding:6px 14px;font-size:11.5px" data-act="confirm-only" data-msg="확장 시뮬레이션 재계산 완료 — 승인 순서 반영">실행</button>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:5px">안산 판매가능 랙 소진 추이 (승인 순서 반영)</div>
+            <div id="cap-sim"></div>
+            <div style="display:flex;gap:7px;align-items:flex-start;margin-top:5px;background:var(--inc-strip);border:1px solid var(--red-line);border-radius:7px;padding:8px 12px;font-size:11px;color:var(--pink-soft);line-height:1.6">
+              <span style="color:var(--red);font-weight:800">⚠</span>
+              <span id="cap-sim-note">RFQ-031 수주 시 잔여 부족 — su-12·13 (32랙) 발주를 10월 초까지 확정해야 Q2 '27 개통 가능</span>
+            </div>
+          </div>
+        </div>
+        <div class="panel" style="margin-bottom:0">
+          <div class="ph"><span class="tick"></span><span class="t">예약 · 파이프라인 반영 현황</span></div>
+          <table class="tbl">
+            <thead><tr><th>건</th><th class="num">랙</th><th>배치</th><th>상태</th><th>희망 개통</th></tr></thead>
+            <tbody id="cap-pipe"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ════════ ④ 프로비저닝 ════════ -->
+      <section data-screen="provisioning">
+        <div class="grid" style="margin-bottom:16px">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick amber"></span><span class="t" id="ph-prov-state">승인 게이트 — 대기 1건</span><span class="c">Fulfillment Core</span></div>
+            <div class="sub hl" id="prov-card" style="padding:14px 16px"></div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">실행 중 Job</span><span class="c">NICo · 최근 24h 148건</span></div>
+            <table class="tbl">
+              <thead><tr><th>JOB</th><th>유형</th><th>대상</th><th>상태</th></tr></thead>
+              <tbody>
+                <tr><td class="id">jb-2857</td><td>sanitize</td><td class="id" style="color:var(--muted)">alloc-1 · 8노드</td><td class="st amber">진행 5/7</td></tr>
+                <tr><td class="id">jb-2856</td><td>firmware</td><td class="id" style="color:var(--muted)">drift 3노드 (BMC)</td><td class="st blue">CAB 대기</td></tr>
+                <tr><td class="id">jb-2841</td><td>provision</td><td class="id" style="color:var(--muted)">nh-su-1-r00-t00</td><td class="st green">succeeded</td></tr>
+                <tr><td class="id">jb-2839</td><td>provision</td><td class="id" style="color:var(--pink-soft)">nh-su-5-r03-t11</td><td class="st red">failed — TPM</td></tr>
+              </tbody>
+            </table>
+            <div style="color:var(--muted);font-size:11px;margin-top:8px">실패 job은 자동 격리(quarantine) 후 인시던트 연계 · 재시도는 승인 필요</div>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">신규 랙 온보딩 — su-12·13 (32랙)</span><span class="st blue">Q4 입고 예정</span></div>
+            <div class="calrow"><span class="dot green" style="width:6px;height:6px"></span><span style="color:var(--soft)">발주 확정 · 계약 조건 합의</span><span class="st green" style="margin-left:auto;font-size:10.5px">완료 예정 10월 초</span></div>
+            <div class="calrow"><span class="dot gray" style="width:6px;height:6px"></span><span style="color:var(--muted)">입고 검수 — 시리얼·BOM 대조 · CMDB 등록</span></div>
+            <div class="calrow"><span class="dot gray" style="width:6px;height:6px"></span><span style="color:var(--muted)">배선 · 냉각 루프 연결 (CDU 2N) · 전력 인가</span></div>
+            <div class="calrow"><span class="dot gray" style="width:6px;height:6px"></span><span style="color:var(--muted)">펌웨어 표준화 (BFB · BMC · VBIOS 일괄)</span></div>
+            <div class="calrow"><span class="dot gray" style="width:6px;height:6px"></span><span style="color:var(--muted)">번인 테스트 72h — NCCL·스토리지·열 부하</span></div>
+            <div class="calrow"><span class="dot gray" style="width:6px;height:6px"></span><span style="color:var(--muted)">pool_ready 편입 — 판매 가능 재고 반영</span></div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">이미지 · 부트 카탈로그</span><span class="c">DSX OS · PXE 배포</span></div>
+            <table class="tbl"><tbody>
+              <tr><td class="id">ubuntu-24.04-nvidia</td><td style="color:var(--muted)">기본 · CUDA 13.1 · 검증 07-01</td><td class="num st green">stable</td></tr>
+              <tr><td class="id">dsx-os-2.4</td><td style="color:var(--muted)">NVIDIA DSX · 번들 펌웨어 포함</td><td class="num st green">stable</td></tr>
+              <tr><td class="id">ubuntu-24.04-nvidia-rc2</td><td style="color:var(--muted)">CUDA 13.2 RC · 카나리 8노드</td><td class="num st amber">canary</td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ ⑤ 네트워크 — IB · NVLink ════════ -->
+      <section data-screen="network">
+        <div class="kpi-band">
+          <div class="kpi"><div class="k">IB 패브릭</div><div class="v green">정상</div><div class="s" id="kpi-fabric-s">듀얼 A/B · 스파인 16 · 리프 168</div></div>
+          <div class="kpi"><div class="k">활성 P_Key</div><div class="v" id="kpi-pkey">4</div><div class="s" id="kpi-pkey-s">테넌트 파티션</div></div>
+          <div class="kpi"><div class="k">NVLink 도메인</div><div class="v">52</div><div class="s">NMX-M · 파티션 3</div></div>
+          <div class="kpi"><div class="k">링크 이벤트 (24h)</div><div class="v amber">3</div><div class="s">flap 2 · 심볼에러 1</div></div>
+          <div class="kpi"><div class="k">패브릭 대역폭</div><div class="v">412<small> TB/s</small></div><div class="s">피크 대비 61%</div></div>
+        </div>
+        <div class="panel">
+          <div class="ph"><span class="tick"></span><span class="t">GPU Fabric 구성 — IB 듀얼 패브릭 (rail-optimized)</span>
+            <span class="c">랙당 SuperNIC 8포트 = Fabric-A 4 + Fabric-B 4 · 사이트별 독립 패브릭 (크로스 스팬 불가)</span>
+            <span class="rt" style="gap:5px">
+              <span class="chip on" data-fabsite="ansan" style="padding:2px 11px;font-size:10.5px;border-radius:5px">안산</span>
+              <span class="chip" data-fabsite="gasan" style="padding:2px 11px;font-size:10.5px;border-radius:5px;color:var(--muted)">가산</span>
+            </span>
+          </div>
+          <div class="fab-wrap">
+            <div class="fab-min">
+              <div class="fab-spines">
+                <div class="fab-spineA" id="fab-spineA">Fabric-A 스파인 ×8 — Quantum XDR (GPU fabric · rail 0–3)</div>
+                <div class="fab-spineB" id="fab-spineB">Fabric-B 스파인 ×8 — Quantum XDR (rail 4–7)</div>
+              </div>
+              <div class="fab-links"><span>│</span><span>│</span><span>│</span><span>│</span><span>│</span><span>│</span><span>│</span><span>│</span></div>
+              <div class="fab-grid" id="fab-grid"></div>
+              <div style="display:flex;gap:14px;margin-top:10px;font-size:10px;color:var(--muted);flex-wrap:wrap" id="fab-legend">
+                <span style="color:var(--leaf-green)">■ fin-corp (P_Key 0x8012)</span>
+                <span style="color:var(--amber)" id="fab-legend-resv">■ gamma-labs 예약 (0x8014 · ord-9)</span>
+                <span style="color:var(--muted2)">■ 미할당 풀</span>
+                <span style="margin-left:auto">셀 = 랙 4개 묶음 · 클릭 시 랙 단위 포트 뷰</span>
+              </div>
+            </div>
+          </div>
+          <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:12px;margin-top:12px">
+            <div class="sub">
+              <div style="color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em;margin-bottom:6px">랙 단위 접속 구성 — su-5-rack-00 (예시)</div>
+              <div class="mono" style="font-size:10.5px;color:var(--soft);line-height:1.9">
+                SuperNIC 8× 800G — <span style="color:var(--blue-text)">A0–A3 → leafA-su5-00..03</span> · <span style="color:var(--purple-text)">B0–B3 → leafB-su5-00..03</span> (rail-optimized)<br>
+                <span style="color:var(--muted)">DPU B4240V 800G → Converged leaf · NVLink6 3.6TB/s (랙 내 NVL72 도메인 · NMX-M)</span>
+              </div>
+            </div>
+            <div class="sub">
+              <div style="color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em;margin-bottom:6px">패브릭 용량 — 안산</div>
+              <div class="tabnum" style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)">
+                <span>노드 링크 <b style="color:#fff">14,976 × 800G</b></span>
+                <span>스파인 <b style="color:#fff">16</b> · 리프 <b style="color:#fff">128</b></span>
+                <span>이중화 <b style="color:var(--green-text)">A/B 완전 분리</b></span>
+                <span>UFM <b style="color:var(--green-text)">HA ×2 정상</b></span>
+              </div>
+              <div style="color:var(--muted);font-size:10.5px;margin-top:6px">단일 패브릭 장애 시에도 rail 4개로 축소 운전 — 성능 영향 ≤50%, 연결성 유지</div>
+            </div>
+          </div>
+        </div>
+        <div class="grid" style="margin-bottom:16px">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">IB 파티션 (P_Key) — UFM</span><span class="rt"><button class="btn" style="padding:5px 12px;font-size:11.5px" data-open="pkey">+ 파티션 생성</button></span></div>
+            <table class="tbl">
+              <thead><tr id="pkey-head"><th>P_Key</th><th>테넌트</th><th class="num">포트</th><th>사이트</th><th>상태</th></tr></thead>
+              <tbody id="pkey-body">
+                <tr><td class="id">0x8012</td><td>fin-corp</td><td class="num">4,608</td><td style="color:var(--muted)">안산</td><td class="st green">enforced</td></tr>
+                <tr><td class="id">0x8007</td><td>acme-ai</td><td class="num">2,304</td><td style="color:var(--muted)">가산</td><td class="st green">enforced</td></tr>
+                <tr><td class="id">0x8009</td><td>beta-ai</td><td class="num">576</td><td style="color:var(--muted)">가산</td><td class="st green">enforced</td></tr>
+                <tr><td class="id">0x8014</td><td>gamma-labs</td><td class="num">2,304</td><td style="color:var(--muted)">안산</td><td class="st amber" id="pkey-gamma-state">예약 (ord-9)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">VXLAN / HBN 세그먼트</span><span class="c">DPU EVPN · 3-plane 분리</span></div>
+            <table class="tbl">
+              <thead><tr id="vxlan-head"><th>VRF</th><th class="num">Compute VNI</th><th class="num">Converged</th><th class="num">OOB</th><th class="num">호스트</th></tr></thead>
+              <tbody class="mono" style="font-size:10.5px" id="vxlan-body">
+                <tr><td>vrf-fin-corp</td><td class="num">30101</td><td class="num">30102</td><td class="num">30103</td><td class="num">581</td></tr>
+                <tr><td>vrf-acme-ai</td><td class="num">30111</td><td class="num">30112</td><td class="num">30113</td><td class="num">293</td></tr>
+                <tr><td>vrf-beta-ai</td><td class="num">30121</td><td class="num">30122</td><td class="num">30123</td><td class="num">77</td></tr>
+                <tr><td>vrf-gamma-labs</td><td class="num">30131</td><td class="num">30132</td><td class="num">30133</td><td class="num" style="color:var(--amber)">예약</td></tr>
+              </tbody>
+            </table>
+            <div style="color:var(--muted);font-size:11px;margin-top:8px">NVLink NMX-M: fin-corp 파티션 2 (su-5 · su-6) · beta-ai 파티션 1 — 도메인 무결성 검증 07-08 PASS</div>
+          </div>
+        </div>
+        <div class="panel" style="margin-bottom:0">
+          <div class="ph"><span class="tick amber"></span><span class="t">링크 이벤트 (24h)</span><span class="c">UFM Telemetry</span></div>
+          <table class="tbl"><tbody>
+            <tr><td class="id" style="color:var(--muted);font-size:10px;width:70px">09:42</td><td class="id">an-leafA-su6-03 : p14 ↔ su-6-r07-t02</td><td class="st amber">link flap ×2</td><td style="color:var(--muted)">케이블 점검 예약 — 스트래글러 연계</td></tr>
+            <tr><td class="id" style="color:var(--muted);font-size:10px">03:15</td><td class="id">an-spineB-02 : p03</td><td class="st blue">symbol err ↑</td><td style="color:var(--muted)">임계 미만 · 관찰</td></tr>
+          </tbody></table>
+        </div>
+      </section>
+      <!-- ════════ ⑥ 전력 · 환경 (DCIM) ════════ -->
+      <section data-screen="power">
+        <div class="kpi-band">
+          <div class="kpi"><div class="k">캠퍼스 사용 전력</div><div class="v" id="pw-kpi-use">5.87<small> / 26.2 MW</small></div><div class="bar"><i id="pw-kpi-use-bar" style="width:22%"></i></div></div>
+          <div class="kpi"><div class="k">PUE (7d)</div><div class="v green">1.18</div><div class="s">DLC 비중 94%</div></div>
+          <div class="kpi"><div class="k">랙 평균 / 캡</div><div class="v" id="pw-kpi-rack">131<small> / 187 kW</small></div><div class="s" id="pw-kpi-rack-s">MaxQ 캡 운전</div></div>
+          <div class="kpi"><div class="k">냉각수 공급/회수</div><div class="v">25.0<small> / 41.2°C</small></div><div class="s">ΔT 16.2°C 정상</div></div>
+          <div class="kpi"><div class="k">환경 알람 (24h)</div><div class="v green">0</div><div class="s">누수 0 · 펌프 정상</div></div>
+        </div>
+        <div class="grid">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">사이트 · 층별 전력</span><span class="c" id="pw-sites-c">DCIM 실시간</span></div>
+            <table class="tbl">
+              <thead><tr id="pw-sites-head"><th>사이트 / 층</th><th style="width:180px">사용 / 캡</th><th class="num">랙 평균</th><th class="num">CDU</th></tr></thead>
+              <tbody id="pw-sites-body">
+                <tr><td>가산 1층 · 6MW</td><td><span class="pb" style="width:130px"><span style="width:52%"></span></span> 3.1MW</td><td class="num">129kW</td><td class="num" style="color:var(--green-text)">2N 정상</td></tr>
+                <tr><td>가산 2층 · 3MW</td><td><span class="pb" style="width:130px"><span style="width:8%"></span></span> 0.2MW</td><td class="num" style="color:var(--muted)">idle</td><td class="num" style="color:var(--green-text)">2N 정상</td></tr>
+                <tr><td>안산 1층 · 12.9MW</td><td><span class="pb" style="width:130px"><span style="width:19%"></span></span> 2.4MW</td><td class="num">133kW</td><td class="num" style="color:var(--green-text)">2N 정상</td></tr>
+                <tr><td>안산 2층 · 10.4MW</td><td><span class="pb" style="width:130px"><span style="width:2%"></span></span> 0.1MW</td><td class="num" style="color:var(--muted)">idle</td><td class="num" style="color:var(--green-text)">2N 정상</td></tr>
+              </tbody>
+            </table>
+            <div class="callout" style="margin-top:10px">delta-corp 24랙 + RFQ-031 32랙 반영 시 안산 1층 전력 사용 2.4 → 12.9MW 근접 — <b style="color:var(--soft)">2층 전력 인가 일정(Q1 '27)</b>과 연동 필요</div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">전력 · 온도 추이 (24h)</span></div>
+            <div class="spark" style="margin-bottom:12px">
+              <div class="hd"><span style="color:var(--amber);font-weight:700">캠퍼스 전력 (kW)</span><span class="v" id="pw-spark-val">5,872</span></div>
+              <svg width="100%" height="64" viewBox="0 0 560 64" preserveAspectRatio="none"><polyline id="pw-spark-line" points="0,48 40,46 80,47 120,42 160,44 200,37 240,40 280,33 320,36 360,29 400,32 440,26 480,29 520,24 560,26" fill="none" stroke="var(--amber)" stroke-width="1.7"></polyline></svg>
+            </div>
+            <div class="spark">
+              <div class="hd"><span><span style="color:var(--teal);font-weight:700">냉각수 공급</span> <span style="color:var(--orange);font-weight:700">· 회수</span></span><span class="v">25.0 / 41.2°C</span></div>
+              <svg width="100%" height="64" viewBox="0 0 560 64" preserveAspectRatio="none"><polyline points="0,50 80,50 160,49 240,50 320,49 400,50 480,49 560,50" fill="none" stroke="var(--teal)" stroke-width="1.6"></polyline><polyline points="0,26 80,25 160,27 240,24 320,26 400,23 480,25 560,24" fill="none" stroke="var(--orange)" stroke-width="1.6"></polyline></svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ ⑦ 텔레메트리 ════════ -->
+      <section data-screen="telemetry">
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+          <span class="srcchip"><span class="dot green"></span><b>DCGM</b> <span style="color:var(--muted)">10,080 GPU · 수집률 100%</span></span>
+          <span class="srcchip"><span class="dot green"></span><b>UFM Telemetry</b> <span style="color:var(--muted)">352 스위치 · 지연 8s</span></span>
+          <span class="srcchip"><span class="dot green"></span><b>DOCA Telemetry</b> <span style="color:var(--muted)">2,520 DPU</span></span>
+          <span class="srcchip"><span class="dot amber"></span><b>NMX-T</b> <span style="color:var(--amber)">지연 94s · 임계 120s 근접</span></span>
+          <span class="srcchip" id="tel-emu" style="display:none"></span>
+          <span class="srcchip" style="margin-left:auto;color:var(--muted)">OTLP 익스포트 <b style="color:var(--green-text)">≤120s 준수</b></span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-bottom:16px">
+          <div class="spark">
+            <div class="hd"><span style="color:var(--green-text);font-weight:700" id="tel1-k">할당 GPU util (평균)</span><span class="v" id="tel1-v">74%</span></div>
+            <svg width="100%" height="58" viewBox="0 0 260 58" preserveAspectRatio="none"><polyline id="tel1-l" points="0,40 20,37 40,39 60,32 80,35 100,27 120,31 140,24 160,27 180,20 200,23 220,17 240,21 260,17" fill="none" stroke="var(--green)" stroke-width="1.6"></polyline></svg>
+          </div>
+          <div class="spark">
+            <div class="hd"><span style="color:var(--blue-text);font-weight:700" id="tel2-k">IB 대역폭 (TB/s)</span><span class="v" id="tel2-v">412</span></div>
+            <svg width="100%" height="58" viewBox="0 0 260 58" preserveAspectRatio="none"><polyline id="tel2-l" points="0,42 20,39 40,41 60,34 80,37 100,30 120,33 140,26 160,29 180,23 200,26 220,20 240,23 260,20" fill="none" stroke="var(--blue)" stroke-width="1.6"></polyline></svg>
+          </div>
+          <div class="spark">
+            <div class="hd"><span style="color:var(--amber);font-weight:700" id="tel3-k">전력 (kW)</span><span class="v" id="tel3-v">5,872</span></div>
+            <svg width="100%" height="58" viewBox="0 0 260 58" preserveAspectRatio="none"><polyline id="tel3-l" points="0,44 20,42 40,43 60,39 80,41 100,35 120,38 140,32 160,35 180,29 200,32 220,26 240,29 260,26" fill="none" stroke="var(--amber)" stroke-width="1.6"></polyline></svg>
+          </div>
+          <div class="spark">
+            <div class="hd"><span style="color:var(--red);font-weight:700" id="tel4-k">XID / ECC 이벤트</span><span class="v" id="tel4-v">2 / 214</span></div>
+            <svg width="100%" height="58" viewBox="0 0 260 58" preserveAspectRatio="none"><polyline id="tel4-l" points="0,50 20,50 40,49 60,49 80,48 100,48 120,47 140,44 160,44 180,43 200,43 220,42 240,42 260,42" fill="none" stroke="var(--red)" stroke-width="1.6"></polyline></svg>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick red"></span><span class="t">이상 탐지 — 최근 24h</span><span class="c">Straggler · Anomaly Detection</span></div>
+            <div class="acard">
+              <div class="hd"><span class="sv" style="color:var(--red)">CRITICAL</span><b style="font-size:12px;color:#fff">GPU 성능 이상 — su-5-r03-t11</b><span class="tm">06:19</span></div>
+              <div class="meta">MFU -27.1pp · XID 63 상관 — INC-0412 자동 연계</div>
+            </div>
+            <div class="acard warn">
+              <div class="hd"><span class="sv" style="color:var(--amber)">WARNING</span><b style="font-size:12px;color:#fff">IB 링크 flap — an-leafA-su6-03:p14</b><span class="tm">09:42</span></div>
+              <div class="meta">2회 반복 · 케이블 점검 제안 — 스트래글러 su-6-r07-t02 상관</div>
+            </div>
+            <div class="acard info" style="margin-bottom:0">
+              <div class="hd"><span class="sv" style="color:var(--blue-text)">INFO</span><b style="font-size:12px;color:#fff">NMX-T 수집 지연 상승 94s</b><span class="tm">08:10</span></div>
+              <div class="meta">카디널리티 증가 추정 — 라벨 정리 제안 (아래)</div>
+            </div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">메트릭 카디널리티</span><span class="c">Prometheus · 활성 시리즈 4.2M</span></div>
+            <table class="tbl">
+              <thead><tr><th>소스</th><th class="num">시리즈</th><th class="num">주간 증가</th><th>조치</th></tr></thead>
+              <tbody>
+                <tr><td>DCGM (GPU)</td><td class="num">2.41M</td><td class="num" style="color:var(--green-text)">+0.8%</td><td style="color:var(--muted)">—</td></tr>
+                <tr><td>NMX-T (NVLink)</td><td class="num" style="color:var(--amber);font-weight:700">1.13M</td><td class="num" style="color:var(--amber);font-weight:700">+11.2%</td><td><span class="lnk" data-act="poc" data-msg="NMX-T 라벨 카디널리티 정리 제안">라벨 정리 제안 →</span></td></tr>
+                <tr><td>UFM / DOCA</td><td class="num">0.52M</td><td class="num" style="color:var(--green-text)">+1.1%</td><td style="color:var(--muted)">—</td></tr>
+                <tr><td>DCIM · 기타</td><td class="num">0.14M</td><td class="num" style="color:var(--green-text)">+0.2%</td><td style="color:var(--muted)">—</td></tr>
+              </tbody>
+            </table>
+            <div style="color:var(--muted);font-size:11px;margin-top:8px">보존 정책: 원본 15d · 다운샘플 5m/13개월 · 테넌트 노출은 고객 단위 필터링 후 고객 포털로 전달</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ ⑧ 인시던트 ════════ -->
+      <section data-screen="incidents">
+        <div class="kpi-band">
+          <div class="kpi"><div class="k">열린 인시던트</div><div class="v red" id="kpi-inc-open">1</div><div class="s" id="kpi-inc-open-s">P2 1 · P1 0</div></div>
+          <div class="kpi"><div class="k">MTTA (30d)</div><div class="v green" id="kpi-mtta">6<small>s</small></div><div class="s" id="kpi-mtta-s">자동 대응 비율 92%</div></div>
+          <div class="kpi"><div class="k">MTTR (30d)</div><div class="v" id="kpi-mttr">42<small>s</small></div><div class="s" id="kpi-mttr-s">HW 교체 제외</div></div>
+          <div class="kpi"><div class="k">30d 인시던트</div><div class="v" id="kpi-inc30">12</div><div class="s" id="kpi-inc30-s">고객 영향 2건</div></div>
+          <div class="kpi"><div class="k">알림 룰</div><div class="v">48</div><div class="s">억제 규칙 6 · 중복 제거 on</div></div>
+        </div>
+        <div class="grid" style="margin-bottom:16px">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick red"></span><span class="t">인시던트 목록</span><span class="rt"><button class="btn" style="padding:5px 12px;font-size:11.5px" data-open="incident_new">+ 수동 생성</button></span></div>
+            <div id="inc-list"></div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick red"></span><span class="t" id="inc-tl-title">INC-0412 타임라인 · RCA</span><span class="c" style="margin-left:auto">RCA 초안 자동 생성</span></div>
+            <div class="log" id="inc-timeline"></div>
+            <div style="display:flex;gap:7px;margin-top:10px" id="inc-actions"></div>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">온콜 스케줄 — 이번 주</span><span class="lnk" style="margin-left:auto" data-act="poc" data-msg="온콜 로테이션 편집">로테이션 편집 →</span></div>
+            <table class="tbl"><tbody>
+              <tr><td style="color:var(--muted);width:110px">주간 (09–18)</td><td><b>oncall-kim</b> <span class="st green" style="font-size:10px">● 현재</span></td><td style="color:var(--muted)">백업: 이수민</td></tr>
+              <tr><td style="color:var(--muted)">야간 (18–09)</td><td>박준호</td><td style="color:var(--muted)">백업: 최다인</td></tr>
+              <tr><td style="color:var(--muted)">주말</td><td>최다인</td><td style="color:var(--muted)">에스컬레이션: NOC 리드</td></tr>
+            </tbody></table>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">알림 룰 요약</span><span class="c">AIOps · 자동 티켓 생성 연동</span></div>
+            <table class="tbl"><tbody>
+              <tr><td>XID 중대 (48·63·79·94)</td><td class="st red">P2 즉시</td><td style="color:var(--muted)">nvsentinel 자동 대응 + 티켓</td></tr>
+              <tr><td>IB 링크 flap ≥3회/h</td><td class="st amber">P3</td><td style="color:var(--muted)">케이블 점검 워크플로우</td></tr>
+              <tr><td>전력 랙캡 95% 초과</td><td class="st amber">P3</td><td style="color:var(--muted)">파워 캡 자동 조정</td></tr>
+              <tr><td>누수 감지</td><td class="st red">P1 즉시</td><td style="color:var(--muted)">CDU 격리 + 시설팀 호출</td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ ⑨ 성능 — SLA · MFU ════════ -->
+      <section data-screen="performance">
+        <div class="kpi-band">
+          <div class="kpi"><div class="k">SLA 준수율 (30d)</div><div class="v green" id="perf-sla">99.97<small>%</small></div><div class="s" id="perf-sla-s">목표 99.95% (관리면)</div></div>
+          <div class="kpi"><div class="k">에러 버짓 잔여</div><div class="v">64<small>%</small></div><div class="bar"><i style="width:64%"></i></div></div>
+          <div class="kpi"><div class="k">클러스터 MFU</div><div class="v" id="perf-mfu">58.3<small>%</small></div><div class="s" id="perf-mfu-s">주간 +0.8pp</div></div>
+          <div class="kpi"><div class="k">Goodput</div><div class="v green" id="perf-good">96.1<small>%</small></div><div class="s" id="perf-good-s">재시작 손실 3.9%</div></div>
+          <div class="kpi"><div class="k">스트래글러</div><div class="v amber" id="perf-strag">2</div><div class="s" id="perf-strag-s">노드 · 24h</div></div>
+        </div>
+        <div class="grid">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">MFU · Goodput 추이 (30d)</span></div>
+            <div class="spark">
+              <svg width="100%" height="90" viewBox="0 0 560 90" preserveAspectRatio="none">
+                <line x1="0" y1="30" x2="560" y2="30" stroke="var(--dot-off)" stroke-width="1" stroke-dasharray="4 4"></line>
+                <polyline id="perf-line-mfu" points="0,52 40,50 80,51 120,48 160,49 200,46 240,47 280,44 320,46 360,42 400,44 440,41 480,43 520,40 560,41" fill="none" stroke="var(--green)" stroke-width="1.7"></polyline>
+                <polyline id="perf-line-good" points="0,22 40,21 80,23 120,20 160,22 200,19 240,21 280,18 320,20 360,17 400,19 440,16 480,18 520,15 560,16" fill="none" stroke="var(--blue)" stroke-width="1.5"></polyline>
+              </svg>
+              <div style="display:flex;gap:14px;font-size:10.5px;margin-top:4px" id="perf-legend"><span style="color:var(--green-text)">● MFU 58.3%</span><span style="color:var(--blue-text)">● Goodput 96.1%</span><span style="color:var(--muted2);margin-left:auto">─ ─ 목표 MFU 60%</span></div>
+            </div>
+            <div class="callout" style="margin-top:10px">MFU 60% 목표까지 1.7pp — 주요 손실: 체크포인트 I/O 대기 (1.1pp) · 스트래글러 (0.4pp) · 통신 오버랩 미적용 job 2건 (0.2pp)</div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">테넌트별 성능 · 벤치마크</span><span class="c">Performance Core</span></div>
+            <table class="tbl">
+              <thead><tr><th>테넌트</th><th class="num">MFU</th><th class="num">Goodput</th><th class="num">NCCL allreduce</th><th class="num">스토리지 read</th></tr></thead>
+              <tbody>
+                <tr><td><b>fin-corp</b> (2,304 GPU)</td><td class="num">58.3%</td><td class="num" style="color:var(--green-text)">96.1%</td><td class="num">3.41 TB/s</td><td class="num">941 GB/s</td></tr>
+                <tr><td><b>acme-ai</b> (1,152 GPU)</td><td class="num">54.7%</td><td class="num" style="color:var(--green-text)">97.4%</td><td class="num">1.72 TB/s</td><td class="num">628 GB/s</td></tr>
+                <tr><td><b>beta-ai</b> (288 GPU)</td><td class="num" style="color:var(--amber)">44.1%</td><td class="num" style="color:var(--green-text)">98.0%</td><td class="num">0.44 TB/s</td><td class="num">158 GB/s</td></tr>
+              </tbody>
+            </table>
+            <div style="color:var(--muted);font-size:11px;margin-top:8px">beta-ai MFU 저조 — 소형 batch 추정 · 고객 성공팀에 최적화 가이드 전달 제안</div>
+          </div>
+        </div>
+        <div class="panel" id="perf-strag-panel" style="margin-top:16px;margin-bottom:0;display:none">
+          <div class="ph"><span class="tick amber"></span><span class="t">스트래글러 · 장애 이벤트 — 실시간</span><span class="c">nocp EMU faults · 미해결 우선</span></div>
+          <div id="perf-strag-list"></div>
+        </div>
+      </section>
+      <!-- ════════ ⑩ 보안 운영 · Sanitization ════════ -->
+      <section data-screen="security">
+        <div class="kpi-band">
+          <div class="kpi"><div class="k">Sanitization 진행</div><div class="v amber">1</div><div class="s">대기 1 · 이번 달 완료 6</div></div>
+          <div class="kpi"><div class="k">격리 검증</div><div class="v green" id="kpi-iso">PASS</div><div class="s" id="kpi-iso-s">4테넌트 · 07-08 자동</div></div>
+          <div class="kpi"><div class="k">활성 PAM 세션</div><div class="v" id="kpi-pam">1</div><div class="s" id="kpi-pam-s">녹화 중 · TTL 42분</div></div>
+          <div class="kpi"><div class="k">취약점 (열림)</div><div class="v amber">4</div><div class="s">High 1 · Med 3</div></div>
+          <div class="kpi"><div class="k">접근 거부 (24h)</div><div class="v">7</div><div class="s">이상 패턴 없음</div></div>
+        </div>
+        <div class="grid" style="margin-bottom:16px">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">Sanitization 실행 · 증명서</span><span class="c">NICo · 재할당 전 필수 (법적 증빙)</span></div>
+            <div class="sub hl" id="san-card" style="margin-bottom:10px"></div>
+            <div class="sub" id="san-live" style="display:none;margin-bottom:10px"></div>
+            <table class="tbl">
+              <thead><tr><th>증명서</th><th>대상</th><th>결과</th><th class="num">발급</th></tr></thead>
+              <tbody id="san-certs">
+                <tr><td class="id">SAN-0688</td><td style="color:var(--muted)">acme-ai 축소분 · 4노드</td><td class="st green">PASS 7/7</td><td class="num"><span class="lnk" data-act="confirm-only" data-msg="SAN-0688-cert.pdf 다운로드 — 감사 로그 기록">PDF ↓</span></td></tr>
+                <tr><td class="id">SAN-0685</td><td style="color:var(--muted)">beta-ai 반납분 · 2노드</td><td class="st green">PASS 7/7</td><td class="num"><span class="lnk" data-act="confirm-only" data-msg="SAN-0685-cert.pdf 다운로드 — 감사 로그 기록">PDF ↓</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t" id="iso-title">격리 검증 — fin-corp</span><span class="st green" id="iso-badge" style="display:none">PASS</span><span class="rt"><button class="btn-ghost" style="padding:3px 11px;font-size:11px" data-act="iso-recheck" data-msg="fin-corp 격리 재검증 시작 — 4-plane 검사 큐 등록">재검증</button></span></div>
+            <div id="iso-body">
+              <div class="iso"><b>[identity]</b> IAM realm 분리 · OIDC 클라이언트 유효</div>
+              <div class="iso"><b>[network]</b> VNI/VRF 3-plane 유일 · P_Key enforced</div>
+              <div class="iso"><b>[physical]</b> su-5·su-6 단독 점유 — co-tenant 없음</div>
+              <div class="iso"><b>[nvlink]</b> NMX 파티션 2 — 무결성 OK</div>
+              <div class="iso w"><b>[dpu]</b> tray-11 faulted — 복구 후 재검증 대기</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+              <span style="color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em">활성 PAM 세션</span>
+              <button class="btn-ghost" style="margin-left:auto;padding:2px 10px;font-size:10.5px" data-open="pam_new">+ 세션 열기</button>
+            </div>
+            <div id="pam-list">
+              <div style="display:flex;align-items:center;gap:10px;background:var(--card-sub);border:1px solid var(--line2);border-radius:8px;padding:8px 12px;margin-top:6px">
+                <span class="dot amber"></span>
+                <span class="id" style="color:#fff">pam-31</span>
+                <span class="id" style="font-size:10px;color:var(--muted)">oncall-kim → console:su-5-r03-t11 · 녹화 중</span>
+                <button class="btn-danger" style="margin-left:auto;padding:2px 9px;font-size:10.5px" data-open="pam">종료</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel" id="sec-audit-panel" style="margin-bottom:16px;display:none">
+          <div class="ph"><span class="tick"></span><span class="t">감사 로그 — 최근</span><span class="c" id="sec-audit-c">nocp 공유 감사 스트림 · 실데이터</span></div>
+          <table class="tbl">
+            <thead><tr><th style="width:110px">시간</th><th>행위자</th><th>액션</th><th>대상</th><th>결과</th></tr></thead>
+            <tbody id="sec-audit-body"></tbody>
+          </table>
+        </div>
+        <div class="panel" style="margin-bottom:0">
+          <div class="ph"><span class="tick amber"></span><span class="t">취약점 스캔 — 최근 주간</span><span class="c">보안 스캐너 · 관리면 대상</span></div>
+          <table class="tbl"><tbody>
+            <tr><td class="id">CVE-2026-31842</td><td class="st red">HIGH</td><td style="color:var(--muted)">관리 API 게이트웨이 lib — 패치 존재</td><td><span class="lnk" style="color:var(--amber)" data-nav="change">CAB-89 상정 (07-21) →</span></td></tr>
+            <tr><td class="id">CVE-2026-2977× 3건</td><td class="st amber">MED</td><td style="color:var(--muted)">내부 도구 의존성 — 인터넷 비노출</td><td style="color:var(--muted)">다음 정기 패치</td></tr>
+          </tbody></table>
+        </div>
+      </section>
+
+      <!-- ════════ ⑪ 변경 · 유지보수 (CAB) ════════ -->
+      <section data-screen="change">
+        <div class="grid" style="margin-bottom:16px">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick amber"></span><span class="t">CAB 승인 대기 — 2건</span><span class="c">변경자문위원회 · 수요일 정기</span></div>
+            <div class="acard warn" style="border-left:none;border:1px solid var(--line2)">
+              <div class="hd"><b class="id" style="color:#fff">CAB-88</b><span style="font-size:12px">DPU DOCA 3.2.1 일괄 패치 — 드리프트 14노드 포함</span>
+                <span style="margin-left:auto;display:flex;gap:6px">
+                  <button class="btn" style="padding:4px 12px;font-size:11px" data-open="cab">승인</button>
+                  <button class="btn-danger" style="padding:4px 12px;font-size:11px" data-open="reject">반려</button></span>
+              </div>
+              <div class="meta">창: 07-21 02:00–05:00 · 롤링 (테넌트 무중단) · 리스크: 낮음 · 롤백: BFB 이전 버전 자동</div>
+            </div>
+            <div class="acard warn" style="border-left:none;border:1px solid var(--line2);margin-bottom:0">
+              <div class="hd"><b class="id" style="color:#fff">CAB-89</b><span style="font-size:12px">관리 API 게이트웨이 보안 패치 (CVE HIGH)</span>
+                <span style="margin-left:auto;display:flex;gap:6px">
+                  <button class="btn" style="padding:4px 12px;font-size:11px" data-open="cab">승인</button>
+                  <button class="btn-danger" style="padding:4px 12px;font-size:11px" data-open="reject">반려</button></span>
+              </div>
+              <div class="meta">창: 07-21 02:00 (CAB-88 동일 창) · 관리면 무중단 배포 (blue-green)</div>
+            </div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">유지보수 캘린더 — 7월</span><span class="rt"><button class="btn-ghost" style="padding:4px 11px;font-size:11px" data-open="maintenance">장비 상태 전환</button><span class="lnk" data-act="export-ical">iCal 내보내기 ↓</span></span></div>
+            <div class="calrow"><span class="ts">07-09 02:00</span><span class="dot red" style="width:6px;height:6px"></span><span><b style="color:var(--soft)">tray-11 교체 정비</b> · su-5-rack-03 · INC-0412</span><span class="st green" style="margin-left:auto;font-size:10.5px;flex:none">승인됨</span></div>
+            <div class="calrow"><span class="ts">07-14 02:00</span><span class="dot amber" style="width:6px;height:6px"></span><span><b style="color:var(--soft)">IB 스파인 펌웨어 롤링</b> · 무중단 · 고객 공지됨</span><span class="st green" style="margin-left:auto;font-size:10.5px;flex:none">승인됨</span></div>
+            <div class="calrow"><span class="ts">07-21 02:00</span><span class="dot blue" style="width:6px;height:6px"></span><span><b style="color:var(--soft)">CAB-88 · 89</b> — DOCA 일괄 + API GW 보안</span><span class="st amber" style="margin-left:auto;font-size:10.5px;flex:none">승인 대기</span></div>
+            <div class="calrow"><span class="ts">07-28 02:00</span><span class="dot" style="width:6px;height:6px;background:var(--teal)"></span><span><b style="color:var(--soft)">CDU 정기 점검</b> · 가산 (2N 절체 시험)</span><span style="margin-left:auto;color:var(--muted);font-size:10.5px;flex:none">계획</span></div>
+          </div>
+        </div>
+        <div class="panel" id="chg-equip-panel" style="margin-bottom:16px;display:none">
+          <div class="ph"><span class="tick amber"></span><span class="t">정비 대상 — 실장비 (nocp)</span><span class="c" id="chg-equip-c">health/equipment · faulted · maintenance · breakfix</span></div>
+          <table class="tbl">
+            <thead><tr><th>종류</th><th>장비 ID</th><th>상태</th><th>테넌트</th><th class="num">조치</th></tr></thead>
+            <tbody id="chg-equip-body"></tbody>
+          </table>
+        </div>
+        <div class="panel" style="margin-bottom:0">
+          <div class="ph"><span class="tick"></span><span class="t">변경 이력 (최근)</span></div>
+          <table class="tbl">
+            <thead><tr><th>변경</th><th>내용</th><th>실행</th><th>결과</th></tr></thead>
+            <tbody>
+              <tr><td class="id">CAB-87</td><td>스토리지 QoS 상향 (acme-ai 40→60GB/s)</td><td style="color:var(--muted)">07-05</td><td class="st green">성공 · 무중단</td></tr>
+              <tr><td class="id">CAB-86</td><td>UFM HA 페일오버 시험</td><td style="color:var(--muted)">06-30</td><td class="st green">성공 · 절체 4.1s</td></tr>
+              <tr><td class="id">CAB-85</td><td>카나리 이미지 rc2 배포 (8노드)</td><td style="color:var(--muted)">06-28</td><td class="st amber">부분 — 1노드 롤백</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ════════ ⑫ 오케스트레이션 (P2) ════════ -->
+      <section data-screen="orchestration">
+        <div style="display:flex;gap:7px;align-items:center;margin-bottom:16px;background:var(--strip);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:11.5px;color:var(--muted)">
+          <span style="color:var(--blue-text);font-weight:800;border:1px solid var(--blue-line);background:var(--blue-bg);border-radius:4px;padding:1px 8px;font-size:10px">P2 프리뷰</span>
+          <span>오케스트레이션 통합관제 — BCM · Run:ai · UFM · Slurm(SUNK) 등 도구별 관리 기능의 중복을 해소하고 단일 뷰로 수렴하는 로드맵 화면입니다.</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-bottom:16px">
+          <div class="panel" style="margin-bottom:0;padding:16px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="dot green"></span><b style="font-size:13px;color:#fff">Slurm / SUNK</b><span class="st green" style="margin-left:auto;font-size:10.5px">연동됨</span></div>
+            <div style="color:var(--muted);font-size:11.5px">Job 큐 · 스케줄링 — running 12 · pending 4<br>파티션 3 · 노드 936</div>
+          </div>
+          <div class="panel" style="margin-bottom:0;padding:16px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="dot green"></span><b style="font-size:13px;color:#fff">UFM</b><span class="st green" style="margin-left:auto;font-size:10.5px">연동됨</span></div>
+            <div style="color:var(--muted);font-size:11.5px">IB 패브릭 · P_Key — 파티션 4<br>텔레메트리 스트림 정상</div>
+          </div>
+          <div class="panel" style="margin-bottom:0;padding:16px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="dot amber"></span><b style="font-size:13px;color:#fff">Run:ai</b><span class="st amber" style="margin-left:auto;font-size:10.5px">부분 연동</span></div>
+            <div style="color:var(--muted);font-size:11.5px">GPU 쿼터 · 워크로드 — 읽기 전용<br>쿼터 관리 이관 Q4 예정</div>
+          </div>
+          <div class="panel" style="margin-bottom:0;padding:16px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="dot gray"></span><b style="font-size:13px;color:#fff">BCM</b><span class="st gray" style="margin-left:auto;font-size:10.5px">평가 중</span></div>
+            <div style="color:var(--muted);font-size:11.5px">클러스터 매니저 — NICo와 기능 중복<br>범위 축소 검토</div>
+          </div>
+        </div>
+        <div class="panel" style="margin-bottom:0">
+          <div class="ph"><span class="tick"></span><span class="t">기능 중복 매트릭스 — 단일 관제 수렴 계획</span></div>
+          <table class="tbl">
+            <thead><tr><th>기능</th><th>현재 도구</th><th>수렴 대상</th><th>시점</th></tr></thead>
+            <tbody>
+              <tr><td>베어메탈 프로비저닝</td><td style="color:var(--muted)">NICo + BCM (중복)</td><td class="st green">NICo 단일화</td><td style="color:var(--muted)">완료</td></tr>
+              <tr><td>GPU 쿼터 · 테넌트 배분</td><td style="color:var(--muted)">Run:ai + 수동</td><td class="st amber">Ops 콘솔 통합</td><td style="color:var(--muted)">Q4 '26</td></tr>
+              <tr><td>패브릭 관리 (IB·NVLink)</td><td style="color:var(--muted)">UFM + NMX-M</td><td class="st amber">네트워크 메뉴 단일 뷰</td><td style="color:var(--muted)">Q1 '27</td></tr>
+              <tr><td>잡 오케스트레이션</td><td style="color:var(--muted)">Slurm/SUNK + Run:ai</td><td class="st blue">워크로드 유형별 역할 분리</td><td style="color:var(--muted)">Q2 '27</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ════════ ⑬ OBS — 종합 상황판 ════════ -->
+      <section data-screen="obs-overview">
+        <div class="filters" style="margin-bottom:14px">
+          <span class="obs-src mock" id="obs-src-obs-overview">◌ twin 미연동 — mock</span>
+          <span style="color:var(--muted2);font-size:10.5px">NICo Emulator obs API (:9000/emulator/v1/obs) · 5s 폴링 — 30MW Vera Rubin NVL72 통합 Observability</span>
+        </div>
+        <div class="kpi-band" id="obs-ov-kpi"></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:12px;margin-bottom:16px" id="obs-ov-domains"></div>
+        <div class="panel" style="margin-bottom:0">
+          <div class="ph"><span class="tick"></span><span class="t">최근 알림</span><span class="c" id="obs-ov-alerts-c">—</span><span class="lnk" style="margin-left:auto" data-nav="obs-alerts">알림 · 이벤트 전체 →</span></div>
+          <table class="tbl">
+            <thead><tr><th>상태</th><th>심각도</th><th>도메인</th><th>리소스</th><th>요약</th><th class="num">시각</th></tr></thead>
+            <tbody id="obs-ov-alerts"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ════════ ⑭ OBS — GPU · 컴퓨트 (DCGM) ════════ -->
+      <section data-screen="obs-gpu">
+        <div class="filters">
+          <span class="obs-src mock" id="obs-src-obs-gpu">◌ twin 미연동 — mock</span>
+          <select id="obs-gf-site" class="chip" style="appearance:auto;cursor:pointer">
+            <option value="">사이트: 전체</option><option value="gasan">가산 (gasan)</option><option value="ansan">안산 (ansan)</option>
+          </select>
+          <select id="obs-gf-su" class="chip" style="appearance:auto;cursor:pointer"><option value="">SU: 전체</option></select>
+          <select id="obs-gf-state" class="chip" style="appearance:auto;cursor:pointer">
+            <option value="">상태: 전체</option><option value="active">active</option><option value="idle">idle</option><option value="throttled">throttled</option><option value="faulted">faulted</option>
+          </select>
+          <select id="obs-gf-sort" class="chip" style="appearance:auto;cursor:pointer">
+            <option value="">정렬: 위치순</option><option value="temp">온도 ↓</option><option value="util">util ↓</option><option value="ecc">ECC ↓</option><option value="power">전력 ↓</option>
+          </select>
+          <span class="chip" id="obs-gf-attn" style="cursor:pointer" title="faulted · throttled · 고온 · ECC · PCIe replay만 표시">예외만</span>
+          <span class="rt" style="color:var(--muted2);font-size:10.5px">DCGM P0 1s · P1 5s — 예외 우선 표시 · 히트맵 셀 클릭 시 SU 필터</span>
+        </div>
+        <div class="kpi-band" id="obs-gpu-kpi"></div>
+        <!-- 히트맵 · 분포 — 10,080기를 한눈에 -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:18px;margin-bottom:18px">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">플릿 히트맵 — SU × 랙</span><span class="c">셀 = 랙 · 색 = 평균 util · 테두리 = 예외</span></div>
+            <div id="obs-gpu-hm"></div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:10px;color:var(--muted)">
+              <span><span class="leg" style="background:var(--ready)"></span> 유휴 풀</span>
+              <span><span class="leg" style="background:#3f6a1a"></span> util &lt;40%</span>
+              <span><span class="leg" style="background:#5a8f0e"></span> 40–79%</span>
+              <span><span class="leg" style="background:var(--green)"></span> ≥80%</span>
+              <span><span class="leg" style="background:var(--track);outline:1px solid var(--amber)"></span> throttle</span>
+              <span><span class="leg" style="background:var(--track);outline:2px solid var(--red)"></span> fault</span>
+            </div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">상태 · 분포</span><span class="c">가동 GPU 기준 (표본)</span></div>
+            <div id="obs-gpu-dist"></div>
+          </div>
+        </div>
+        <!-- 예외 우선 -->
+        <div class="panel">
+          <div class="ph"><span class="tick amber"></span><span class="t">주의 필요 GPU — 예외 우선</span><span class="c" id="obs-gpu-attn-count">—</span>
+            <span class="rt" style="color:var(--muted2);font-size:10.5px">faulted → throttled → 고온 → ECC 순 · 행 클릭 시 상세</span>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="tbl">
+              <thead><tr><th>위치 (트레이 · GPU)</th><th>상태 · 사유</th><th style="min-width:120px">util</th><th class="num">temp</th><th class="num">전력</th><th class="num">ECC u/c</th><th>테넌트</th><th>권고</th></tr></thead>
+              <tbody id="obs-gpu-attn"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel" style="margin-bottom:0">
+          <div class="ph"><span class="tick"></span><span class="t">GPU 플릿 (전체)</span><span class="c" id="obs-gpu-count">—</span>
+            <span class="rt">
+              <button class="btn-ghost" style="padding:4px 11px;font-size:11px" data-obs-page="prev">← 이전</button>
+              <button class="btn-ghost" style="padding:4px 11px;font-size:11px" data-obs-page="next">다음 →</button>
+            </span>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="tbl">
+              <thead><tr><th>위치</th><th>테넌트</th><th>상태</th><th style="min-width:120px">util</th><th class="num">temp</th><th class="num">전력</th><th class="num">SM clock</th><th class="num">ECC u/c</th><th>health</th></tr></thead>
+              <tbody id="obs-gpu-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ ⑮ OBS — 랙 · 전력 (DCIM) ════════ -->
+      <section data-screen="obs-fabtopo">
+        <div class="filters" style="margin-bottom:14px">
+          <span class="obs-src mock" id="obs-src-obs-fabtopo">◌ UFM 미연동 — mock</span>
+          <span style="color:var(--muted2);font-size:10.5px">사이트별 IB 듀얼 패브릭 A/B — 셀 = SU 리프 · 테두리 = 이상 · UFM Telemetry 5s</span>
+        </div>
+        <div class="kpi-band" id="obs-ft-kpi"></div>
+        <div id="obs-ft-topo"></div>
+        <div class="panel" style="margin-bottom:0">
+          <div class="ph"><span class="tick amber"></span><span class="t">이상 링크 — 예측 포함</span><span class="c" id="obs-ft-links-c">SymbolErr · BER · flap · 광모듈 열화</span></div>
+          <div style="overflow-x:auto">
+            <table class="tbl">
+              <thead><tr><th>링크 (스위치 : 포트)</th><th>구간</th><th>증상</th><th>영향 · 우회</th><th>예측 · 신뢰도</th><th>권고</th></tr></thead>
+              <tbody id="obs-ft-links"></tbody>
+            </table>
+          </div>
+          <div class="callout" style="margin-top:10px">rail-optimized 듀얼 패브릭 — 단일 링크 장애는 반대 rail로 우회되어 서비스 영향 없음 · 예측 이상은 정비 창에 자동 편성 제안</div>
+        </div>
+      </section>
+
+      <section data-screen="obs-rack">
+        <div class="filters" style="margin-bottom:14px">
+          <span class="obs-src mock" id="obs-src-obs-rack">◌ twin 미연동 — mock</span>
+          <span style="color:var(--muted2);font-size:10.5px">it_power_kw 히트맵 — 셀 클릭 시 랙 상세 · MaxQ 캡 187kW 기준</span>
+          <span class="rt" style="gap:12px;font-size:10px;color:var(--muted)" id="obs-rack-leg"></span>
+        </div>
+        <div class="kpi-band" id="obs-rack-kpi"></div>
+        <div class="grid" style="margin-bottom:16px">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">사이트별 전력 추이</span><span class="c">IT 전력 합 · 5s 폴링 누적 (세션)</span></div>
+            <div class="spark">
+              <div class="hd"><span style="color:var(--green-text);font-weight:700">가산</span><span class="v" id="obs-pwr-ga-v">—</span></div>
+              <svg width="100%" height="48" viewBox="0 0 560 48" preserveAspectRatio="none"><polyline id="obs-pwr-ga" points="" fill="none" stroke="var(--green)" stroke-width="1.7"></polyline></svg>
+            </div>
+            <div class="spark" style="margin-top:8px">
+              <div class="hd"><span style="color:#9fd0ff;font-weight:700">안산</span><span class="v" id="obs-pwr-an-v">—</span></div>
+              <svg width="100%" height="48" viewBox="0 0 560 48" preserveAspectRatio="none"><polyline id="obs-pwr-an" points="" fill="none" stroke="#5aa7e8" stroke-width="1.7"></polyline></svg>
+            </div>
+            <div style="color:var(--muted);font-size:11px;margin-top:8px" id="obs-pwr-note">샘플 수집 중…</div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">전체 소비 전력</span><span class="c">IT 합계 · 계약 전력 캡 대비</span></div>
+            <div class="spark">
+              <div class="hd"><span style="color:var(--amber);font-weight:700">전체 IT 전력</span><span class="v" id="obs-pwr-tot-v">—</span></div>
+              <svg width="100%" height="48" viewBox="0 0 560 48" preserveAspectRatio="none"><polyline id="obs-pwr-tot" points="" fill="none" stroke="var(--amber)" stroke-width="1.7"></polyline></svg>
+            </div>
+            <div id="obs-pwr-caps" style="margin-top:12px"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><span class="tick"></span><span class="t" id="obs-rack-title">랙 전력 히트맵</span><span class="c" id="obs-rack-c">DCIM · 랙 단위 실측</span></div>
+          <div id="obs-rack-map"></div>
+        </div>
+        <div class="panel" id="obs-rack-detail-panel" style="margin-bottom:0;display:none">
+          <div class="ph"><span class="tick amber"></span><span class="t" id="obs-rack-d-title">랙 상세</span><span class="c">셀 재클릭 시 닫기</span></div>
+          <div id="obs-rack-detail"></div>
+        </div>
+      </section>
+
+      <!-- ════════ ⑯ OBS — 냉각 · DLC (SMCI CDU) ════════ -->
+      <section data-screen="obs-dlc">
+        <div class="filters" style="margin-bottom:14px">
+          <span class="obs-src mock" id="obs-src-obs-dlc">◌ twin 미연동 — mock</span>
+          <span style="color:var(--muted2);font-size:10.5px">Supermicro CDU 플릿 (liquid-to-liquid DLC) · 카드 클릭 시 상세 + 장애 주입 데모</span>
+        </div>
+        <div class="kpi-band" id="obs-dlc-kpi"></div>
+        <div class="cdu-grid" id="obs-dlc-cards"></div>
+      </section>
+
+      <!-- ════════ ⑰ OBS — 패브릭 상관 ════════ -->
+      <section data-screen="obs-fabric">
+        <div class="filters" style="margin-bottom:14px">
+          <span class="obs-src mock" id="obs-src-obs-fabric">◌ twin 미연동 — mock</span>
+          <span style="color:var(--muted2);font-size:10.5px">냉각 ↔ GPU ↔ 패브릭 크로스 도메인 상관 — 전파 체인 · 증거 기여도 · 자동 그룹화</span>
+        </div>
+        <div class="grid" style="margin-bottom:16px">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick amber"></span><span class="t">냉각발 스로틀 GPU 추이</span><span class="c">5s 폴링 누적 · 세션 내</span></div>
+            <div class="spark">
+              <div class="hd"><span style="color:var(--amber);font-weight:700">throttled GPU 수</span><span class="v" id="obs-fab-thr">—</span></div>
+              <svg width="100%" height="64" viewBox="0 0 560 64" preserveAspectRatio="none"><polyline id="obs-fab-line" points="" fill="none" stroke="var(--amber)" stroke-width="1.7"></polyline></svg>
+            </div>
+            <div style="color:var(--muted);font-size:11px;margin-top:8px" id="obs-fab-note">샘플 수집 중…</div>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">도메인 상관 요약</span><span class="c">summary + correlate</span></div>
+            <div id="obs-fab-sum"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="ph"><span class="tick amber"></span><span class="t">상관 체인 상세 — 냉각 → 랙 → GPU → 패브릭 → 테넌트</span><span class="c">시간 순서 · 계층 전파 · 증거</span></div>
+          <div id="obs-fab-chain"></div>
+        </div>
+        <div class="panel" style="margin-bottom:0">
+          <div class="ph"><span class="tick red"></span><span class="t">냉각 → GPU → 패브릭 상관 RCA</span><span class="c" id="obs-fab-c">correlate/cooling</span></div>
+          <div style="overflow-x:auto">
+            <table class="tbl">
+              <thead><tr><th>CDU</th><th>Finding</th><th class="num">신뢰도</th><th>영향 랙</th><th class="num">영향 GPU</th><th>테넌트 영향</th><th>권고 조치</th></tr></thead>
+              <tbody id="obs-fab-rca"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ ⑱ OBS — SLA · Error Budget ════════ -->
+      <section data-screen="obs-slo">
+        <div class="filters" style="margin-bottom:14px">
+          <span class="obs-src mock" id="obs-src-obs-slo">◌ twin 미연동 — mock</span>
+          <span style="color:var(--muted2);font-size:10.5px">테넌트별 GPU 가용성 SLO · Error Budget · 냉각 기인 불가용 추적</span>
+        </div>
+        <div class="kpi-band" id="obs-slo-kpi"></div>
+        <div class="panel" style="margin-bottom:0">
+          <div class="ph"><span class="tick"></span><span class="t">테넌트 SLO 현황</span><span class="c" id="obs-slo-c">—</span></div>
+          <div style="overflow-x:auto">
+            <table class="tbl">
+              <thead><tr><th>테넌트</th><th class="num">계약 GPU</th><th class="num">가용 GPU</th><th class="num">가용성</th><th class="num">SLO 목표</th><th>에러버짓 잔여</th><th class="num">burn rate</th><th class="num">냉각 기인 (분)</th><th class="num">스로틀 (분)</th></tr></thead>
+              <tbody id="obs-slo-body"></tbody>
+            </table>
+          </div>
+          <div class="callout" style="margin-top:10px">스로틀 시간은 가용성에 직접 차감되지 않지만 성능 SLA 협의 대상 — 냉각 기인 불가용(분)은 CDU·branch RCA와 연계 집계됩니다</div>
+        </div>
+      </section>
+
+      <!-- ════════ ⑲ OBS — 알림 · 이벤트 ════════ -->
+      <section data-screen="obs-alerts">
+        <div class="filters">
+          <span class="obs-src mock" id="obs-src-obs-alerts">◌ twin 미연동 — mock</span>
+          <span class="chip on" data-obs-adom="">도메인: 전체</span>
+          <span class="chip" data-obs-adom="gpu">gpu</span>
+          <span class="chip" data-obs-adom="cooling">cooling</span>
+          <span class="chip" data-obs-adom="fabric">fabric</span>
+          <span class="chip" data-obs-adom="provisioning">provisioning</span>
+          <span style="color:var(--muted2)">·</span>
+          <span class="chip on" data-obs-asev="">심각도: 전체</span>
+          <span class="chip" data-obs-asev="critical">critical</span>
+          <span class="chip" data-obs-asev="major">major</span>
+          <span class="chip" data-obs-asev="warning">warning</span>
+          <span class="chip" data-obs-asev="info">info</span>
+        </div>
+        <div class="panel" style="margin-bottom:0">
+          <div class="ph"><span class="tick red"></span><span class="t">정규화 알림 스트림</span><span class="c" id="obs-alerts-c">firing 우선 · 5s 자동 갱신</span></div>
+          <table class="tbl">
+            <thead><tr><th>상태</th><th>심각도</th><th>도메인</th><th>리소스</th><th>요약</th><th class="num">시각</th></tr></thead>
+            <tbody id="obs-alerts-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ 모달 (13) ══════════ -->
+<div class="modal-ov" data-modal="reconcile"><div class="modal lg">
+  <div class="mh"><span class="tick"></span><span class="t">Reconcile 실행 — 미러 ↔ NICo 정합성</span><span class="x" data-close>✕</span></div>
+  <div class="mb">
+    <label style="margin-top:0">스코프</label>
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <span class="chip on" style="padding:5px 14px;font-size:11px">전체 (2,520)</span>
+      <span class="chip" style="padding:5px 14px;font-size:11px;color:var(--muted)">가산</span>
+      <span class="chip" style="padding:5px 14px;font-size:11px;color:var(--muted)">안산</span>
+    </div>
+    <label>드라이런 결과 (10:40 기준)</label>
+    <div class="iso g"><b>[GHOST]</b> nh-ghost-01 — NICo에만 존재 → discovered 등록 예정</div>
+    <div class="iso"><b>[OK]</b> ORPHAN 0 · MISMATCH 0 — 나머지 2,519 정합</div>
+    <div style="color:var(--muted);font-size:10.5px;margin-top:8px">예상 소요 ~40s · 실행 이력은 감사 로그에 기록됩니다</div>
+  </div>
+  <div class="mf">
+    <button class="btn-cancel" data-close>취소</button>
+    <button class="btn-ghost" data-act="confirm-only" data-msg="드라이런 재실행 — GHOST 1 · ORPHAN 0 · MISMATCH 0 (변화 없음)">드라이런 재실행</button>
+    <button class="btn" data-act="reconcile-run" data-msg="Reconcile 적용 실행 — nh-ghost-01 discovered 등록 (감사 로그 기록)">적용 실행</button>
+  </div>
+</div></div>
+
+<div class="modal-ov" data-modal="maintenance"><div class="modal">
+  <div class="mh"><span class="tick amber"></span><span class="t">유지보수 — 장비 상태 전환</span><span class="x" data-close>✕</span></div>
+  <div class="mb">
+    <div class="row2" style="grid-template-columns:110px 1fr 1fr;margin-bottom:12px">
+      <div><label style="margin-top:0">종류</label><select id="mt-kind"><option value="tray">tray</option><option value="rack">rack</option><option value="gpu">gpu</option></select></div>
+      <div><label style="margin-top:0">장비 ID</label><input id="mt-id" class="mono" placeholder="su-5-rack-03-tray-11"></div>
+      <div><label style="margin-top:0">연계</label><select><option>CAB 없음</option><option>CAB-88</option><option>CAB-89</option></select></div>
+    </div>
+    <div class="tick-row"><span style="color:var(--amber);font-weight:800">•</span><span><b style="color:var(--soft)">정비 전환</b> — 대상 장비를 maintenance로 전환 (M4 배치 자동 제외)</span></div>
+    <div class="tick-row"><span style="color:var(--amber);font-weight:800">•</span><span><b style="color:var(--soft)">복구</b> — 정비 완료 후 ready로 복귀 (할당 트레이는 allocated 원복)</span></div>
+    <div class="tick-row"><span style="color:var(--amber);font-weight:800">•</span><span>Control-Plane 미연동(mock) 시 데모 시나리오 토스트로 대체됩니다</span></div>
+  </div>
+  <div class="mf">
+    <button class="btn-cancel" data-close>취소</button>
+    <button class="btn-ghost" data-act="equip-ready">복구 → ready</button>
+    <button class="btn-warn" data-act="equip-maint" data-kind="warn" data-msg="유지보수 모드 진입 — 신규 프로비저닝 중단 · 비긴급 알림 억제 (2시간)">정비 전환 → maintenance</button>
+  </div>
+</div></div>
+
+<div class="modal-ov" data-modal="approve"><div class="modal lg">
+  <div class="mh"><span class="tick"></span><span class="t">예약 승인 — ord-9 · gamma-labs</span><span class="x" data-close>✕</span></div>
+  <div class="mb">
+    <table class="kv tabnum">
+      <tr><td>규모</td><td>VR NVL72 × 8랙 (144노드 · 576 GPU)</td></tr>
+      <tr><td>배치</td><td class="id">안산 su-8 (M4 best-fit) · P_Key 0x8014 · vrf-gamma-labs</td></tr>
+      <tr><td>용량 영향</td><td>안산 판매가능 <b>71 → 63랙</b> · 전력 +1.50MW</td></tr>
+      <tr><td>승인 후 자동 절차</td><td style="color:var(--muted)">프로비저닝(144) → 격리 3-plane → 스토리지 바인딩 → 인수검증 → 인도 — 예상 리드타임 수 분</td></tr>
+    </table>
+    <div class="callout" style="margin-top:10px">승인 시 비즈 콘솔 계약 상태가 "개통 중 → 프로비저닝"으로, 고객 콘솔에 진행 알림이 발송됩니다</div>
+  </div>
+  <div class="mf">
+    <button class="btn-cancel" data-close>취소</button>
+    <button class="btn" data-act="approve">승인 실행</button>
+  </div>
+</div></div>
+
+<div class="modal-ov" data-modal="reject"><div class="modal sm">
+  <div class="mh"><span class="tick red"></span><span class="t">거절 · 반려</span><span class="x" data-close>✕</span></div>
+  <div class="mb">
+    <label style="margin-top:0">사유 분류</label>
+    <select id="reject-cat"><option>용량 정책 — 잔여 부족</option><option>보안 정책 미충족</option><option>계약 조건 확인 필요</option><option>기타</option></select>
+    <label>상세 사유 (요청자에게 전달됨)</label>
+    <textarea id="reject-reason" rows="3" placeholder="예: 안산 잔여 용량이 delta-corp 소프트 홀드와 충돌 — 8월 재접수 권고"></textarea>
+    <div class="callout warn" style="margin-top:10px;background:var(--inc-strip);border-color:var(--red-line);color:var(--pink-soft)">거절은 즉시 확정되며 예약된 자원(P_Key·소프트 홀드)이 해제됩니다</div>
+  </div>
+  <div class="mf">
+    <button class="btn-cancel" data-close>취소</button>
+    <button class="btn-danger" data-act="reject">거절 확정</button>
+  </div>
+</div></div>
+
+<div class="modal-ov" data-modal="cab"><div class="modal lg">
+  <div class="mh"><span class="tick"></span><span class="t">CAB 변경 승인 — CAB-88 · DOCA 3.2.1 일괄</span><span class="x" data-close>✕</span></div>
+  <div class="mb">
+    <div class="tick-row"><span class="ck">✓</span><span>변경 창 확정 — 07-21 02:00–05:00 · 롤링 (테넌트 무중단)</span></div>
+    <div class="tick-row"><span class="ck">✓</span><span>롤백 계획 — BFB 이전 버전 자동 복원 · 검증 스크립트 포함</span></div>
+    <div class="tick-row"><span class="ck">✓</span><span>고객 공지 초안 준비 — 승인 시 자동 발송</span></div>
+    <div class="tick-row"><span class="ck">✓</span><span>카나리 결과 — 8노드 72h 무이상</span></div>
+    <table class="kv" style="margin-top:12px">
+      <tr><td>리스크</td><td class="st green">낮음 — 대상 2,520 DPU (드리프트 14 포함)</td></tr>
+      <tr><td>승인자</td><td>oncall-kim (SRE) · 필요 정족 1/1</td></tr>
+    </table>
+    <div style="display:flex;gap:9px;align-items:center;margin-top:12px;background:var(--card-sub);border:1px solid var(--line);border-radius:7px;padding:9px 12px">
+      <input type="checkbox" id="cab-apply-now" style="accent-color:var(--amber);margin:0;flex:none">
+      <label for="cab-apply-now" style="margin:0;cursor:pointer;color:var(--muted);font-size:11.5px">즉시 적용 — 승인 즉시 대상 트레이 1대를 <b style="color:var(--amber)">maintenance</b>로 실전환 (nocp equipment/state · 기본 off = 데모 접수)</label>
+    </div>
+  </div>
+  <div class="mf">
+    <button class="btn-cancel" data-close>취소</button>
+    <button class="btn" data-act="cab-approve" data-msg="CAB-88 변경 승인 — 07-21 02:00 창 확정 · 고객 공지 자동 발송 (데모 접수)">변경 승인</button>
+  </div>
+</div></div>
+
+<div class="modal-ov" data-modal="rma"><div class="modal lg">
+  <div class="mh"><span class="tick amber"></span><span class="t" id="rma-title">RMA 발행 — su-5-rack-03-tray-11</span><span class="x" data-close>✕</span></div>
+  <div class="mb">
+    <table class="kv">
+      <tr><td>부품 / S/N</td><td class="id" id="rma-part">컴퓨트 트레이 · VR-CT-88214A · GPU2 (Rubin 288GB)</td></tr>
+      <tr><td>증상 / 진단</td><td>XID 63 반복 — HBM4 row-remap 임계 도달 · 진단 로그 자동 첨부</td></tr>
+      <tr><td>벤더 / 경로</td><td>NVIDIA RMA 포털 · 선교체(advance swap) 요청</td></tr>
+      <tr><td>스왑 재고</td><td class="st green">현지 보유 — 트레이 12 · 즉시 교체 가능 (정비 창 07-09 02:00)</td></tr>
+    </table>
+    <div class="callout" style="margin-top:10px">반출 전 Sanitization 7단계가 자동 실행되고 증명서가 발급됩니다</div>
+  </div>
+  <div class="mf">
+    <button class="btn-cancel" data-close>취소</button>
+    <button class="btn" data-act="rma-confirm" data-msg="RMA-0088 발행 — 선교체 요청 · 정비 창 07-09 02:00 연계">RMA 발행</button>
+  </div>
+</div></div>
+
+<div class="modal-ov" data-modal="resolve"><div class="modal">
+  <div class="mh"><span class="tick"></span><span class="t">인시던트 해결 처리 — INC-0412</span><span class="x" data-close>✕</span></div>
+  <div class="mb">
+    <label style="margin-top:0">해결 요약 (RCA에 병합)</label>
+    <textarea rows="3" placeholder="tray-11 교체 완료 · burn-in 통과 · in-service 복귀 — 근본원인: HBM4 row-remap 임계"></textarea>
+    <div class="chk" style="margin-top:12px"><span class="ck" style="color:var(--green-text);font-weight:800">☑</span><span style="color:var(--muted)">고객 티켓 TCK-1204 동시 해결 처리 + 답변 발송</span></div>
+    <div class="chk"><span class="ck" style="color:var(--green-text);font-weight:800">☑</span><span style="color:var(--muted)">RCA 초안 게시 (5영업일 내 최종본)</span></div>
+    <div class="chk" style="border-bottom:none"><span style="color:var(--muted2);font-weight:800">☐</span><span style="color:var(--muted)">포스트모템 미팅 예약</span></div>
+  </div>
+  <div class="mf">
+    <button class="btn-cancel" data-close>취소</button>
+    <button class="btn" data-act="resolve">해결 처리</button>
+  </div>
+</div></div>
+
+<div class="modal-ov" data-modal="pkey"><div class="modal">
+  <div class="mh"><span class="tick"></span><span class="t">IB 파티션 (P_Key) 생성</span><span class="x" data-close>✕</span></div>
+  <div class="mb">
+    <div class="row2">
+      <div><label style="margin-top:0">테넌트</label><select><option>delta-corp (예정)</option><option>gamma-labs</option><option>신규 입력</option></select></div>
+      <div><label style="margin-top:0">P_Key (자동 할당)</label><input class="mono" value="0x8015" readonly></div>
+      <div><label>사이트 / 대상</label><select><option>안산 · su-9, su-10</option><option>안산 · su-11</option><option>가산 · su-3</option></select></div>
+      <div><label>모드</label><select><option>enforced (full member)</option><option>limited member</option></select></div>
+    </div>
+    <div class="callout" style="margin-top:12px">UFM(HA)에 A/B 패브릭 동시 적용 · 포트 3,456 — 파티션 외 IB 통신 차단</div>
+  </div>
+  <div class="mf">
+    <button class="btn-cancel" data-close>취소</button>
+    <button class="btn" data-act="confirm" data-msg="P_Key 파티션 생성 요청 접수 (데모) — 실 P_Key 발급은 테넌트 개통(주문 승인) 플로우에서 자동 수행됩니다">파티션 생성</button>
+  </div>
+</div></div>
+
+<div class="modal-ov" data-modal="pam"><div class="modal sm">
+  <div class="mh"><span class="tick red"></span><span class="t">PAM 세션 강제 종료 — pam-31</span><span class="x" data-close>✕</span></div>
+  <div class="mb">
+    <div class="mono" style="font-size:10.5px;color:var(--muted);line-height:1.9;margin-bottom:10px">oncall-kim → console:su-5-r03-t11 · 시작 10:20 · 녹화 중 · TTL 잔여 42분</div>
+    <label style="margin-top:0">종료 사유</label>
+    <select><option>작업 완료</option><option>정책 위반 의심</option><option>TTL 조기 회수</option></select>
+    <div class="callout warn" style="margin-top:10px;background:var(--inc-strip);border-color:var(--red-line);color:var(--pink-soft)">세션 녹화가 저장·봉인된 후 접속이 즉시 끊어집니다 — 감사 로그에 기록</div>
+  </div>
+  <div class="mf">
+    <button class="btn-cancel" data-close>취소</button>
+    <button class="btn-danger" data-act="confirm" data-kind="warn" data-msg="PAM 세션 pam-31 강제 종료 — 녹화 봉인 · 감사 로그 기록">강제 종료</button>
+  </div>
+</div></div>
+
+<div class="modal-ov" data-modal="warroom"><div class="modal">
+  <div class="mh"><span class="tick red"></span><span class="t" id="warroom-title">워룸 · 에스컬레이션 — INC-0412</span><span class="x" data-close>✕</span></div>
+  <div class="mb">
+    <table class="kv">
+      <tr><td>워룸 채널</td><td class="id">#inc-0412-gpu-fault · 참여 3 (oncall-kim, 이수민, NOC 리드)</td></tr>
+      <tr><td>화상 브리지</td><td>진행 중 — 10:30 시작 · <span class="lnk" data-act="poc" data-msg="화상 브리지 참여 링크">참여 링크</span></td></tr>
+      <tr><td>에스컬레이션</td><td><select style="width:auto"><option>NVIDIA 벤더 지원 (Sev-2)</option><option>NOC 리드 호출</option><option>경영 보고 (P1 승격)</option></select></td></tr>
+    </table>
+  </div>
+  <div class="mf">
+    <button class="btn-cancel" data-close>닫기</button>
+    <button class="btn-warn" data-act="confirm" data-kind="warn" data-msg="에스컬레이션 발행 — NVIDIA 벤더 지원 (Sev-2) 케이스 오픈">에스컬레이션 발행</button>
+    <button class="btn" data-act="warroom-join" data-msg="워룸 참여 — #inc-0412-gpu-fault 채널 · 화상 브리지 연결 (데모)">워룸 참여</button>
+  </div>
+</div></div>
+
+<div class="modal-ov" data-modal="incident_new"><div class="modal lg">
+  <div class="mh"><span class="tick red"></span><span class="t">인시던트 수동 생성</span><span class="x" data-close>✕</span></div>
+  <div class="mb">
+    <label style="margin-top:0">제목</label>
+    <input id="incnew-title" placeholder="예: 안산 1층 CDU-2 유량 저하">
+    <div class="row2" style="grid-template-columns:1fr 1fr 1fr">
+      <div><label>심각도</label><select id="incnew-sev"><option>P3</option><option>P2</option><option>P1</option></select></div>
+      <div><label>대상 리소스</label><select><option>선택</option><option>su-5-rack-03</option><option>cdu-an-1f-02</option></select></div>
+      <div><label>담당</label><select><option>온콜 자동</option><option>oncall-kim</option><option>박준호</option></select></div>
+    </div>
+    <div class="callout" style="margin-top:12px">라이브 연동 시 첫 활성 테넌트 앞으로 실 티켓 생성 (P1→critical · P2→high · P3→medium) — nocp 미기동 시 데모 접수</div>
+  </div>
+  <div class="mf">
+    <button class="btn-cancel" data-close>취소</button>
+    <button class="btn" data-act="incident-create">생성</button>
+  </div>
+</div></div>
+
+<div class="modal-ov" data-modal="asset_new"><div class="modal lg">
+  <div class="mh"><span class="tick"></span><span class="t">자산 등록 — CMDB</span><span class="x" data-close>✕</span></div>
+  <div class="mb">
+    <div class="row2">
+      <div><label style="margin-top:0">자산 유형</label><select><option>랙 · VR NVL72</option><option>컴퓨트 트레이</option><option>IB 스위치</option><option>DPU</option><option>CDU</option></select></div>
+      <div><label style="margin-top:0">시리얼 (S/N)</label><input class="mono" placeholder="VR-RK-______"></div>
+      <div><label>위치</label><select><option>안산 2층 · row 지정</option><option>안산 1층</option><option>가산 1층</option></select></div>
+      <div><label>라이프사이클</label><select><option>입고 검수</option><option>발주</option></select></div>
+    </div>
+    <div class="callout" style="margin-top:12px">BOM 대조·펌웨어 표준화·번인 테스트를 통과해야 pool_ready로 편입됩니다 (온보딩 워크플로우 자동 시작)</div>
+  </div>
+  <div class="mf">
+    <button class="btn-cancel" data-close>취소</button>
+    <button class="btn" data-act="confirm" data-msg="자산 등록 완료 — 온보딩 워크플로우 시작 (입고 검수 대기)">등록 + 온보딩 시작</button>
+  </div>
+</div></div>
+
+<div class="modal-ov" data-modal="export_csv"><div class="modal sm">
+  <div class="mh"><span class="tick"></span><span class="t">CSV 내보내기 — 자산 인벤토리</span><span class="x" data-close>✕</span></div>
+  <div class="mb">
+    <table class="kv">
+      <tr><td>범위</td><td id="csv-scope">현재 필터 결과 — 5,428건</td></tr>
+      <tr><td>컬럼 세트</td><td><select style="width:auto"><option>전체 (펌웨어·위치 포함)</option><option>기본 (ID·타입·상태)</option></select></td></tr>
+      <tr><td>마스킹</td><td style="color:var(--muted)"><span style="color:var(--green-text);font-weight:800">☑</span> BMC IP · 자격증명 관련 컬럼 제외 (기본)</td></tr>
+    </table>
+    <div style="color:var(--muted);font-size:10.5px;margin-top:8px">내보내기 이력은 감사 로그에 기록됩니다</div>
+  </div>
+  <div class="mf">
+    <button class="btn-cancel" data-close>취소</button>
+    <button class="btn" data-act="export-csv" data-msg="CSV 내보내기 시작 — assets-20260709.csv (5,428건 · 마스킹 적용)">내보내기</button>
+  </div>
+</div></div>
+
+<div class="modal-ov" data-modal="asset_hw"><div class="modal lg">
+  <div class="mh"><span class="tick"></span><span class="t" id="hw-title">호스트 하드웨어 상세</span><span class="x" data-close>✕</span></div>
+  <div class="mb" id="hw-body">
+    <div style="color:var(--muted);font-size:12px">불러오는 중…</div>
+  </div>
+  <div class="mf">
+    <button class="btn-cancel" data-close>닫기</button>
+    <button class="btn-warn" data-act="hw-rma">RMA 발행 (정비 전환)</button>
+  </div>
+</div></div>
+
+<div class="modal-ov" data-modal="pam_new"><div class="modal sm">
+  <div class="mh"><span class="tick amber"></span><span class="t">PAM 세션 열기 — 특권 접근</span><span class="x" data-close>✕</span></div>
+  <div class="mb">
+    <label style="margin-top:0">오퍼레이터</label>
+    <input class="mono" value="oncall-kim" readonly>
+    <label>대상 (콘솔 · BMC · 호스트)</label>
+    <input id="pam-target" class="mono" placeholder="console:su-5-r03-t11">
+    <label>사유 (감사 로그 기록)</label>
+    <input id="pam-reason" placeholder="예: tray-11 교체 정비 — INC-0412">
+    <div class="callout warn" style="margin-top:10px">세션은 전 구간 녹화되며 TTL 만료 또는 [종료] 시 봉인됩니다 — 감사 로그 기록</div>
+  </div>
+  <div class="mf">
+    <button class="btn-cancel" data-close>취소</button>
+    <button class="btn-warn" data-act="pam-open" data-kind="warn">세션 열기</button>
+  </div>
+</div></div>
+
+<div class="modal-ov" data-modal="obs_gpu"><div class="modal lg">
+  <div class="mh"><span class="tick"></span><span class="t" id="obs-gpu-m-title">GPU 상세</span><span class="x" data-close>✕</span></div>
+  <div class="mb" id="obs-gpu-m-body"><div style="color:var(--muted);font-size:12px">불러오는 중…</div></div>
+  <div class="mf"><button class="btn-cancel" data-close>닫기</button></div>
+</div></div>
+
+<div class="modal-ov" data-modal="obs_cdu"><div class="modal lg" style="width:680px">
+  <div class="mh"><span class="tick"></span><span class="t" id="obs-cdu-m-title">CDU 상세</span><span class="x" data-close>✕</span></div>
+  <div class="mb" id="obs-cdu-m-body"><div style="color:var(--muted);font-size:12px">불러오는 중…</div></div>
+  <div class="mf"><button class="btn-cancel" data-close>닫기</button></div>
+</div></div>
+
+<script src="../shared/app.js"></script>
+<script src="../shared/mock-api.js"></script>
+<script src="../shared/nocp-api.js"></script>
+<script src="../shared/palette.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
