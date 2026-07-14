@@ -65,6 +65,21 @@
   ];
   var CELL_CLS = { A: "a", R: "r", L: "l", F: "f" };
 
+  /* ── 테넌트 식별 색 — tenant_id 해시로 안정적 팔레트 매핑 (ready/미할당은 회색 유지) ── */
+  var TENANT_PALETTE = ["#4f9d5b", "#5aa7e8", "#c8a5e8", "#e0955a", "#5ad0c8",
+    "#d87c9e", "#9db85a", "#8a7de8", "#e0c05a", "#6ab0d8"];
+  function tenantColor(id) {
+    if (!id) return null;
+    var s = String(id), h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return TENANT_PALETTE[h % TENANT_PALETTE.length];
+  }
+  /* Overview 랙맵 mock 행 → 주 테넌트 (라이브는 fabric racks[].tenant_id 사용) */
+  var MOCK_ROW_TENANT = {
+    "가산 su-1": "acme-ai", "가산 su-2": "beta-ai",
+    "안산 su-5": "fin-corp", "안산 su-6": "fin-corp",
+  };
+
   /* ── 사이트 스코프 (사이드바 전체/가산/안산 — Overview 반영) ── */
   var siteScope = localStorage.getItem("nc-ops-scope") || "all";
   function scopeName() {
@@ -106,12 +121,13 @@
         var nm = (st.name || "").indexOf("가산") >= 0 ? "가산"
                : (st.name || "").indexOf("안산") >= 0 ? "안산" : st.name;
         (st.sus || []).forEach(function (su) {
-          var ids = [];
+          var ids = [], tens = [];
           var cells = (su.racks || []).map(function (r) {
             ids.push(r.rack_id || null);
+            tens.push(r.tenant_id || null);
             return r.tenant_id ? "A" : "R";
           }).join("");
-          if (cells) rows.push([nm + " " + (su.su_id || ""), cells, "", ids]);
+          if (cells) rows.push([nm + " " + (su.su_id || ""), cells, "", ids, tens]);
         });
       });
       if (rows.length) return rows;
@@ -121,7 +137,7 @@
 
   /* twin 오버레이 — mock 행(단일 su 라벨)도 su-N-rack-MM 규칙으로 id 유도 */
   function rackRowIds(row) {
-    if (row[3]) return row[3];
+    if (Array.isArray(row[3])) return row[3];         // 라이브 실 rack_id
     var lb = row[0] || "";
     if (/[,~]/.test(lb)) return null;                 // 합산 행 — 매칭 불가
     var m = /su-\d+/.exec(lb);
@@ -129,6 +145,46 @@
     var ids = [];
     for (var i = 0; i < row[1].length; i++) ids.push(m[0] + "-rack-" + obsPad2(i));
     return ids;
+  }
+  /* 셀별 테넌트 — 라이브: row[4] 실배열 · mock: 주 테넌트로 A/L 셀 채움 */
+  function rackRowTenants(row) {
+    if (Array.isArray(row[4])) return row[4];
+    var primary = MOCK_ROW_TENANT[row[0]];
+    if (!primary) return null;
+    return row[1].split("").map(function (c) {
+      return (c === "A" || c === "L") ? primary : null;
+    });
+  }
+  function rowPrimaryTenant(tens) {
+    if (!tens) return null;
+    var cnt = {}, best = null, bc = 0;
+    tens.forEach(function (t) {
+      if (!t) return;
+      cnt[t] = (cnt[t] || 0) + 1;
+      if (cnt[t] > bc) { bc = cnt[t]; best = t; }
+    });
+    return best;
+  }
+  /* SU행 테넌트 목록 + 랙수 (등장 순) — 셀 그리드 오른쪽 칩용 */
+  function rowTenantCounts(tens) {
+    var order = [], m = {};
+    (tens || []).forEach(function (t) {
+      if (!t) return;
+      if (!(t in m)) { m[t] = 0; order.push(t); }
+      m[t]++;
+    });
+    return order.map(function (id) { return { id: id, count: m[id] }; });
+  }
+  /* tenant_id → 표시명 — 라이브: fabric tenants · mock: id 자체(tnt- 제거) */
+  function ovTenantName(id) {
+    if (!id) return "";
+    if (fabCache && fabCache.tenants) {
+      var t = fabCache.tenants.filter(function (x) {
+        return x.tenant_id === id || x.id === id;
+      })[0];
+      if (t) return t.name || String(id).replace(/^tnt-/, "");
+    }
+    return String(id).replace(/^tnt-/, "");
   }
 
   function renderRackMap() {
@@ -143,11 +199,22 @@
       (scopeName() ? " · " + scopeName() : ""));
     var twin = ovTwinRacks;                  // twin 상태 오버레이 (미연동 시 null)
     var nOff = 0, nCord = 0, nFault = 0, nThr = 0, nPart = 0;
+    var nA = 0, nR = 0, nL = 0, nF = 0;
+    var tenSeen = [], tenSet = {};           // 범례·칩용 등장 테넌트 (등장 순)
     box.innerHTML = rows.map(function (row) {
       var ids = twin ? rackRowIds(row) : null;
+      var tens = rackRowTenants(row);
+      var primary = rowPrimaryTenant(tens);
       var cells = row[1].split("").map(function (c, i) {
+        if (c === "A") nA++; else if (c === "R") nR++;
+        else if (c === "L") nL++; else if (c === "F") nF++;
         var cls = "cell " + CELL_CLS[c];
         var txt = "", ttl = "";
+        var ten = tens && tens[i];
+        if (ten && !tenSet[ten]) { tenSet[ten] = 1; tenSeen.push(ten); }
+        /* 테넌트 색 — 할당(A) 셀에만 (twin off는 !important로 덮어씀 · 오버레이 우선) */
+        var bg = (c === "A" && ten) ? tenantColor(ten) : null;
+        var teName = ten ? ovTenantName(ten) : null;
         var rk = ids && ids[i] && twin[ids[i]];
         if (rk) {
           var off = rk.power_state === "off";
@@ -159,41 +226,83 @@
           if (rk.cordoned) { cls += " cordon"; nCord++; }
           if (crit) { cls += " crit"; nFault++; }
           else if (thr) { cls += " throt"; nThr++; }
-          ttl = ids[i] + " — 전원 " + (rk.power_state || "on") +
+          ttl = ids[i] + (teName ? " · " + teName : "") + " — 전원 " + (rk.power_state || "on") +
             (part ? " · 트레이 Off " + (rk.trays_off || 0) + "/" + (rk.trays_total || 18) : "") +
             (rk.cordoned ? " · cordoned" : "") +
             (thr ? " · throttled " + rk.throttled_gpus : "") +
             " · health " + (rk.health || "ok") + " (twin)";
+        } else {
+          var loc = (ids && ids[i]) || (row[0] + " #" + i);
+          ttl = loc + (teName ? " · " + teName
+            : c === "R" ? " · ready (미할당)" : c === "L" ? " · 예약 잠김" : c === "F" ? " · 장애" : "");
         }
-        return '<span class="' + cls + '"' + (ttl ? ' title="' + esc(ttl) + '"' : "") +
-          ">" + txt + "</span>";
+        return '<span class="' + cls + '"' + (ten ? ' data-tenant="' + esc(ten) + '"' : "") +
+          (bg ? ' style="background:' + bg + '"' : "") +
+          (ttl ? ' title="' + esc(ttl) + '"' : "") + ">" + txt + "</span>";
       }).join("");
       var note = row[2]
         ? '<span style="color:var(--muted2);font-size:10px;padding-left:4px">' + row[2] + "</span>"
         : "";
-      return '<div class="rackrow"><span class="lb">' + row[0] +
-        '</span><span class="cells">' + cells + note + "</span></div>";
+      /* 셀 그리드 오른쪽 테넌트 칩 — 복수 테넌트면 각 랙수 병기 (색-이름 연결) */
+      var tc = rowTenantCounts(tens);
+      var multi = tc.length > 1;
+      var rightHtml = tc.length
+        ? '<span class="rk-tenants">' + tc.map(function (x) {
+            var col = tenantColor(x.id);
+            return '<span class="rk-ten" data-tenant="' + esc(x.id) + '" style="border-color:' +
+              col + ";color:" + col + '" title="' + esc(ovTenantName(x.id) + " · " + x.count + "랙") +
+              '">' + esc(ovTenantName(x.id)) + (multi ? " " + x.count : "") + "</span>";
+          }).join("") + "</span>"
+        : '<span class="rk-tenants"><span class="rk-unalloc">미할당</span></span>';
+      return '<div class="rackrow"' + (primary ? ' data-su-tenant="' + esc(primary) + '"' : "") +
+        '><span class="lb">' + row[0] + '</span><span class="cells">' + cells + note + "</span>" +
+        rightHtml + "</div>";
     }).join("");
+    if (ovHlTenant) ovHighlight(ovHlTenant);   // 폴링 재렌더 시 하이라이트 유지
     var leg = document.getElementById("rackmap-leg");
-    if (leg && (liveRows || twin)) {         // 라이브/트윈 범례: 실집계
-      var nA = 0, nR = 0;
-      rows.forEach(function (r) {
-        nA += (r[1].match(/A/g) || []).length;
-        nR += (r[1].match(/R/g) || []).length;
-      });
-      leg.innerHTML =
-        '<span><span class="leg" style="background:var(--green)"></span> 할당 ' + nA + "</span>" +
-        '<span><span class="leg" style="background:var(--ready)"></span> ready ' + nR + "</span>" +
-        (twin
-          ? '<span><span class="leg" style="background:#1a212b;outline:1px solid #2a3644"></span> OFF ' + nOff + "</span>" +
-            '<span><span class="leg" style="background:linear-gradient(var(--ready) 50%,#1a212b 50%)"></span> 부분 Off ' + nPart + "</span>" +
-            '<span><span class="leg" style="background:repeating-linear-gradient(45deg,transparent 0 2px,rgba(240,163,176,.5) 2px 4px)"></span> cordon ' + nCord + "</span>" +
-            '<span style="color:var(--red)">□ fault ' + nFault + "</span>" +
-            '<span style="color:var(--amber)">□ throttle ' + nThr + "</span>" +
-            '<span style="color:var(--muted2)">twin 오버레이</span>'
-          : '<span style="color:var(--muted2)">fabric/ib 실데이터</span>');
+    if (leg) {
+      var h = '<span><span class="leg" style="background:var(--ready)"></span> ready ' + nR + "</span>" +
+        (nL ? '<span><span class="leg" style="background:var(--amber-bg);border:1px solid var(--amber-dim)"></span> 잠김 ' + nL + "</span>" : "") +
+        (nF ? '<span style="color:var(--red)">□ 장애 ' + nF + "</span>" : "");
+      if (twin) h +=
+        '<span><span class="leg" style="background:#1a212b;outline:1px solid #2a3644"></span> OFF ' + nOff + "</span>" +
+        '<span><span class="leg" style="background:linear-gradient(var(--ready) 50%,#1a212b 50%)"></span> 부분 Off ' + nPart + "</span>" +
+        '<span><span class="leg" style="background:repeating-linear-gradient(45deg,transparent 0 2px,rgba(240,163,176,.5) 2px 4px)"></span> cordon ' + nCord + "</span>" +
+        '<span style="color:var(--red)">□ fault ' + nFault + "</span>" +
+        '<span style="color:var(--amber)">□ throttle ' + nThr + "</span>";
+      if (tenSeen.length) {                    // 테넌트 색상 칩 (현재 할당 테넌트만)
+        h += '<span style="color:var(--muted2)">테넌트:</span>';
+        tenSeen.forEach(function (id) {
+          h += '<span><span class="leg" style="background:' + tenantColor(id) + '"></span> ' +
+            esc(ovTenantName(id)) + "</span>";
+        });
+      }
+      h += '<span style="color:var(--muted2)">' +
+        (twin ? "twin 오버레이" : liveRows ? "fabric/ib 실데이터" : "시나리오 mock") + "</span>";
+      leg.innerHTML = h;
     }
   }
+
+  /* ── 테넌트 패널 ↔ 랙맵 하이라이트 연동 (hover) ── */
+  var ovHlTenant = null;
+  function ovHighlight(id) {
+    ovHlTenant = id || null;
+    document.querySelectorAll("#rackmap [data-tenant]").forEach(function (c) {
+      c.classList.toggle("thl", !!id && c.dataset.tenant === id);
+    });
+    document.querySelectorAll("#rackmap .rackrow[data-su-tenant]").forEach(function (r) {
+      r.classList.toggle("thl", !!id && r.dataset.suTenant === id);
+    });
+    document.querySelectorAll("#ov-tenants tr[data-tenant]").forEach(function (r) {
+      r.classList.toggle("thl", !!id && r.dataset.tenant === id);
+    });
+  }
+  document.addEventListener("mouseover", function (e) {
+    if (currentRoute() !== "overview") return;
+    var t = e.target.closest("[data-tenant],[data-su-tenant]");
+    var id = t ? (t.dataset.tenant || t.dataset.suTenant) : null;
+    if (id !== ovHlTenant) ovHighlight(id);
+  });
 
   function kpiCell(k, v, tone, s) {
     return '<div class="kpi"><div class="k">' + k + '</div><div class="v' +
@@ -313,8 +422,10 @@
           var eb = s.error_budget_remaining_pct;
           var ebCol = eb == null ? "var(--muted)" : eb < 20 ? "var(--red)"
             : eb < 50 ? "var(--amber)" : "var(--green)";
-          return '<tr data-nav="obs-slo" style="cursor:pointer" title="클릭 시 SLA · Error Budget">' +
-            td("<b>" + esc(t.name) + "</b>" +
+          return '<tr data-nav="obs-slo" data-tenant="' + esc(t.id) +
+            '" style="cursor:pointer" title="클릭 시 SLA · Error Budget · hover 시 랙맵 강조">' +
+            td('<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' +
+              tenantColor(t.id) + ';margin-right:6px;vertical-align:0"></span><b>' + esc(t.name) + "</b>" +
               '<div style="color:var(--muted2);font-size:9.5px" class="id">' + esc(t.id) + "</div>") +
             td(muted(esc(t.site)) + (t.sus.length
               ? ' <span class="id" style="color:var(--muted2);font-size:10px">' +

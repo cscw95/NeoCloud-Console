@@ -210,6 +210,18 @@
 .cell.cordon::after{content:"";position:absolute;inset:0;border-radius:3px;background:repeating-linear-gradient(45deg,transparent 0 2px,rgba(240,163,176,.5) 2px 4px);pointer-events:none}
 .cell.crit{outline:2px solid var(--red)}
 .cell.throt{outline:1px solid var(--amber)}
+/* 테넌트 하이라이트 연동 (테넌트 패널 ↔ 랙맵) — 오버레이 outline과 겹치지 않게 box-shadow */
+.cell.thl{box-shadow:0 0 0 2px #fff,0 0 6px 1px rgba(255,255,255,.5);z-index:3}
+#ov-tenants tr.thl td{background:rgba(255,255,255,.07)}
+#ov-tenants tr[data-tenant]{cursor:pointer}
+.rackrow[data-su-tenant]{border-radius:5px}
+.rackrow.thl{background:rgba(255,255,255,.05)}
+/* SU행 테넌트 칩 — 셀 그리드 오른쪽에 배치 (색-이름 연결) */
+.rackrow{flex-wrap:wrap}
+.rackrow .cells{flex:1 1 auto;min-width:0}
+.rk-tenants{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-left:auto;padding-left:10px;flex:none}
+.rk-ten{display:inline-block;font-size:8.5px;font-weight:700;font-family:Menlo,monospace;border:1px solid;border-radius:4px;padding:0 5px;line-height:1.6;cursor:default}
+.rk-unalloc{font-size:8.5px;color:var(--muted2);font-family:Menlo,monospace}
 /* 부분 Off (일부 트레이 전원 차단) — 셀 하단 절반 회색 (overview .cell · obs-rack .hc 공용) */
 .cell.part::before{content:"";position:absolute;left:0;right:0;bottom:0;height:50%;background:#1a212b;opacity:.92;border-radius:0 0 3px 3px;border-top:1px solid #2a3644;pointer-events:none}
 .obs-hm .hc.part::before{content:"";position:absolute;left:0;right:0;bottom:0;height:50%;background:#1a212b;opacity:.92;border-radius:0 0 4px 4px;border-top:1px solid #2a3644;pointer-events:none}
