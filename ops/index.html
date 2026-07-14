@@ -210,6 +210,9 @@
 .cell.cordon::after{content:"";position:absolute;inset:0;border-radius:3px;background:repeating-linear-gradient(45deg,transparent 0 2px,rgba(240,163,176,.5) 2px 4px);pointer-events:none}
 .cell.crit{outline:2px solid var(--red)}
 .cell.throt{outline:1px solid var(--amber)}
+/* 부분 Off (일부 트레이 전원 차단) — 셀 하단 절반 회색 (overview .cell · obs-rack .hc 공용) */
+.cell.part::before{content:"";position:absolute;left:0;right:0;bottom:0;height:50%;background:#1a212b;opacity:.92;border-radius:0 0 3px 3px;border-top:1px solid #2a3644;pointer-events:none}
+.obs-hm .hc.part::before{content:"";position:absolute;left:0;right:0;bottom:0;height:50%;background:#1a212b;opacity:.92;border-radius:0 0 4px 4px;border-top:1px solid #2a3644;pointer-events:none}
 /* 관제 Overview — 주요 장애·이벤트 알람 뷰 */
 #ov-faults tr.firing td{background:rgba(240,163,176,.05)}
 #ov-faults tr{cursor:pointer}
@@ -391,10 +394,13 @@
           <select id="af-site" class="chip" style="appearance:auto;cursor:pointer">
             <option value="">사이트: 전체</option><option value="가산">가산</option><option value="안산">안산</option>
           </select>
+          <select id="af-su" class="chip" style="appearance:auto;cursor:pointer" title="사이트 선택 시 해당 사이트 SU만 표시">
+            <option value="">SU: 전체</option>
+          </select>
           <select id="af-state" class="chip" style="appearance:auto;cursor:pointer">
             <option value="">상태: 전체</option><option value="allocated">allocated</option><option value="pool_ready">pool_ready</option><option value="maintenance">maintenance</option><option value="faulted">faulted</option>
           </select>
-          <input id="af-q" class="chip" style="flex:1;max-width:300px;cursor:text" placeholder="호스트 · 트레이 · 테넌트 검색">
+          <input id="af-q" class="chip" style="flex:1;max-width:300px;cursor:text" placeholder="랙 · 트레이 · 호스트 · 테넌트 검색 (부분일치)">
           <span class="rt">
             <button class="btn-ghost" data-open="export_csv">CSV 내보내기</button>
             <button class="btn" style="padding:6px 12px;font-size:11.5px" data-open="asset_new">+ 자산 등록</button>
@@ -1206,6 +1212,8 @@
         </div>
         <div class="callout warn" style="margin-bottom:16px">데모 트리거 — <b>Emulator twin 대상 (실설비 아님)</b> · 재기동/교체 시 해당 트레이의 테넌트 워크로드가 중단됩니다 · 1차 클릭 후 3초 내 재클릭 시 실행</div>
         <div class="kpi-band" id="obs-to-kpi"></div>
+        <!-- 재기동 vs HW 교체 구분 KPI (kpi.reboot / kpi.replace — 신계약 · 없으면 숨김) -->
+        <div id="obs-to-opkpi" style="display:none;margin-bottom:16px;gap:12px;flex-wrap:wrap"></div>
         <div class="panel">
           <div class="ph"><span class="tick amber"></span><span class="t">진행 중 작업</span><span class="c" id="obs-to-inflight-c">—</span></div>
           <div style="overflow-x:auto"><table class="tbl">

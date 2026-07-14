@@ -13,7 +13,7 @@
   var incs = null;   // 인시던트 목록
   /* ── 라이브 연동 캐시 (nocp 실데이터 · mock 시 null) ── */
   var assetsCache = null;                       // fake-nico hosts 전체
-  var assetsFilter = { site: "", state: "", q: "", offset: 0 };
+  var assetsFilter = { site: "", su: "", state: "", q: "", offset: 0 };
   var PAGE = 12;
   var topoCache = null;                         // topology/tree
   var fabData = null, segData = null;           // fabric/ib · segments
@@ -142,7 +142,7 @@
     setTxt("rackmap-title", "랙 상태 맵 — " + fmt(nRacks) + "랙" +
       (scopeName() ? " · " + scopeName() : ""));
     var twin = ovTwinRacks;                  // twin 상태 오버레이 (미연동 시 null)
-    var nOff = 0, nCord = 0, nFault = 0, nThr = 0;
+    var nOff = 0, nCord = 0, nFault = 0, nThr = 0, nPart = 0;
     box.innerHTML = rows.map(function (row) {
       var ids = twin ? rackRowIds(row) : null;
       var cells = row[1].split("").map(function (c, i) {
@@ -151,13 +151,16 @@
         var rk = ids && ids[i] && twin[ids[i]];
         if (rk) {
           var off = rk.power_state === "off";
+          var part = rk.power_state === "partial";
           var crit = rk.health === "critical" || rk.health === "faulted" || c === "F";
           var thr = (rk.throttled_gpus || 0) > 0;
           if (off) { cls += " off"; txt = "OFF"; nOff++; }
+          if (part) { cls += " part"; nPart++; }
           if (rk.cordoned) { cls += " cordon"; nCord++; }
           if (crit) { cls += " crit"; nFault++; }
           else if (thr) { cls += " throt"; nThr++; }
           ttl = ids[i] + " — 전원 " + (rk.power_state || "on") +
+            (part ? " · 트레이 Off " + (rk.trays_off || 0) + "/" + (rk.trays_total || 18) : "") +
             (rk.cordoned ? " · cordoned" : "") +
             (thr ? " · throttled " + rk.throttled_gpus : "") +
             " · health " + (rk.health || "ok") + " (twin)";
@@ -183,6 +186,7 @@
         '<span><span class="leg" style="background:var(--ready)"></span> ready ' + nR + "</span>" +
         (twin
           ? '<span><span class="leg" style="background:#1a212b;outline:1px solid #2a3644"></span> OFF ' + nOff + "</span>" +
+            '<span><span class="leg" style="background:linear-gradient(var(--ready) 50%,#1a212b 50%)"></span> 부분 Off ' + nPart + "</span>" +
             '<span><span class="leg" style="background:repeating-linear-gradient(45deg,transparent 0 2px,rgba(240,163,176,.5) 2px 4px)"></span> cordon ' + nCord + "</span>" +
             '<span style="color:var(--red)">□ fault ' + nFault + "</span>" +
             '<span style="color:var(--amber)">□ throttle ' + nThr + "</span>" +
@@ -987,6 +991,7 @@
     var f = assetsFilter;
     return (assetsCache || []).filter(function (h) {
       if (f.site && (h.site || "").indexOf(f.site) < 0) return false;
+      if (f.su && String(h.tray_id || "").indexOf(f.su + "-rack") !== 0) return false;
       if (f.state && h.state !== f.state) return false;
       if (f.q) {
         var hay = ((h.host_id || "") + " " + (h.tray_id || "") + " " + (h.tenant_ref || "") +
@@ -1005,35 +1010,70 @@
   /* ── twin 랙 상태 병합 (obs /racks) — 전원 On/Off·cordon·health 배지 ──
      트레이 자산은 소속 랙(su-N-rack-MM) 상태를 상속 표기. twin 미연동 시 미표시. */
   var assetsTwinMap = null, assetsTwinTimer = null;
+  var assetsOffTrays = null;                // partial 랙의 Off 트레이 집합 (dcgm state=off 유도)
   function assetsTrayRack(tid) { return String(tid || "").replace(/-tray-\d+$/, ""); }
-  function assetsPowerBadge(h) {
-    if (!assetsTwinMap) return "";
+  /* 트레이별 전원 판정 — [칩HTML, 상태키] · twin 미연동 시 null */
+  function assetsPowerOf(h) {
+    if (!assetsTwinMap) return null;
     var rk = assetsTwinMap[assetsTrayRack(h.tray_id)];
-    if (!rk) return "";
+    if (!rk) return null;
     var ps = rk.power_state || "on";
-    var chip = ps === "off"
-      ? '<span class="st gray" title="랙 전원 Off (twin) — 소속 랙 상태 상속">전원 Off</span>'
-      : ps === "mixed"
-        ? '<span class="st amber" title="랙 전원 mixed (twin)">전원 mixed</span>'
-        : '<span class="st green" title="랙 전원 On (twin)">전원 On</span>';
+    if (ps === "partial") {
+      /* 부분 Off 랙 — 해당 트레이가 Off 집합에 있으면 트레이 Off, 아니면 partial 표기 */
+      if (assetsOffTrays && assetsOffTrays[h.tray_id]) {
+        return ['<span class="st gray" title="트레이 전원 Off (twin · Redfish) — in-band 텔레메트리 없음">전원 Off (트레이)</span>', "off"];
+      }
+      return ['<span class="st amber" title="랙 부분 Off (twin) — 트레이 ' +
+        (rk.trays_off || 0) + "/" + (rk.trays_total || 18) + ' Off">partial (' +
+        (rk.trays_off || 0) + "/" + (rk.trays_total || 18) + " Off)</span>", "partial"];
+    }
+    if (ps === "off") {
+      return ['<span class="st gray" title="랙 전원 Off (twin) — 소속 랙 상태 상속">전원 Off</span>', "off"];
+    }
+    if (ps === "mixed") {
+      return ['<span class="st amber" title="랙 전원 mixed (twin)">전원 mixed</span>', "partial"];
+    }
+    return ['<span class="st green" title="랙 전원 On (twin)">전원 On</span>', "on"];
+  }
+  function assetsPowerBadge(h) {
+    var p = assetsPowerOf(h);
+    if (!p) return "";
+    var rk = assetsTwinMap[assetsTrayRack(h.tray_id)] || {};
     var extra = (rk.cordoned ? ' <span class="st amber">랙 cordon</span>' : "") +
       (rk.health === "critical" ? ' <span class="st red">랙 crit</span>'
         : rk.health === "warn" || rk.health === "warning"
           ? ' <span class="st amber">랙 warn</span>' : "");
-    return '<div style="margin-top:3px">' + chip + extra + "</div>";
+    return '<div style="margin-top:3px">' + p[0] + extra + "</div>";
   }
   function assetsTwinPoll() {               // 화면 활성 시만 5s
     if (assetsTwinTimer) { clearInterval(assetsTwinTimer); assetsTwinTimer = null; }
     function once() {
       obsGet("/racks").then(function (d) {
         var had = !!assetsTwinMap;
+        var hasPartial = false;
         if (Array.isArray(d) && d.length) {
           assetsTwinMap = {};
-          d.forEach(function (rk) { if (rk.rack_id) assetsTwinMap[rk.rack_id] = rk; });
+          d.forEach(function (rk) {
+            if (rk.rack_id) assetsTwinMap[rk.rack_id] = rk;
+            if (rk.power_state === "partial") hasPartial = true;
+          });
         } else {
           assetsTwinMap = null;              // twin 미연동 — 기존 표시 유지 (회귀 없음)
         }
-        if ((had || assetsTwinMap) && currentRoute() === "assets") renderAssetsTable();
+        /* partial 랙 존재 시 Off 트레이 집합 유도 (dcgm state=off) */
+        var offP = hasPartial
+          ? obsGet("/dcgm/gpus?state=off&limit=2000")
+          : Promise.resolve(null);
+        offP.then(function (og) {
+          assetsOffTrays = null;
+          if (og && og.gpus && og.gpus.length) {
+            assetsOffTrays = {};
+            og.gpus.forEach(function (g) {
+              if (g.tray_id) assetsOffTrays[g.tray_id] = true;
+            });
+          }
+          if ((had || assetsTwinMap) && currentRoute() === "assets") renderAssetsTable();
+        });
       });
     }
     once();
@@ -1080,8 +1120,19 @@
            esc(h.tray_id) + '">RMA</button>', "num") +
         "</tr>";
     }).join("") || '<tr><td colspan="7" style="color:var(--muted)">필터 결과 없음</td></tr>';
-    setTxt("assets-count", fmt(list.length) + "건 중 " + (list.length ? a + 1 : 0) + "–" + b +
-      " 표시 · fake-nico 실데이터");
+    /* 카운트 — "N건 표시 / 전체 M" + 필터 결과 전원 배지 집계 (twin 있을 때) */
+    var pwrTxt = "";
+    if (assetsTwinMap) {
+      var pOff = 0, pPart = 0;
+      list.forEach(function (h) {
+        var p = assetsPowerOf(h);
+        if (p && p[1] === "off") pOff++;
+        else if (p && p[1] === "partial") pPart++;
+      });
+      pwrTxt = " · 전원 Off " + fmt(pOff) + " · partial " + fmt(pPart);
+    }
+    setTxt("assets-count", fmt(list.length) + "건 표시 (" + (list.length ? a + 1 : 0) + "–" + b +
+      ") / 전체 " + fmt(assetsCache.length) + "건" + pwrTxt + " · fake-nico 실데이터");
     var pager = $("#assets-pager");
     if (pager) pager.style.display = "";
     setTxt("csv-scope", "현재 필터 결과 — " + fmt(list.length) + "건 (라이브 · 실 CSV 생성)");
@@ -2537,7 +2588,7 @@
       obsSrc("obs-rack", live);
       obsRackPower(racks);
       var bySu = {}, order = [], ctl = {};
-      var offN = 0, cordN = 0, capN = 0, hasCtl = false;
+      var offN = 0, cordN = 0, capN = 0, partN = 0, trayOffN = 0, hasCtl = false;
       racks.forEach(function (rk) {
         var k = (rk.site || "—") + " " + (rk.su_id || "—");
         if (!bySu[k]) { bySu[k] = []; order.push(k); }
@@ -2545,6 +2596,7 @@
         var cs = ctl[rk.rack_id] = obsCtlState(rk);
         if (rk.power_state != null || obsRackLocal[rk.rack_id]) hasCtl = true;
         if (cs.power_state === "off") offN++;
+        if (cs.power_state === "partial") { partN++; trayOffN += rk.trays_off || 0; }
         if (cs.cordoned) cordN++;
         if (cs.power_cap_kw != null) capN++;
       });
@@ -2554,6 +2606,7 @@
       var vOff = sum && sum.racks_off != null ? sum.racks_off : offN;
       var vCord = sum && sum.racks_cordoned != null ? sum.racks_cordoned : cordN;
       var vCap = sum && sum.racks_capped != null ? sum.racks_capped : capN;
+      var vTray = sum && sum.trays_off != null ? sum.trays_off : (partN ? trayOffN : null);
       if (sum && (sum.racks_off != null || sum.racks_cordoned != null ||
         sum.racks_capped != null)) hasCtl = true;
       var kb = document.getElementById("obs-rack-ctlkpi");
@@ -2562,6 +2615,11 @@
         if (hasCtl) kb.innerHTML =
           kpiCell("전원 Off 랙", fmt(vOff), vOff ? "red" : "green",
             kpiSub("전체 " + fmt(racks.length) + "랙")) +
+          /* 트레이 단위 부분 Off — 계약 필드(trays_off) 있을 때만 노출 */
+          (vTray != null
+            ? kpiCell("트레이 Off (부분)", fmt(vTray), vTray ? "amber" : "green",
+                kpiSub(partN ? "partial 랙 " + fmt(partN) + "개" : "부분 Off 랙 없음"))
+            : "") +
           kpiCell("Cordoned 랙", fmt(vCord), vCord ? "amber" : "green",
             kpiSub("신규 할당 차단")) +
           kpiCell("Power Cap 랙", fmt(vCap), vCap ? "amber" : "green",
@@ -2572,12 +2630,16 @@
           bySu[k].map(function (rk) {
             var cs = ctl[rk.rack_id];
             var off = cs.power_state === "off";
-            var cls = "hc" + (off ? " off" : "") + (cs.cordoned ? " cord" : "") +
+            var part = cs.power_state === "partial";
+            var cls = "hc" + (off ? " off" : "") + (part ? " part" : "") +
+              (cs.cordoned ? " cord" : "") +
               (cs.power_cap_kw != null ? " capd" : "") +
               (rk.health === "critical" ? " crit" : rk.throttled_gpus ? " th" : "") +
               (obsRackSel === rk.rack_id ? " sel" : "");
             var ttl = rk.rack_id + " · " + obsNum(rk.it_power_kw) + "kW" +
-              (off ? " · OFF" : cs.power_state === "mixed" ? " · 전원 mixed" : "") +
+              (off ? " · OFF"
+                : part ? " · 트레이 Off " + (rk.trays_off || 0) + "/" + (rk.trays_total || 18)
+                : cs.power_state === "mixed" ? " · 전원 mixed" : "") +
               (cs.cordoned ? " · cordoned" : "") +
               (cs.power_cap_kw != null ? " · cap " + cs.power_cap_kw + "kW" : "") +
               (cs.workload_profile ? " · " + cs.workload_profile : "");
@@ -2592,6 +2654,7 @@
         '<span><span class="leg" style="background:' + obsHeatColor(0.8) + '"></span> ~150kW</span>' +
         '<span><span class="leg" style="background:' + obsHeatColor(1) + '"></span> 187kW 캡</span>' +
         '<span><span class="leg" style="background:#1a212b;outline:1px solid #2a3644"></span> OFF</span>' +
+        '<span><span class="leg" style="background:linear-gradient(#233043 50%,#1a212b 50%)"></span> 부분 Off (트레이)</span>' +
         '<span><span class="leg" style="background:repeating-linear-gradient(45deg,#233043 0 2px,rgba(240,163,176,.5) 2px 4px)"></span> cordon</span>' +
         '<span><span class="leg" style="background:#233043;box-shadow:inset 0 -2px 0 var(--blue)"></span> cap</span>' +
         '<span style="color:var(--amber)">□ throttle</span>' +
@@ -2617,6 +2680,9 @@
             obsHealthSt(det.health) + "</td></tr>" +
           "<tr><td>전원 / 프로필</td><td>" +
             (dcs.power_state === "off" ? '<span class="st red">OFF</span>'
+              : dcs.power_state === "partial"
+                ? '<span class="st amber">partial — 트레이 Off ' + fmt(det.trays_off || 0) +
+                  "/" + fmt(det.trays_total || 18) + "</span>"
               : dcs.power_state === "mixed" ? '<span class="st amber">mixed</span>'
               : '<span class="st green">on</span>') +
             " · " + esc(dcs.workload_profile || "—") + "</td></tr>" +
@@ -3755,7 +3821,61 @@
     return { inflight: inflight, history: history,
       kpi: { ops_24h: 14, reboots: 9, replacements: 5, avg_discovery_s: 44,
         avg_ip_s: 8, avg_os_install_s: 176, avg_rejoin_s: 63, avg_total_s: 291,
-        rejoin_success_pct: 97.8 } };
+        rejoin_success_pct: 97.8,
+        /* 신계약 미러 — 재기동 vs 교체 구분 KPI (교체는 OS 전체 재설치 포함) */
+        reboot: { count: 9, avg_total_s: 138 },
+        replace: { count: 5, avg_drain_s: 34, avg_hw_swap_s: 412, avg_discovery_s: 48,
+          avg_os_install_s: 176, avg_rejoin_s: 71, avg_total_s: 749, success_pct: 98.1 } } };
+  }
+  /* 재기동 vs 교체 구분 KPI — kpi.reboot/kpi.replace (신계약) · 없으면 legacy flat */
+  function obsToOpKpi(k) {
+    var box = document.getElementById("obs-to-opkpi");
+    if (!box) return false;
+    var rep = k.replace, rb = k.reboot;
+    if (!rep && !rb) { box.innerHTML = ""; box.style.display = "none"; return false; }
+    box.style.display = "flex";
+    function grp(title, sub, inner) {
+      return '<div class="sub" style="flex:1 1 auto;min-width:230px">' +
+        '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">' +
+        '<b style="color:#fff;font-size:12px">' + title + "</b>" +
+        '<span style="color:var(--muted2);font-size:10px">' + sub + "</span></div>" +
+        inner + "</div>";
+    }
+    var rbCnt = rb && rb.count != null ? rb.count : (k.reboots || 0);
+    var rbHtml = '<div class="kpi-band" style="margin-bottom:0">' +
+      kpiCell("건수 (24h)", fmt(rbCnt), "", kpiSub("전원 재기동")) +
+      kpiCell("재기동 MTTR", obsToFmtS(rb && rb.avg_total_s), "green",
+        kpiSub("OS 재설치 없음 — 부팅·재조인만")) + "</div>";
+    var repHtml;
+    if (!rep || !rep.count) {
+      repHtml = '<div style="color:var(--muted);font-size:12px;padding:16px 4px;text-align:center">' +
+        "교체 이력 없음 (24h)</div>";
+    } else {
+      var slower = rb && rb.avg_total_s != null && rep.avg_total_s != null &&
+        rep.avg_total_s > rb.avg_total_s;
+      var osHeavy = rep.avg_os_install_s != null && rep.avg_total_s
+        ? rep.avg_os_install_s / rep.avg_total_s >= 0.3 : false;
+      repHtml = '<div class="kpi-band" style="margin-bottom:0">' +
+        kpiCell("건수 (24h)", fmt(rep.count), "", kpiSub("HW 교체")) +
+        kpiCell("drain", obsToFmtS(rep.avg_drain_s), "", kpiSub("워크로드 드레인")) +
+        kpiCell("HW swap", obsToFmtS(rep.avg_hw_swap_s), "", kpiSub("물리 트레이 교체")) +
+        kpiCell("Discovery", obsToFmtS(rep.avg_discovery_s), "", kpiSub("NICo 재발견")) +
+        kpiCell("OS 재설치", obsToFmtS(rep.avg_os_install_s), osHeavy ? "amber" : "",
+          kpiSub("전체 재설치 — 교체 고유 단계")) +
+        kpiCell("재조인", obsToFmtS(rep.avg_rejoin_s), "", kpiSub("P_Key · 스토리지")) +
+        kpiCell("교체 MTTR", obsToFmtS(rep.avg_total_s), slower ? "amber" : "green",
+          kpiSub(slower && rb && rb.avg_total_s
+            ? "재기동 대비 ×" + (rep.avg_total_s / rb.avg_total_s).toFixed(1) +
+              " — OS 재설치 포함"
+            : "시작 → 재조인 완료")) +
+        kpiCell("성공률", obsN1(rep.success_pct) + "<small>%</small>",
+          rep.success_pct != null && rep.success_pct < 95 ? "amber" : "green",
+          kpiSub("교체 작업 기준")) + "</div>";
+    }
+    box.innerHTML =
+      grp("재기동 (Reboot)", "kpi.reboot", rbHtml) +
+      grp("HW 교체 (Replace)", "kpi.replace — OS 전체 재설치 포함", repHtml);
+    return true;
   }
   /* 단계 스텝퍼 — done green · running amber · pending muted · skipped 점선 */
   function obsToStepper(stages) {
@@ -3778,23 +3898,32 @@
       var v = live ? d : obsMockTrayOpsData();
       obsSrc("obs-trayops", live);
       var k = v.kpi || {};
-      setHtml("obs-to-kpi",
+      var split = obsToOpKpi(k);   // 신계약: 재기동/교체 그룹 — true면 공통 KPI 축약
+      var common =
         kpiCell("작업 (24h)", obsNum(k.ops_24h), "",
-          kpiSub("재기동 " + obsNum(k.reboots) + " · 교체 " + obsNum(k.replacements))) +
-        kpiCell("평균 Discovery", obsToFmtS(k.avg_discovery_s), "",
-          kpiSub("NICo 재발견")) +
-        kpiCell("평균 IP 할당", obsToFmtS(k.avg_ip_s), "",
-          kpiSub("언더레이 · DHCP")) +
-        kpiCell("평균 OS 설치", obsToFmtS(k.avg_os_install_s), "",
-          kpiSub("이미지 프로비저닝")) +
-        kpiCell("평균 재조인", obsToFmtS(k.avg_rejoin_s), "",
-          kpiSub("P_Key · 스토리지 재바인딩")) +
-        kpiCell("MTTR (avg_total)", obsToFmtS(k.avg_total_s),
-          k.avg_total_s != null && k.avg_total_s > 600 ? "amber" : "green",
-          kpiSub("시작 → 재조인 완료")) +
+          kpiSub("재기동 " + obsNum(k.reboot && k.reboot.count != null ? k.reboot.count : k.reboots) +
+            " · 교체 " + obsNum(k.replace && k.replace.count != null ? k.replace.count : k.replacements))) +
         kpiCell("재조인 성공률", obsN1(k.rejoin_success_pct) + "<small>%</small>",
           k.rejoin_success_pct != null && k.rejoin_success_pct < 95 ? "amber" : "green",
-          kpiSub("24h 완료 작업 기준")));
+          kpiSub("24h 완료 작업 기준"));
+      setHtml("obs-to-kpi", split
+        ? common +
+          kpiCell("평균 Discovery", obsToFmtS(k.avg_discovery_s), "",
+            kpiSub("전 작업 공통 단계")) +
+          kpiCell("평균 재조인", obsToFmtS(k.avg_rejoin_s), "",
+            kpiSub("P_Key · 스토리지 재바인딩"))
+        : common +
+          kpiCell("평균 Discovery", obsToFmtS(k.avg_discovery_s), "",
+            kpiSub("NICo 재발견")) +
+          kpiCell("평균 IP 할당", obsToFmtS(k.avg_ip_s), "",
+            kpiSub("언더레이 · DHCP")) +
+          kpiCell("평균 OS 설치", obsToFmtS(k.avg_os_install_s), "",
+            kpiSub("이미지 프로비저닝")) +
+          kpiCell("평균 재조인", obsToFmtS(k.avg_rejoin_s), "",
+            kpiSub("P_Key · 스토리지 재바인딩")) +
+          kpiCell("MTTR (avg_total)", obsToFmtS(k.avg_total_s),
+            k.avg_total_s != null && k.avg_total_s > 600 ? "amber" : "green",
+            kpiSub("시작 → 재조인 완료")));
       var inf = v.inflight || [];
       setHtml("obs-to-inflight", inf.map(function (t) {
         return "<tr>" +
@@ -4383,10 +4512,36 @@
   });
 
   /* ══ 부트스트랩 ════════════════════════════════════════════ */
+  /* SU select — 사이트 선택 시 해당 사이트 SU만 (OBS_SUS: 가산 su-1~3 · 안산 su-4~11) */
+  function fillAssetSuOptions(site) {
+    var suSel = document.getElementById("af-su");
+    if (!suSel) return;
+    var keep = assetsFilter.su;
+    suSel.innerHTML = '<option value="">SU: 전체</option>';
+    var valid = false;
+    OBS_SUS.forEach(function (s) {
+      if (site && s[0] !== site) return;
+      var o = document.createElement("option");
+      o.value = s[1];
+      o.textContent = s[1] + " (" + s[0] + ")";
+      suSel.appendChild(o);
+      if (s[1] === keep) valid = true;
+    });
+    if (keep && !valid) assetsFilter.su = "";   // 사이트 변경으로 무효화된 SU 해제
+    suSel.value = assetsFilter.su;
+  }
   function bindAssetFilters() {
+    fillAssetSuOptions("");
     var siteSel = document.getElementById("af-site");
     if (siteSel) siteSel.addEventListener("change", function () {
-      assetsFilter.site = siteSel.value; assetsFilter.offset = 0; renderAssetsTable();
+      assetsFilter.site = siteSel.value;
+      fillAssetSuOptions(siteSel.value);        // 사이트 → SU 옵션 연동
+      assetsFilter.offset = 0;
+      renderAssetsTable();
+    });
+    var suSel = document.getElementById("af-su");
+    if (suSel) suSel.addEventListener("change", function () {
+      assetsFilter.su = suSel.value; assetsFilter.offset = 0; renderAssetsTable();
     });
     var stateSel = document.getElementById("af-state");
     if (stateSel) stateSel.addEventListener("change", function () {
