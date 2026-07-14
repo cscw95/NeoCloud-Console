@@ -149,7 +149,11 @@
         su: "—", state: last.state === "delivered" ? "provisioning" : last.state,
         gate: last.state === "delivered" ? "승인 완료 — 인도됨"
               : `상태: ${last.state}`, pkey_reserved: "—", queue: 0 };
-      return Object.assign(await mock.provisioning(), { queue: 0 });
+      // 라이브 연결 상태에서 승인형 주문이 없으면 mock 데모 주문(ord-9)을
+      // 보여주지 않는다 — 유령 주문이 "진행 안 됨"으로 오인되기 때문.
+      return { id: "—", tenant: "승인 대기 주문 없음", racks: 0, su: "—",
+        state: "idle", gate: "진행 중 개통 주문 없음 — 신규 주문 접수 시 표시",
+        pkey_reserved: "—", requested_at: "—", queue: 0, empty: true };
     },
     async incidents() {
       const f = await raw(V + "/emu/faults");
