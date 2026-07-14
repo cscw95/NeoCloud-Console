@@ -619,6 +619,16 @@
       '<span class="id">' + esc(p.network.vrf || "—") + "</span> · L3VNI " +
       esc(p.network.compute_l3vni) + ' · P_Key <span class="id">' +
       esc(p.network.ib_pkey || "—") + "</span>"]);
+    if (p.managed_k8s) {                   // Managed K8s — API 서버·OIDC·SLA
+      var mk = p.managed_k8s;
+      rows.push(["Managed K8s",
+        '<span class="id">' + esc(mk.api_server || "—") + "</span> · " +
+        esc(mk.version || "") + " · " + esc(mk.cluster_id || "") +
+        " · CP SLA " + esc(mk.control_plane_sla || "—")]);
+      rows.push(["kubeconfig (OIDC)",
+        '<span class="id">' + esc(mk.oidc_issuer || "—") + "</span> · " +
+        esc(mk.kubeconfig || "—")]);
+    }
     tb.innerHTML = rows.map(function (r) {
       return '<tr><td style="width:130px">' + r[0] + "</td><td>" +
         r[1] + "</td></tr>";
@@ -1349,10 +1359,148 @@
     }).catch(function () {});
   }
 
+  /* ══ Managed K8s — k8sClusters() 실카드 + Day-2 설치 (라이브 전용) ═══
+     라이브: #k8s-live에 클러스터 카드·설치 패널 렌더.
+     폴백(nocp 다운): k8sClusters()가 null → 패널 숨김 (mock UI 불변) */
+  var K8S_STATE_COLOR = { running: "green", installing: "blue",
+                          deleting: "amber", failed: "red", deleted: "gray" };
+  var k8sSpecCache = null;
+  function loadK8sSpec() {
+    if (k8sSpecCache) return Promise.resolve(k8sSpecCache);
+    if (!NC.api.k8sSpec) return Promise.resolve(null);
+    return NC.api.k8sSpec().then(function (sp) {
+      if (sp) k8sSpecCache = sp;
+      return sp;
+    }).catch(function () { return null; });
+  }
+
+  function k8sClusterPanel(c) {
+    var color = K8S_STATE_COLOR[c.state] || "amber";
+    var conds = c.conditions || [];
+    var pass = conds.filter(function (x) { return x.result === "PASS"; }).length;
+    var chips = (c.addons || []).map(function (a) {
+      return '<span class="chip" style="font-size:10.5px" title="' +
+        esc(a.role || "") + " · " + esc(a.status || "") + '">' +
+        esc(a.name) + " " + esc(a.version) + "</span>";
+    }).join("");
+    return '<div class="panel">' +
+      '<div class="ph"><span class="dot ' + color +
+      '" style="width:8px;height:8px"></span>' +
+      '<span class="t">' + esc(c.name) + "</span>" +
+      '<span class="c mono" style="color:var(--muted2)">Managed K8s · NKD ' +
+      esc(c.nkd_version || "—") + "</span>" +
+      '<span class="st ' + color + '">' + esc(c.state) + "</span>" +
+      '<span class="c" style="margin-left:auto">' + esc(c.order_id || "") +
+      " · " + esc(c.allocation_id || "") + "</span></div>" +
+      '<div class="stats">' +
+      "<span>버전 <b>" + esc(c.version || "—") + "</b></span>" +
+      '<span>API VIP <b class="mono">' + esc(c.api_vip || "—") +
+      ":6443</b></span>" +
+      '<span title="' + esc((c.cp_node_ids || []).join(", ")) +
+      '">CP 노드 <b>' + (c.cp_node_ids || []).length + "</b> (HA)</span>" +
+      "<span>워커 <b>" + (c.worker_node_ids || []).length + "</b></span>" +
+      "<span>GPU <b>" +
+      (c.gpus_total || 0).toLocaleString("en-US") + "</b></span>" +
+      "<span>DCGM <b>" + esc(c.dcgm_mode || "in-band") + "</b></span>" +
+      (conds.length
+        ? '<span style="color:var(--' + (pass === conds.length
+            ? "green-text" : "amber") + ')">설치 검증 ' + pass + "/" +
+          conds.length + " PASS</span>"
+        : "") +
+      "</div>" +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">' +
+      chips + "</div>" +
+      '<div class="mini">kubeconfig(OIDC)·API 서버 정보는 ' +
+      '<a class="lnk" href="#/security">보안 화면 접속 패키지</a>에서 확인 — ' +
+      "Control-Plane 실시간</div></div>";
+  }
+
+  function k8sInstallPanel(allocs, sp) {
+    var vers = (sp && sp.supported_versions) || ["v1.32.4", "v1.33.2"];
+    return '<div class="panel">' +
+      '<div class="ph"><span class="tick"></span>' +
+      '<span class="t">Managed K8s 설치 (Day-2)</span>' +
+      '<span class="c">delivered BMaaS 클러스터에 K8s를 추가 설치합니다</span>' +
+      "</div>" +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
+      '<select id="k8s-alloc">' + allocs.map(function (a) {
+        return '<option value="' + esc(a.alloc) + '">' + esc(a.alloc) +
+          " — " + esc(a.order) + " · " + a.racks + "랙</option>";
+      }).join("") + "</select>" +
+      '<select id="k8s-ver">' + vers.map(function (v, i) {
+        return '<option value="' + esc(v) + '"' + (i ? "" : " selected") +
+          ">" + esc(v) + "</option>";
+      }).join("") + "</select>" +
+      '<button class="btn" id="k8s-install-btn">Managed K8s 설치</button>' +
+      "</div>" +
+      '<div class="mini">NKD ' + esc((sp && sp.nkd_version) || "25.06") +
+      " · CP " + ((sp && sp.cp_nodes_per_cluster) || 3) +
+      "노드 자동 증설 · SLA " + esc((sp && sp.cp_sla) || "99.9%") +
+      " · 애드온 " + ((sp && sp.managed_addons) || []).length +
+      "종 자동 구성 · DCGM in-band</div></div>";
+  }
+
+  function renderK8sPanel(t) {
+    var box = $("#k8s-live");
+    if (!box || !t || !NC.api.k8sClusters) return;
+    if (!NC.live) { box.style.display = "none"; return; }
+    Promise.all([NC.api.k8sClusters(t.id), loadK8sSpec()])
+      .then(function (res) {
+        var cs = res[0], sp = res[1];
+        if (!cs) { box.style.display = "none"; return; }  // 폴백 — 숨김
+        var alive = (Array.isArray(cs) ? cs : []).filter(function (c) {
+          return c.state !== "deleted";
+        });
+        var html = alive.map(k8sClusterPanel).join("");
+        // K8s 미설치 delivered allocation → Day-2 설치 패널 추가
+        tenantAllocations().then(function (allocs) {
+          var used = {};
+          alive.forEach(function (c) { used[c.allocation_id] = 1; });
+          var free = (allocs || []).filter(function (a) {
+            return !used[a.alloc];
+          });
+          if (free.length) html += k8sInstallPanel(free, sp);
+          if (!html) { box.style.display = "none"; return; }
+          box.innerHTML = html;
+          box.style.display = "";
+        });
+      }).catch(function () {});
+  }
+
+  function submitK8sInstall() {
+    var btn = $("#k8s-install-btn");
+    var aid = ($("#k8s-alloc") || {}).value;
+    var ver = ($("#k8s-ver") || {}).value || "v1.32.4";
+    if (!curTenant || !aid || !NC.api.k8sInstall) {
+      NC.toast("설치할 allocation이 없습니다 — delivered 주문이 필요합니다",
+        "warn");
+      return;
+    }
+    if (btn) btn.disabled = true;
+    NC.api.k8sInstall(curTenant.id, aid, ver).then(function (o) {
+      if (btn) btn.disabled = false;
+      if (!o) {
+        NC.toast("K8s 설치 실패 — Control-Plane 응답 없음", "warn");
+        return;
+      }
+      if (o.error) {                       // 409(이미 설치) 등 — 사유 표시
+        NC.toast("K8s 설치 실패 — " + o.error, "warn");
+        return;
+      }
+      NC.toast("Managed K8s 설치 시작 — " + (o.k8s_cluster_id || "") + " (" +
+        ver + " · " + aid + ") · CP 3노드 자동 증설 · 애드온 자동 구성");
+      loadTenant().then(renderK8sPanel);   // 카드 갱신
+    }).catch(function () {
+      if (btn) btn.disabled = false;
+      NC.toast("K8s 설치 실패 — 잠시 후 다시 시도해주세요", "warn");
+    });
+  }
+
   function renderClusters() {
     loadTenant().then(function (t) {
       applyTenant(t);
       renderClusterCards(t);
+      renderK8sPanel(t);
     });
     refreshTickets();
   }
@@ -1511,12 +1659,17 @@
     var bp = ($("#cc-bp") || {}).value || "vr-nvl72";
     var racks = parseInt(($("#cc-racks") || {}).value, 10) || 16;
     var stMode = ($("#cc-storage") || {}).value || "auto";
+    var k8sOn = ($("#cc-k8s") || {}).checked;      // Managed K8s 옵션
     var body = { tenant_id: curTenant.id, kind: "new",
                  blueprint_key: bp, racks: racks, storage_mode: "auto" };
     if (stMode === "manual") {
       body.storage_mode = "manual";
       body.storage_tb = racks * 1000;
       body.storage_gbps = racks * 80;
+    }
+    if (k8sOn) {
+      body.managed_k8s = true;
+      body.k8s_version = ($("#cc-k8s-ver") || {}).value || "v1.32.4";
     }
     NC.closeModal();
     NC.api.createOrder(body).then(function (o) {
@@ -1527,7 +1680,9 @@
       if (o.state === "delivered") {
         NC.toast(o.id + " → delivered · GPU " +
           (racks * 72).toLocaleString("en-US") + "개 할당 (" + bp + " " +
-          racks + "랙 · " + ((o.allocation_ids || [])[0] || "") + ")");
+          racks + "랙 · " + ((o.allocation_ids || [])[0] || "") + ")" +
+          (o.managed_k8s ? " · Managed K8s " + (o.k8s_version || "") +
+            " (" + (o.k8s_cluster_id || "설치 중") + ")" : ""));
         afterOrderChange();
       } else if (o.state === "rejected" || o.state === "failed") {
         NC.toast("주문 " + o.id + " " + o.state + " — " + orderErr(o), "warn");
@@ -1799,6 +1954,7 @@
     "bill-csv": exportBillingCsv,
     "audit-csv": exportAuditCsv,
     "iso-view": viewIsoReport,
+    "k8s-install-btn": submitK8sInstall,
   };
 
   document.addEventListener("click", function (e) {
@@ -1813,7 +1969,8 @@
     if (cp) { copyText(cp.dataset.copy); return; }
     /* 단일 id 액션 (모두 읽음 · 더 보기 · CSV ×2 · 격리 보기) */
     var one = e.target.closest(
-      "#alerts-readall,#alerts-more,#bill-csv,#audit-csv,#iso-view");
+      "#alerts-readall,#alerts-more,#bill-csv,#audit-csv,#iso-view," +
+      "#k8s-install-btn");
     if (one) { ID_ACTIONS[one.id](); return; }
     /* 모달 오프너 — 동적 타이틀·프리필 (shared/app.js가 오픈 수행) */
     var op = e.target.closest("[data-open]");
@@ -1882,6 +2039,14 @@
     if (san && !san.disabled) {
       var pdf = sanState ? sanState.pdf : "SAN-0691-cert.pdf";
       NC.toast("Sanitization 증명서 " + pdf + " 다운로드를 시작합니다 (데모)");
+    }
+  });
+
+  // create_cluster 모달 — K8s 옵션 체크 시 "포함" 문구에 CP 3노드 표시
+  document.addEventListener("change", function (e) {
+    if (e.target && e.target.id === "cc-k8s") {
+      var note = $("#cc-k8s-note");
+      if (note) note.style.display = e.target.checked ? "" : "none";
     }
   });
 

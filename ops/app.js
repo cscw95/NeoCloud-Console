@@ -720,6 +720,11 @@
   /* nocp 주문 단계명 — PROV_STEPS와 1:1 매핑 */
   var PROV_STAGES = ["received", "validated", "reserved", "provisioning",
                      "isolating", "storage_binding", "acceptance", "delivered"];
+  /* managed_k8s 주문 — 인수검증 뒤 K8s 설치 게이트 1단계 추가 (nocp 계약) */
+  var PROV_STEPS_K8S = PROV_STEPS.slice(0, 7)
+    .concat(["K8s 설치"], PROV_STEPS.slice(7));
+  var PROV_STAGES_K8S = PROV_STAGES.slice(0, 7)
+    .concat(["k8s_installing"], PROV_STAGES.slice(7));
 
   function provDelivered(p) {
     return p.state === "delivered" || /인도됨|인도 완료/.test(p.gate || "");
@@ -730,10 +735,14 @@
     var rejected = p.state === "rejected";
     var delivered = provDelivered(p);
     var pendStage = p.state === "approval_pending" ? (p.pending_stage || null) : null;
+    // managed_k8s 주문 — K8s 설치 게이트 포함 9단계 스텝 사용
+    var useK8s = p.managed_k8s || p.pending_stage === "k8s_installing";
+    var STEPS = useK8s ? PROV_STEPS_K8S : PROV_STEPS;
+    var STAGES = useK8s ? PROV_STAGES_K8S : PROV_STAGES;
     var card = $("#prov-card");
     if (card) {
-      var cur = delivered ? PROV_STEPS.length
-        : pendStage ? Math.max(PROV_STAGES.indexOf(pendStage), 0)
+      var cur = delivered ? STEPS.length
+        : pendStage ? Math.max(STAGES.indexOf(pendStage), 0)
         : p.state === "approval_pending" ? 2
         : p.state === "provisioning" ? 3 : -1;
       var nodes = (p.racks || 0) * 18;
@@ -763,7 +772,7 @@
         chips +
         '<span style="margin-left:auto;display:flex;gap:8px">' + actions + "</span></div>";
       var steps = '<div style="overflow-x:auto;margin-top:14px"><div class="steps">' +
-        PROV_STEPS.map(function (s, i) {
+        STEPS.map(function (s, i) {
           var done = rejected ? i < 2 : delivered ? true : i < cur;
           var isCur = !rejected && !delivered && i === cur;
           return (i ? '<div class="step-bar' + (done || isCur ? " done" : "") + '"></div>' : "") +
@@ -778,7 +787,8 @@
             " · 접수 " + (p.requested_at || "—") +
             (delivered ? " · 전체 게이트 통과 (인도 완료)"
               : pendStage ? " · 잔여 게이트 " +
-                (PROV_STEPS.length - Math.max(PROV_STAGES.indexOf(pendStage), 0)) + "단계"
+                (STEPS.length - Math.max(STAGES.indexOf(pendStage), 0)) + "단계" +
+                (pendStage === "k8s_installing" ? " (다음: K8s 설치)" : "")
               : "")
           : "M4 배치 OK — DPU 모드 dpu_zero_trust · P_Key " + (p.pkey_reserved || "—") +
             " 예약 · 스토리지 자동 (랙당 500TB·40GB/s) · 승인 시 " + nodes + "노드 자동 진행") +

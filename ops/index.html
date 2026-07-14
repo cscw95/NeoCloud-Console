@@ -228,6 +228,12 @@
 /* 관제 Overview — 주요 장애·이벤트 알람 뷰 */
 #ov-faults tr.firing td{background:rgba(240,163,176,.05)}
 #ov-faults tr{cursor:pointer}
+/* ── Managed K8S 그룹 (portal-mockup 통합 · 통합 OBSERVABILITY 아래 목업 그룹)
+     항목은 표준 .mi 그대로 사용 — 활성(.act)·dot·배지 등 타 메뉴와 동일 ── */
+.mk8s-sub{margin:1px 0 3px}
+/* 임베드 프레임 — topbar(50px)+content padding 제외 전체 높이 */
+#mk8s-frame{width:100%;height:calc(100vh - 106px);border:1px solid var(--line);border-radius:10px;background:#0b121c;display:block}
+section[data-screen="mk8s"]{margin:0}
 </style>
 </head>
 <body>
@@ -277,6 +283,21 @@
       <a class="mi" href="#/obs-slo" data-route="obs-slo"><span class="dot"></span>SLA · Error Budget</a>
       <a class="mi" href="#/obs-alerts" data-route="obs-alerts"><span class="dot"></span>알림 · 이벤트 <span class="bd amber" id="bd-obs-alerts" style="display:none">0</span></a>
       <a class="mi" href="#/obs-trayops" data-route="obs-trayops"><span class="dot"></span>트레이 수명주기</a>
+      <!-- Managed K8S — portal-mockup 통합 (독립 그룹 · 목업 프리뷰) -->
+      <div class="sb-grp" style="display:flex;align-items:center;gap:6px">Managed K8S
+        <span class="bd p2" style="margin-left:auto;border:1px solid var(--line);border-radius:8px;padding:0 6px;font-size:9px;color:var(--muted2)">MOCK</span></div>
+      <div id="mk8s-sub" class="mk8s-sub">
+        <a class="mi" href="#/mk8s?v=overview"   data-mk8s-v="overview"><span class="dot"></span>Overview</a>
+        <a class="mi" href="#/mk8s?v=workflow"   data-mk8s-v="workflow"><span class="dot"></span>요청 · 작업 <span class="bd amber">2</span></a>
+        <a class="mi" href="#/mk8s?v=clusters"   data-mk8s-v="clusters"><span class="dot"></span>클러스터 · 개통</a>
+        <a class="mi" href="#/mk8s?v=networking" data-mk8s-v="networking"><span class="dot"></span>네트워킹 · 외부노출</a>
+        <a class="mi" href="#/mk8s?v=access"     data-mk8s-v="access"><span class="dot"></span>접근관리 (kubeconfig)</a>
+        <a class="mi" href="#/mk8s?v=upgrade"    data-mk8s-v="upgrade"><span class="dot"></span>업그레이드 · 패치</a>
+        <a class="mi" href="#/mk8s?v=sentinel"   data-mk8s-v="sentinel"><span class="dot"></span>장애관리 (NVSentinel) <span class="bd red">1</span></a>
+        <a class="mi" href="#/mk8s?v=storage"    data-mk8s-v="storage"><span class="dot"></span>스토리지 (GDS)</a>
+        <a class="mi" href="#/mk8s?v=monitoring" data-mk8s-v="monitoring"><span class="dot"></span>모니터링 (K8s · GPU/랙)</a>
+        <a class="mi" href="#/mk8s?v=settings"   data-mk8s-v="settings"><span class="dot"></span>설정 (Day0)</a>
+      </div>
     </nav>
     <div style="margin-top:auto">
       <div style="display:flex;align-items:center;gap:8px;padding:8px 6px">
@@ -968,9 +989,28 @@
               <tr><td>GPU 쿼터 · 테넌트 배분</td><td style="color:var(--muted)">Run:ai + 수동</td><td class="st amber">Ops 콘솔 통합</td><td style="color:var(--muted)">Q4 '26</td></tr>
               <tr><td>패브릭 관리 (IB·NVLink)</td><td style="color:var(--muted)">UFM + NMX-M</td><td class="st amber">네트워크 메뉴 단일 뷰</td><td style="color:var(--muted)">Q1 '27</td></tr>
               <tr><td>잡 오케스트레이션</td><td style="color:var(--muted)">Slurm/SUNK + Run:ai</td><td class="st blue">워크로드 유형별 역할 분리</td><td style="color:var(--muted)">Q2 '27</td></tr>
+              <tr><td>Managed K8S (테넌트 K8s 클러스터)</td><td style="color:var(--muted)">NKD + 수동 개통</td><td class="st green">Ops 콘솔 통합 — 목업(MOCK) 검증 중</td><td style="color:var(--muted)"><span class="lnk" data-nav="mk8s?v=overview">Managed K8S 그룹 →</span></td></tr>
             </tbody>
           </table>
         </div>
+        <div class="panel" style="margin-top:16px;margin-bottom:0">
+          <div class="ph"><span class="tick"></span><span class="t">Managed K8S — 통합 검증 (portal-mockup)</span><span class="c">MOCK · 메뉴 10종</span></div>
+          <div style="padding:4px 2px;font-size:11.5px;color:var(--muted);line-height:1.7">
+            Vera Rubin NVL72 · 테넌트 5 × 100랙 (총 36,000 GPU) 가정의 Managed K8S 운영 기능을 사이드바 하단 <b>Managed K8S 그룹(MOCK)</b>으로 통합.
+            Day1 설치→개통 E2E(승인·설치 마법사·검증 리포트·kubeconfig 발급), 모니터링(K8s·GPU/랙·로그 스트리밍), kubeconfig 라이프사이클, NVSentinel 장애관리를 포함합니다.
+            각 화면의 <code style="font-size:10px">&lt;/&gt;</code> 아이콘 = 실제 k8s 표준 API 규격(실개발 참조용) · 상태는 메모리 전용(새로고침 시 초기화).
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <button class="btn" onclick="location.hash='#/mk8s?v=overview'">Managed K8S Overview 열기</button>
+            <button class="btn-ghost" onclick="location.hash='#/mk8s?v=workflow'">요청·작업 (승인 대기 2)</button>
+            <button class="btn-ghost" onclick="location.hash='#/mk8s?v=monitoring'">모니터링 (GPU/랙)</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════ ⑫-b Managed K8S (portal-mockup 임베드 — 오케스트레이션 서브메뉴) ════════ -->
+      <section data-screen="mk8s">
+        <div id="mk8s-frame-wrap"></div>
       </section>
 
       <!-- ════════ ⑬ OBS — 종합 상황판 ════════ -->
@@ -1521,5 +1561,85 @@
 <script src="../shared/nocp-api.js"></script>
 <script src="../shared/palette.js"></script>
 <script src="app.js"></script>
+<script>
+/* ── 오케스트레이션 › Managed K8S — portal-mockup 임베드 연동 ──
+   단일 iframe(managed-k8s.html?embed=1)을 공유해 승인→설치→개통 E2E 상태를 유지하고,
+   서브메뉴(#/mk8s?v=<view>) ↔ iframe 내부 해시를 양방향 동기화한다. */
+(function () {
+  var VIEWS = {
+    overview:   "#/k8s/overview",
+    workflow:   "#/k8s/workflow",
+    clusters:   "#/k8s/clusters",
+    networking: "#/k8s/networking",
+    access:     "#/k8s/access",
+    upgrade:    "#/k8s/upgrade",
+    sentinel:   "#/k8s/sentinel",
+    storage:    "#/k8s/storage",
+    monitoring: "#/k8s/monitoring",
+    settings:   "#/k8s/settings",
+  };
+  var LABELS = {
+    overview: "Overview", workflow: "요청 · 작업", clusters: "클러스터 · 개통",
+    networking: "네트워킹 · 외부노출", access: "접근관리 (kubeconfig)", upgrade: "업그레이드 · 패치",
+    sentinel: "장애관리 (NVSentinel)", storage: "스토리지 (GDS)",
+    monitoring: "모니터링 (K8s · GPU/랙)", settings: "설정 (Day0)",
+  };
+  var frame = null, fromChild = false;
+
+  function currentV() {
+    var q = (location.hash.split("?")[1] || "");
+    var m = /(?:^|&)v=([^&]+)/.exec(q);
+    return (m && VIEWS[m[1]]) ? m[1] : "overview";
+  }
+  function ensureFrame(v) {
+    if (frame) return frame;
+    frame = document.createElement("iframe");
+    frame.id = "mk8s-frame";
+    frame.src = "managed-k8s.html?embed=1" + VIEWS[v];
+    frame.addEventListener("load", function () {   // 로딩 중 서브메뉴 전환 경합 보정
+      if (location.hash.indexOf("#/mk8s") === 0) syncFrame(currentV());
+    });
+    document.getElementById("mk8s-frame-wrap").appendChild(frame);
+    return frame;
+  }
+  function syncFrame(v) {
+    var f = ensureFrame(v);
+    if (fromChild) return;                     // 자식발 이동 — 되돌려 쓰지 않음
+    try {
+      var cw = f.contentWindow;
+      if (cw && cw.location && cw.location.href !== "about:blank" &&
+          cw.location.hash !== VIEWS[v]) cw.location.hash = VIEWS[v];
+    } catch (e) { /* 로딩 전 접근 등 — src 초기 해시로 커버 */ }
+  }
+  function highlight(active) {
+    var v = currentV();
+    document.querySelectorAll("[data-mk8s-v]").forEach(function (a) {
+      a.classList.toggle("act", active && a.dataset.mk8sV === v);
+    });
+    if (active) {
+      var crumb = document.querySelector(".crumb .cur");
+      if (crumb) crumb.textContent = "Managed K8S (목업) — " + LABELS[v];
+      syncFrame(v);
+    }
+  }
+  NC.bus.on("route", function (id) { highlight(id === "mk8s"); });
+
+  /* iframe 내부 네비게이션(카드/링크 클릭) → 서브메뉴 하이라이트 역동기화 */
+  window.addEventListener("message", function (e) {
+    if (!e.data || e.data.type !== "mk8s-hash") return;
+    var h = (e.data.hash || "").split("?")[0];
+    var v = Object.keys(VIEWS).sort(function (a, b) {
+      return VIEWS[b].length - VIEWS[a].length;
+    }).find(function (k) { return h === VIEWS[k] || h.indexOf(VIEWS[k] + "/") === 0; });
+    if (!v || !location.hash.startsWith("#/mk8s")) return;
+    if (currentV() !== v) {
+      fromChild = true;
+      history.replaceState(null, "", "#/mk8s?v=" + v);
+      NC.route();
+      fromChild = false;
+    }
+  });
+})();
+</script>
 </body>
 </html>

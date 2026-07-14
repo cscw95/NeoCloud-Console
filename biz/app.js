@@ -427,8 +427,10 @@
       var six = "", five = "", sum = 0;
       list.forEach(function (c) {
         sum += c.mrr_usd || 0;
-        var name = "<td><b>" + c.tenant +
-          '</b> <span class="mut2" style="font-size:10px">' + (c.kind || "") + "</span></td>";
+        var name = "<td><b>" + c.tenant + "</b>" +
+          (c.k8s ? ' <span class="st blue" style="font-size:9.5px" title="Managed K8s ' +
+            esc(c.k8s_version || "") + '">K8s</span>' : "") +
+          ' <span class="mut2" style="font-size:10px">' + (c.kind || "") + "</span></td>";
         var base = '<td class="num">' + (c.racks || 0) + '랙</td>' +
           '<td class="num id js-scale" data-usd="' + (c.mrr_usd || 0) + '">' +
           fmtM((c.mrr_usd || 0) * PERIODS[period].mult) + "</td>";
@@ -1045,11 +1047,15 @@
     if (cv) cv.addEventListener("click", function () {
       if (cv.disabled) return;                     // 중복 클릭 방지
       cv.disabled = true;                          // 전환 완료 후에도 disabled 유지
-      NC.api.convertDeal("delta-corp").then(function (res) {
+      var k8sOn = ($("#cv-k8s") || {}).checked;    // Managed K8s 옵션 관통
+      var k8sOpts = k8sOn ? { managed_k8s: true,
+        k8s_version: ($("#cv-k8s-ver") || {}).value || "v1.32.4" } : null;
+      NC.api.convertDeal("delta-corp", k8sOpts).then(function (res) {
         NC.closeModal("convert");
         if (res && res.order)                      // 라이브: {ok,order,tenant,state,pending}
           NC.toast("delta-corp 전환 — " + res.order + " 생성 · 운영 승인 대기(" +
-            (res.pending || "—") + ")");
+            (res.pending || "—") + ")" +
+            (k8sOn ? " · Managed K8s " + k8sOpts.k8s_version : ""));
         else                                       // mock 폴백: 기존 시나리오 문구
           NC.toast("delta-corp 수주 전환 — 계약 CT-2026-007 등록 · 개통 요청(ord) 발행 → 운영 승인 게이트");
         syncDeal();

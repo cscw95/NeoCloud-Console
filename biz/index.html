@@ -653,7 +653,14 @@
       <div class="chk"><span class="st green">✓</span><span class="mut">법무 검토 완료 · 서명본 업로드됨 (07-09)</span></div>
       <div class="chk"><span class="st green">✓</span><span class="mut">용량 확인 — 안산 su-9·10 소프트 홀드 유효 (D-14)</span></div>
       <div class="chk"><span class="st green">✓</span><span class="mut">가격 조건 — reserved 3y · $61.0M ARR (TCV $183M)</span></div>
-      <div class="callout" style="margin-top:12px">전환 시: 계약 활성 등록 → 테넌트 생성 → 개통 요청(ord) 발행 → <b class="soft">운영 콘솔 승인 게이트</b>로 전달 · 희망 개통 09-01</div>
+      <div class="chk" style="margin-top:10px;align-items:center;gap:8px">
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin:0;flex:1">
+          <input type="checkbox" id="cv-k8s" style="width:auto;flex:none">
+          <span class="soft" style="flex:1">Managed K8s 옵션 — NKD 클러스터 자동 설치 (CP 3노드 · SLA 99.9%)</span></label>
+        <select id="cv-k8s-ver" style="width:110px;margin-left:auto">
+          <option value="v1.32.4" selected>v1.32.4</option>
+          <option value="v1.33.2">v1.33.2</option></select></div>
+      <div class="callout" style="margin-top:12px">전환 시: 계약 활성 등록 → 테넌트 생성 → 개통 요청(ord) 발행 → <b class="soft">운영 콘솔 승인 게이트</b>로 전달 · 희망 개통 09-01 <span class="mut">(K8s 옵션 선택 시 인수검증 뒤 K8s 설치 게이트 추가)</span></div>
     </div>
     <div class="mf">
       <button class="btn-plain" data-close type="button">취소</button>

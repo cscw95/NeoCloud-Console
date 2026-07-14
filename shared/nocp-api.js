@@ -141,14 +141,16 @@
           state: "approval_pending",
           gate: `승인 게이트 — 다음 단계: ${o.pending_stage}`,
           pkey_reserved: "할당 시 발급", requested_at: (o.history[0] || {}).at,
-          pending_stage: o.pending_stage, queue: pend.length };
+          pending_stage: o.pending_stage, queue: pend.length,
+          managed_k8s: !!o.managed_k8s, k8s_version: o.k8s_version };
       }
       const last = os.filter(o => o.approval_mode)
         .sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }))[0];
       if (last) return { id: last.id, tenant: last.tenant_id, racks: last.racks,
         su: "—", state: last.state === "delivered" ? "provisioning" : last.state,
         gate: last.state === "delivered" ? "승인 완료 — 인도됨"
-              : `상태: ${last.state}`, pkey_reserved: "—", queue: 0 };
+              : `상태: ${last.state}`, pkey_reserved: "—", queue: 0,
+        managed_k8s: !!last.managed_k8s, k8s_version: last.k8s_version };
       // 라이브 연결 상태에서 승인형 주문이 없으면 mock 데모 주문(ord-9)을
       // 보여주지 않는다 — 유령 주문이 "진행 안 됨"으로 오인되기 때문.
       return { id: "—", tenant: "승인 대기 주문 없음", racks: 0, su: "—",
@@ -200,11 +202,14 @@
         const racks = t.racks;
         const pend = os.find(o => o.tenant_id === t.id && o.approval_mode &&
           o.pending_stage);
+        // Managed K8s 주문 보유 여부 — 계약 목록 "K8s" 배지 표시용
+        const k8s = os.find(o => o.tenant_id === t.id && o.managed_k8s &&
+          o.state !== "rejected" && o.state !== "failed");
         return { id: "CT-2026-" + String(i + 1).padStart(3, "0"),
           tenant: t.name, kind: "Reserved", racks,
           mrr_usd: Math.round(racks * perRack),
           state: pend ? "provisioning" : (racks ? "active" : "pending"),
-          renewal_d: null,
+          renewal_d: null, k8s: !!k8s, k8s_version: k8s ? k8s.k8s_version : null,
           note: pend ? `개통 중 — ${pend.id} 승인 게이트(${pend.pending_stage})` : "" };
       });
     },
@@ -229,13 +234,15 @@
       NC.bus.emit("provision.rejected", { id: p.id, reason });
       return { ok: true, id: p.id };
     },
-    async convertDeal(dealId) {            // 비즈: 딜 → 실제 계약(테넌트)+개통 주문
+    async convertDeal(dealId, opts) {      // 비즈: 딜 → 실제 계약(테넌트)+개통 주문
+      // opts: { managed_k8s, k8s_version } — 계약 전환 모달의 K8s 옵션 관통
       const deal = (await mock.pipeline()).find(d => d.id === dealId)
         || { racks: 24 };
       const t = await jp(V + "/tenants",
         { name: dealId, isolation_tier: "bare_metal_dedicated" });
-      const o = await jp(V + "/orders", { tenant_id: t.id, kind: "new",
-        blueprint_key: "vr-nvl72", racks: deal.racks, approval_mode: true });
+      const o = await jp(V + "/orders", Object.assign({ tenant_id: t.id,
+        kind: "new", blueprint_key: "vr-nvl72", racks: deal.racks,
+        approval_mode: true }, opts || {}));
       await mock.convertDeal(dealId);      // 파이프라인 상태도 동기
       NC.bus.emit("deal.converted", { id: dealId, order: o.id, tenant: t.id });
       return { ok: true, order: o.id, tenant: t.id, state: o.state,
@@ -326,6 +333,25 @@
       const r = await jp(`${BASE}/fake-shared/pam/sessions/${id}/close`, {});
       NC.bus.emit("pam.closed", { id });
       return r;
+    },
+
+    /* ── Managed K8s (라이브 전용 — 폴백 시 null) ───────────── */
+    k8sClusters: tid =>
+      raw(V + "/k8s/clusters" + (tid ? "?tenant_id=" + tid : "")),
+    k8sSpec: () => raw(V + "/k8s/spec"),
+    async k8sInstall(tenant_id, allocation_id, k8s_version) {
+      // Day-2 애드온: delivered BMaaS allocation에 K8s 추가 설치.
+      // 409(이미 설치) 등 실패 사유를 {error}로 반환 — UI 토스트 표시용.
+      try {
+        const o = await jp(V + "/k8s/installs",
+          { tenant_id, allocation_id, k8s_version });
+        NC.bus.emit("k8s.installed", o);
+        return o;
+      } catch (e) {
+        let msg = e.message || "설치 실패";
+        try { msg = JSON.parse(msg).detail || msg; } catch (_) {}
+        return { error: msg };
+      }
     },
 
     /* ── 콘솔 확장 getter (라이브 전용, 실패 시 null) ───────── */

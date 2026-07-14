@@ -319,6 +319,7 @@
           <div class="kpi"><div class="k">월 환산 비용</div><div class="v">$20.9<small>M</small></div><div class="s">reserved + on-demand</div></div>
         </div>
         <div id="cl-live" style="display:none"><!-- emuClusters() 실카드 + 워크로드 전환 — app.js 렌더 --></div>
+        <div id="k8s-live" style="display:none"><!-- k8sClusters() Managed K8s 카드 · Day-2 설치 — app.js 렌더 --></div>
         <div class="panel" id="cl-static">
           <div class="ph"><span class="dot green" style="width:8px;height:8px"></span><span class="t">prod-training</span>
             <span class="c mono" style="color:var(--muted2)">bare-metal · reserved 3y</span>
@@ -756,9 +757,15 @@
       <div><label>과금</label><select id="cc-billing"><option>reserved 1y (-15%)</option><option>reserved 3y (-30%)</option><option>on-demand</option></select></div>
       <div><label>스토리지</label><select id="cc-storage"><option value="auto">자동 (랙당 500TB·40GB/s)</option><option value="manual">수동 구성 (1PB·80GB/s)</option></select></div>
     </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:12px">
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;margin:0">
+        <input type="checkbox" id="cc-k8s" style="width:auto;flex:none">
+        <span style="color:var(--soft);font-size:12px">Managed K8s 옵션 — NKD 클러스터 자동 설치 (CP 3노드 · SLA 99.9% · DCGM in-band)</span></label>
+      <select id="cc-k8s-ver" style="width:110px;margin-left:auto"><option value="v1.32.4" selected>v1.32.4</option><option value="v1.33.2">v1.33.2</option></select>
+    </div>
     <table class="kv" style="margin-top:12px"><tbody>
       <tr><td>월 예상 금액</td><td class="id" style="color:var(--green-text);font-weight:700">$9.7M/월 (크레딧 미반영)</td></tr>
-      <tr><td>포함</td><td style="color:var(--muted)">CPU 노드 5대 (DPU·VPC) · IB 파티션 · 격리 검증 리포트</td></tr>
+      <tr><td>포함</td><td style="color:var(--muted)">CPU 노드 5대 (DPU·VPC) · IB 파티션 · 격리 검증 리포트 <span id="cc-k8s-note" style="display:none">· K8s CP 3노드 추가</span></td></tr>
     </tbody></table>
     <div class="callout" style="margin-top:10px">주문은 운영팀 승인 게이트를 거쳐 자동 프로비저닝됩니다 — 진행 상태는 알림으로 전달</div>
   </div>
