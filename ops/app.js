@@ -1240,6 +1240,7 @@
      폴링(5s)은 obs-* 화면 활성 시에만 동작한다.
      ══════════════════════════════════════════════════════════ */
   var OBS_BASE = "http://127.0.0.1:9000/emulator/v1/obs";
+  var OBS_ROOT = "http://127.0.0.1:9000";   // UFM(/ufm/v1)·NetQ(/netq/v1) 에뮬레이터 — obs와 동일 포트
   var obsCacheMap = {};            // path → {t, v} (5s 캐시)
   var OBS_PAGE = 100;
   var obsPwrHist = { ga: [], an: [], tot: [] };   // 사이트별 전력 추이 (5s 폴링 누적)
@@ -1257,7 +1258,8 @@
       var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
       var tid = ctrl ? setTimeout(function () { ctrl.abort(); }, 3000) : null;
       if (ctrl) (opts = opts || {}).signal = ctrl.signal;
-      return fetch(OBS_BASE + path, opts || {}).then(function (r) {
+      var base = (path.indexOf("/ufm/") === 0 || path.indexOf("/netq/") === 0) ? OBS_ROOT : OBS_BASE;
+      return fetch(base + path, opts || {}).then(function (r) {
         if (tid) clearTimeout(tid);
         if (!r.ok) return null;
         return r.json().catch(function () { return emptyOk ? {} : null; });
@@ -1287,11 +1289,11 @@
   function obsNum(v) { return v == null ? "—" : fmt(v); }
   function obsN1(v) { return v == null || isNaN(+v) ? "—" : (+v).toFixed(1); }
   function obsLast(a) { return a && a.length ? a[a.length - 1] : null; }
-  function obsSrc(screen, live) {
+  function obsSrc(screen, live, lbl) {
     var el = document.getElementById("obs-src-" + screen);
     if (!el) return;
     el.className = "obs-src " + (live ? "live" : "mock");
-    el.textContent = live ? "● VR NVL72 Twin 라이브 (:9000)" : "◌ twin 미연동 — mock";
+    el.textContent = lbl || (live ? "● VR NVL72 Twin 라이브 (:9000)" : "◌ twin 미연동 — mock");
   }
   function obsHealthSt(h) {
     return h === "critical" ? '<span class="st red">critical</span>'
@@ -1641,26 +1643,45 @@
     if (f.site) q += "&site=" + encodeURIComponent(f.site);
     if (f.su) q += "&su=" + encodeURIComponent(f.su);
     if (f.state) q += "&state=" + encodeURIComponent(f.state);
+    /* 서버 푸시다운 — 정렬·예외 필터는 전 플릿 기준으로 서버가 수행 (total 반영) */
+    if (f.sort) q += "&sort=" + encodeURIComponent(f.sort);
+    if (f.attn) q += "&attn=1";
+    return q;
+  }
+
+  /* 집계 패널용 라이브 쿼리 — 사이트/SU 필터만 적용 (상태 필터와 무관) */
+  function obsGpuAggQuery() {
+    var f = obsGpuFilter;
+    return f.site ? "?site=" + encodeURIComponent(f.site) : "?site=";
+  }
+  function obsGpuAttnQuery() {
+    var f = obsGpuFilter;
+    var q = "?attn=1&sort=temp&limit=12";
+    if (f.site) q += "&site=" + encodeURIComponent(f.site);
+    if (f.su) q += "&su=" + encodeURIComponent(f.su);
     return q;
   }
 
   function renderObsGpu() {
-    Promise.all([obsGet("/dcgm/gpus" + obsGpuQuery()), obsGet("/summary")]).then(function (r) {
+    Promise.all([
+      obsGet("/dcgm/gpus" + obsGpuQuery()),
+      obsGet("/summary"),
+      obsGet("/dcgm/su-summary" + obsGpuAggQuery()),
+      obsGet("/dcgm/gpus" + obsGpuAttnQuery()),
+    ]).then(function (r) {
       var live = !!(r[0] && r[0].gpus);
       var f = obsGpuFilter, list, total;
       var siteKo = { gasan: "가산", ansan: "안산" };
-      /* 집계용 표본 — 사이트/SU 필터만 적용 (히트맵·분포·예외는 상태 필터와 무관) */
+      /* 집계용 mock 표본 — 사이트/SU 필터만 적용 (라이브 시 su-summary/attn 리스트로 대체) */
       var sample = obsMockGpus().filter(function (g) {
         if (f.site && g.site !== f.site && g.site !== siteKo[f.site]) return false;
         if (f.su && g.su_id !== f.su) return false;
         return true;
       });
       if (live) {
+        /* 라이브 — 정렬·attn은 서버 푸시다운 완료 상태. 클라이언트 재필터/재정렬 없음 */
         list = r[0].gpus || [];
         total = r[0].total != null ? r[0].total : list.length;
-        if (f.attn) list = list.filter(obsGpuIsAttn);
-        obsGpuSort(list, f.sort);
-        if (list.length >= sample.length) sample = list;
       } else {
         var all = sample.filter(function (g) {
           if (f.state && g.state !== f.state) return false;
@@ -1686,9 +1707,11 @@
           kpiSub("XID · cordon")) +
         kpiCell("평균 util", obsN1(s.avg_util_pct) + "<small>%</small>", "",
           kpiSub("할당 GPU 기준")));
-      obsGpuHeatmap(sample);
-      obsGpuDist(sample, g);
-      obsGpuAttention(sample);
+      var suSum = live && r[2] && r[2].sus && r[2].sus.length ? r[2] : null;
+      var attnRes = live && r[3] && r[3].gpus ? r[3] : null;
+      obsGpuHeatmap(sample, suSum);
+      obsGpuDist(sample, g, suSum && suSum.hist);
+      obsGpuAttention(sample, attnRes);
       setHtml("obs-gpu-body", list.map(obsGpuRow).join("") ||
         '<tr><td colspan="9" style="color:var(--muted)">조건에 맞는 GPU 없음</td></tr>');
       var a = f.offset, b = Math.min(a + OBS_PAGE, total);
@@ -1733,8 +1756,42 @@
       td(obsHealthSt(x.health)) + "</tr>";
   }
 
-  /* SU × 랙 히트맵 — 셀 = 랙 (표본 평균 util · 예외 테두리) */
-  function obsGpuHeatmap(sample) {
+  /* SU × 랙 히트맵 — mock: 셀 = 랙 (표본) · 라이브: 셀 = SU (su-summary 실집계) */
+  function obsGpuHeatmap(sample, ss) {
+    var hmT = document.getElementById("obs-gpu-hm-t"), hmC = document.getElementById("obs-gpu-hm-c");
+    if (ss) {
+      if (hmT) hmT.textContent = "플릿 히트맵 — SU";
+      if (hmC) hmC.textContent = "셀 = SU · 색 = 평균 util · 테두리 = 예외 (su-summary 실집계)";
+      var siteKo2 = { gasan: "가산", ansan: "안산" };
+      var bySite = {}, so = [];
+      ss.sus.forEach(function (su) {
+        if (obsGpuFilter.su && su.su_id !== obsGpuFilter.su) return;
+        var k = siteKo2[su.site] || su.site || "—";
+        if (!bySite[k]) { bySite[k] = []; so.push(k); }
+        bySite[k].push(su);
+      });
+      setHtml("obs-gpu-hm", so.map(function (siteNm) {
+        return '<div class="obs-hmrow"><span class="lb">' + esc(siteNm) +
+          '</span><span class="obs-hm">' + bySite[siteNm].map(function (su) {
+            var avg = Math.round(su.avg_util_pct || 0);
+            var alloc = (su.active || 0) > 0;
+            var bg = !alloc ? "var(--ready)"
+              : avg >= 80 ? "var(--green)" : avg >= 40 ? "#5a8f0e" : avg > 0 ? "#3f6a1a" : "var(--amber-dim)";
+            var worst = (su.faulted || 0) > 0 ? " crit" : (su.throttled || 0) > 0 ? " th" : "";
+            var cls = "hc" + worst + (obsGpuFilter.su === su.su_id ? " sel" : "");
+            return '<span class="' + cls + '" data-obs-gpusu="' + esc(su.su_id) + '" style="background:' + bg +
+              '" title="' + esc(su.su_id + " — " + fmt(su.gpus || 0) + "GPU · active " + fmt(su.active || 0) +
+                " · 평균 util " + avg + "% · 최고 " + obsN1(su.max_temp_c) + "°C" +
+                ((su.faulted || 0) ? " · faulted " + su.faulted : "") +
+                ((su.throttled || 0) ? " · throttled " + su.throttled : "") +
+                ((su.ecc_uncorr || 0) ? " · ECC uncorr " + su.ecc_uncorr : "")) +
+              '">' + esc(String(su.su_id).replace("su-", "")) + "</span>";
+          }).join("") + "</span></div>";
+      }).join("") || '<div style="color:var(--muted);font-size:12px">SU 집계 없음</div>');
+      return;
+    }
+    if (hmT) hmT.textContent = "플릿 히트맵 — SU × 랙";
+    if (hmC) hmC.textContent = "셀 = 랙 · 색 = 평균 util · 테두리 = 예외";
     var bySu = {}, order = [];
     sample.forEach(function (g) {
       if (!bySu[g.su_id]) { bySu[g.su_id] = { site: g.site, racks: {}, ro: [] }; order.push(g.su_id); }
@@ -1763,14 +1820,27 @@
     }).join("") || '<div style="color:var(--muted);font-size:12px">표본 없음</div>');
   }
 
-  /* 상태 분해 바 + util/temp 히스토그램 */
-  function obsGpuDist(sample, g) {
-    var act = sample.filter(function (x) { return x.state === "active" || x.state === "throttled"; });
-    var ub = [0,0,0,0,0,0,0,0,0,0], tb = [0,0,0,0,0,0,0,0,0,0];
-    act.forEach(function (x) {
-      ub[Math.min(9, Math.floor((x.util_pct || 0) / 10))]++;
-      tb[Math.max(0, Math.min(9, Math.floor(((x.temp_c || 30) - 30) / 7)))]++;
-    });
+  /* 상태 분해 바 + util/temp 히스토그램 — 라이브 시 su-summary hist(10버킷) 사용 */
+  function obsGpuDist(sample, g, hist) {
+    var ub, tb, uLbl, tLbls;
+    if (hist && (hist.util_buckets || []).length === 10 && (hist.temp_buckets || []).length === 10) {
+      ub = hist.util_buckets; tb = hist.temp_buckets;
+      var n = ub.reduce(function (a, b) { return a + (b || 0); }, 0);
+      uLbl = "util 분포 (전 플릿 " + fmt(n) + "기 · su-summary)";
+      /* temp_edges "20-100 step8" 형태 파싱 — 실패 시 mock 축 유지 */
+      var m = /^(\d+)-(\d+)\s+step(\d+)$/.exec(String(hist.temp_edges || ""));
+      tLbls = m ? [m[1] + "°C", Math.round((+m[1] + +m[2]) / 2) + "°C", "≥" + (+m[2] - +m[3]) + "°C"]
+                : ["30°C", "65°C", "≥93°C"];
+    } else {
+      var act = sample.filter(function (x) { return x.state === "active" || x.state === "throttled"; });
+      ub = [0,0,0,0,0,0,0,0,0,0]; tb = [0,0,0,0,0,0,0,0,0,0];
+      act.forEach(function (x) {
+        ub[Math.min(9, Math.floor((x.util_pct || 0) / 10))]++;
+        tb[Math.max(0, Math.min(9, Math.floor(((x.temp_c || 30) - 30) / 7)))]++;
+      });
+      uLbl = "util 분포 (가동 표본 " + act.length + "기)";
+      tLbls = ["30°C", "65°C", "≥93°C"];
+    }
     var um = Math.max.apply(null, ub.concat([1])), tm = Math.max.apply(null, tb.concat([1]));
     var tot = (g.total || 0) || 1;
     function seg(n, color) {
@@ -1785,7 +1855,7 @@
         '<span><span class="leg" style="background:var(--ready)"></span> idle ' + fmt(g.idle || 0) + "</span>" +
         '<span><span class="leg" style="background:var(--amber)"></span> throttled ' + (g.throttled || 0) + " <em style=\"font-style:normal;color:var(--muted2)\">(확대 표시)</em></span>" +
         '<span><span class="leg" style="background:var(--red)"></span> faulted ' + (g.faulted || 0) + "</span></div>" +
-      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em">util 분포 (가동 표본 ' + act.length + '기)</div>' +
+      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em">' + uLbl + '</div>' +
       '<div class="hist">' + ub.map(function (n) {
         return '<i style="height:' + Math.max(4, n / um * 100) + '%"></i>';
       }).join("") + "</div>" +
@@ -1794,13 +1864,16 @@
       '<div class="hist">' + tb.map(function (n, i) {
         return '<i class="' + (i >= 7 ? "hot" : "") + '" style="height:' + Math.max(4, n / tm * 100) + '%"></i>';
       }).join("") + "</div>" +
-      '<div class="hist-x"><span>30°C</span><span>65°C</span><span>≥93°C</span></div>');
+      '<div class="hist-x"><span>' + tLbls[0] + "</span><span>" + tLbls[1] +
+      "</span><span>" + tLbls[2] + "</span></div>");
   }
 
-  /* 예외 우선 리스트 — faulted → throttled → 고온 → ECC → PCIe */
-  function obsGpuAttention(sample) {
+  /* 예외 우선 리스트 — faulted → throttled → 고온 → ECC → PCIe
+     라이브 시 서버 attn=1&sort=temp 결과(attnRes)로 바인딩 · mock은 표본 판정 */
+  function obsGpuAttention(sample, attnRes) {
+    var srcList = attnRes ? attnRes.gpus || [] : sample;
     var rows = [];
-    sample.forEach(function (x) {
+    srcList.forEach(function (x) {
       var sev = null, reason = "";
       if (x.state === "faulted") {
         sev = 0; reason = "XID " + ((x.xid_recent || []).join("·") || "—") + " · ECC uncorr " + (x.ecc_uncorr || 0);
@@ -1812,14 +1885,20 @@
         sev = 2; reason = "ECC uncorr " + x.ecc_uncorr + " — row-remap 추이 감시";
       } else if ((x.pcie_replay || 0) >= 3) {
         sev = 3; reason = "PCIe replay " + x.pcie_replay;
+      } else if (attnRes && (x.temp_c || 0) >= 78) {
+        /* 서버 attn 기준(temp≥78) — 클라이언트 임계(85) 미만 구간 보완 */
+        sev = 2; reason = "고온 " + x.temp_c + "°C — 임계(78°C) 초과 접근";
       }
       if (sev == null) return;
       rows.push([sev, x, reason]);
     });
     rows.sort(function (a, b) { return a[0] - b[0] || (b[1].temp_c || 0) - (a[1].temp_c || 0); });
-    var top = rows.slice(0, 8);
-    setTxt("obs-gpu-attn-count", rows.length
-      ? rows.length + "기 (표본) — 상위 " + top.length + " 표시" : "예외 없음");
+    var top = rows.slice(0, attnRes ? 12 : 8);
+    var totalAttn = attnRes && attnRes.total != null ? attnRes.total : rows.length;
+    setTxt("obs-gpu-attn-count", totalAttn
+      ? fmt(totalAttn) + "기 " + (attnRes ? "(서버 attn 집계)" : "(표본)") +
+        " — 상위 " + top.length + " 표시"
+      : "예외 없음");
     setHtml("obs-gpu-attn", top.map(function (rw) {
       var sev = rw[0], x = rw[1], reason = rw[2];
       var tag = sev === 0 ? '<span class="sevtag" style="color:var(--red)">CRITICAL</span>'
@@ -2451,6 +2530,27 @@
     });
   }
 
+  /* ─ 전력 추이 스파크라인 축 라벨 — y: min/mid/max (poly 정규화 미러) · x: 상대시간 (5s 폴링) ─ */
+  function obsPwrAxis(id, vals, fmtV) {
+    var y = document.getElementById(id + "-y"), x = document.getElementById(id + "-x");
+    if (!y || !x) return;
+    if (!vals || !vals.length) { y.innerHTML = ""; x.innerHTML = ""; return; }
+    var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
+    y.innerHTML = "<span>" + fmtV(mx) + "</span><span>" + fmtV((mn + mx) / 2) +
+      "</span><span>" + fmtV(mn) + "</span>";
+    function rel(sec) {
+      if (sec <= 0) return "지금";
+      if (sec < 60) return "-" + Math.round(sec) + "s";
+      var m = sec / 60;
+      return "-" + (m % 1 ? m.toFixed(1) : m) + "m";
+    }
+    var span = (vals.length - 1) * 5;   // 5s 폴링 간격 누적
+    x.innerHTML = "<span>" + rel(span) + "</span><span>" + rel(span / 2) +
+      "</span><span>지금</span>";
+  }
+  function obsPwrKw(v) { return fmt(Math.round(v)) + " kW"; }
+  function obsPwrMw(v) { return (v / 1000).toFixed(2) + " MW"; }
+
   /* ─ 랙 · 전력: 사이트별 추이 + 전체 소비 ─ */
   function obsRackPower(racks) {
     var ga = 0, an = 0, gaN = 0, anN = 0, maxR = null, allocSum = 0, allocN = 0, head = 0;
@@ -2459,7 +2559,10 @@
       var isGa = rk.site === "가산" || rk.site === "gasan";
       if (isGa) { ga += p; gaN++; } else { an += p; anN++; }
       if (!maxR || p > maxR.p) maxR = { p: p, id: rk.rack_id };
-      if (rk.tenant_id) { allocSum += p; allocN++; }
+      /* 할당 판정 — 라이브(tenants[]/allocated_gpus) · mock(tenant_id) 겸용 */
+      if ((rk.tenants && rk.tenants.length) || rk.tenant_id || (rk.allocated_gpus > 0)) {
+        allocSum += p; allocN++;
+      }
       head += rk.cooling_headroom_kw || 0;
     });
     var tot = ga + an;
@@ -2483,6 +2586,9 @@
     el = $("#obs-pwr-ga"); if (el) el.setAttribute("points", poly(obsPwrHist.ga, 560, 48));
     el = $("#obs-pwr-an"); if (el) el.setAttribute("points", poly(obsPwrHist.an, 560, 48));
     el = $("#obs-pwr-tot"); if (el) el.setAttribute("points", poly(obsPwrHist.tot, 560, 48));
+    obsPwrAxis("obs-pwr-ga", obsPwrHist.ga, obsPwrKw);
+    obsPwrAxis("obs-pwr-an", obsPwrHist.an, obsPwrKw);
+    obsPwrAxis("obs-pwr-tot", obsPwrHist.tot, obsPwrMw);
     setTxt("obs-pwr-ga-v", fmt(Math.round(ga)) + " kW");
     setTxt("obs-pwr-an-v", fmt(Math.round(an)) + " kW");
     setTxt("obs-pwr-tot-v", (tot / 1000).toFixed(2) + " MW");
@@ -2502,11 +2608,216 @@
       ((tot * 1.18) / 1000).toFixed(2) + "MW</div>");
   }
 
-  /* ─ GPU 패브릭 (UFM) — 사이트별 토폴로지 · 장애 인지 ─ */
+  /* ─ GPU 패브릭 (UFM·NetQ) — 라이브 우선 · 실패 시 mock 폴백 ─ */
+  /* 실서버 응답 언랩 — {count, systems|links|pkeys|checks|switches|roce:[…]} 래핑
+     또는 bare 배열(구 계약) 양쪽 수용 */
+  function obsFtList(v, key) {
+    if (Array.isArray(v)) return v;
+    if (v && Array.isArray(v[key])) return v[key];
+    return [];
+  }
+  function renderObsFabTopo() {
+    Promise.all([
+      obsGet("/ufm/v1/fabric/health?site="),
+      obsGet("/ufm/v1/resources/systems?site="),
+      obsGet("/ufm/v1/resources/links?state=degraded"),
+      obsGet("/ufm/v1/resources/links?state=down"),
+      obsGet("/ufm/v1/resources/pkeys"),
+      obsGet("/netq/v1/validation"),
+      obsGet("/netq/v1/switches?site="),
+      obsGet("/netq/v1/roce?site="),
+    ]).then(function (r) {
+      var health = r[0];
+      var systems = obsFtList(r[1], "systems");
+      var live = !!(health && typeof health === "object" && systems.length);
+      if (live) {
+        obsFtLive(health, systems,
+          obsFtList(r[2], "links").concat(obsFtList(r[3], "links")),
+          obsFtList(r[4], "pkeys"), r[5], r[6], r[7]);
+      } else {
+        obsFtMock();
+      }
+    });
+  }
+
+  function obsFtNetqShow(on) {
+    var el = document.getElementById("obs-ft-netq-panel");
+    if (el) el.style.display = on ? "" : "none";
+  }
+
+  /* ─ 라이브 렌더 — UFM fabric/health · systems · links · pkeys + NetQ ─ */
+  function obsFtSwState(st) {
+    return st === "down" ? " crit" : st === "degraded" ? " warn" : "";
+  }
+  function obsFtLive(health, systems, badLinks, pkeys, valid, nqSw, roce) {
+    obsSrc("obs-fabtopo", true, "● UFM·NetQ 라이브 (:9000)");
+    var siteKo = { gasan: "가산", ansan: "안산" };
+    var tenantPk = pkeys.filter(function (p) { return p && p.tenant_id; });
+    var degr = health.links_degraded != null ? health.links_degraded
+      : badLinks.filter(function (l) { return l.state === "degraded"; }).length;
+    var down = health.links_down != null ? health.links_down
+      : badLinks.filter(function (l) { return l.state === "down"; }).length;
+    /* health.switches — 실서버 {total,ok,degraded,down} dict · 구 계약 int 양쪽 수용 */
+    var hsw = health.switches;
+    var swN = hsw && typeof hsw === "object" ? hsw.total : hsw;
+    var swBad = hsw && typeof hsw === "object" ? (hsw.degraded || 0) + (hsw.down || 0) : 0;
+    var swSub = hsw && typeof hsw === "object"
+      ? "ok " + fmt(hsw.ok || 0) + " · degraded " + fmt(hsw.degraded || 0) +
+        " · down " + fmt(hsw.down || 0)
+      : "systems " + fmt(systems.length) + "대 (스파인+리프)";
+    setHtml("obs-ft-kpi",
+      kpiCell("IB 스위치", obsNum(swN), swBad ? "amber" : "",
+        kpiSub(swSub)) +
+      kpiCell("활성 링크", obsNum(health.links_active),
+        (health.links_active || 0) >= (health.links_total || 0) ? "green" : "",
+        kpiSub("전체 " + obsNum(health.links_total) +
+          (health.links_total ? " · 가동률 " +
+            ((health.links_active || 0) / health.links_total * 100).toFixed(2) + "%" : ""))) +
+      kpiCell("이상 링크", fmt(degr + down), (degr + down) ? "amber" : "green",
+        kpiSub("degraded " + fmt(degr) + " · down " + fmt(down))) +
+      kpiCell("flap (24h)", obsNum(health.flaps_24h), (health.flaps_24h || 0) ? "amber" : "",
+        kpiSub("unhealthy 포트 " + fmt((health.unhealthy_ports || []).length))) +
+      kpiCell("P_Key", fmt(tenantPk.length), "",
+        kpiSub(tenantPk.map(function (p) {
+          return String(p.tenant_id || "").replace(/^tnt-/, "");
+        }).join(" · ") || "실 테넌트 없음")) +
+      kpiCell("패브릭 스코어", obsN1(health.score),
+        health.score != null && health.score < 90 ? "amber" : "green",
+        kpiSub("UFM fabric health")));
+    /* 사이트 카드 — systems 실물 기반 (spine 칩 · SU행 leaf 셀 plane A/B) */
+    var bySite = {}, siteOrder = [];
+    systems.forEach(function (sw) {
+      var k = sw.site || "—";
+      if (!bySite[k]) { bySite[k] = { spines: [], sus: {}, suOrder: [] }; siteOrder.push(k); }
+      var s = bySite[k];
+      if (sw.type === "spine") { s.spines.push(sw); return; }
+      var su = sw.su_id || "—";
+      if (!s.sus[su]) { s.sus[su] = []; s.suOrder.push(su); }
+      s.sus[su].push(sw);
+    });
+    function suNum(id) { var m = /(\d+)/.exec(String(id)); return m ? +m[1] : 999; }
+    function planeSort(a, b) {
+      return String(a.plane || "").localeCompare(String(b.plane || "")) ||
+        String(a.name || a.guid || "").localeCompare(String(b.name || b.guid || ""));
+    }
+    function swTitle(sw) {
+      return (sw.name || sw.guid || "—") + " — plane " + (sw.plane || "?") +
+        " · " + (sw.model || "—") + " · fw " + (sw.fw || "—") +
+        " · 포트 " + obsNum(sw.ports_active) + "/" + obsNum(sw.ports_total) +
+        " · " + obsN1(sw.temperature_c) + "°C · " + (sw.state || "ok");
+    }
+    setHtml("obs-ft-topo", siteOrder.map(function (siteId) {
+      var s = bySite[siteId];
+      s.spines.sort(planeSort);
+      s.suOrder.sort(function (a, b) { return suNum(a) - suNum(b); });
+      var pk = tenantPk.filter(function (p) {
+        return !(p.sites && p.sites.length) || p.sites.indexOf(siteId) >= 0;
+      });
+      var pkLbl = pk.length
+        ? "P_Key " + pk.length + " (" + pk.map(function (p) {
+            return String(p.tenant_id || "").replace(/^tnt-/, "") + " " + (p.pkey || "");
+          }).join(" · ") + ")"
+        : "P_Key 0 — 할당 테넌트 없음";
+      return '<div class="ft-site">' +
+        '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:9px">' +
+        '<b style="color:#fff;font-size:12.5px">' + esc(siteKo[siteId] || siteId) + " — 독립 IB 패브릭</b>" +
+        '<span style="color:var(--muted);font-size:10.5px">UFM 라이브 · 스위치 ' +
+          fmt(s.spines.length + s.suOrder.reduce(function (a, su) { return a + s.sus[su].length; }, 0)) + "대</span>" +
+        '<span style="margin-left:auto;color:var(--muted2);font-size:10px;font-family:Menlo,monospace">' + esc(pkLbl) + "</span></div>" +
+        '<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:9px"><span style="color:var(--muted2);font-size:9.5px;width:56px">스파인</span>' +
+        s.spines.map(function (sw) {
+          return '<span class="ft-sp ' + (sw.plane === "B" ? "b" : "") + obsFtSwState(sw.state) +
+            '" data-obs-ftsw="' + esc(sw.guid || "") + '" title="' +
+            esc(swTitle(sw) + " — 클릭 시 상세") + '">' + esc(sw.name || sw.guid || "—") + "</span>";
+        }).join("") + "</div>" +
+        s.suOrder.map(function (su) {
+          var leafs = s.sus[su].slice().sort(planeSort);
+          var h = "", prevPlane = null;
+          leafs.forEach(function (sw) {
+            if (prevPlane === "A" && sw.plane === "B")
+              h += '<span style="width:10px;display:inline-block"></span>';
+            prevPlane = sw.plane;
+            h += '<span class="ftc ' + (sw.plane === "B" ? "b" : "") + obsFtSwState(sw.state) +
+              '" data-obs-ftsw="' + esc(sw.guid || "") + '" title="' +
+              esc(swTitle(sw) + " — 클릭 시 상세") + '"></span>';
+          });
+          return '<div class="ft-su"><span class="lb">' + esc(su) +
+            '</span><span class="cells">' + h + "</span></div>";
+        }).join("") +
+        '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:10px;color:var(--muted)">' +
+        '<span><span class="leg" style="background:#1c2f4a"></span> plane-A 리프</span>' +
+        '<span><span class="leg" style="background:#2a2140"></span> plane-B 리프</span>' +
+        '<span style="color:var(--amber)">□ degraded</span>' +
+        '<span style="color:var(--red)">□ down</span></div></div>';
+    }).join(""));
+    /* 이상 링크 테이블 — UFM links (degraded | down) 실데이터 */
+    setHtml("obs-ft-links", badLinks.map(function (l) {
+      var st = l.state === "down"
+        ? '<span class="st red">down</span>' : '<span class="st amber">degraded</span>';
+      return "<tr>" +
+        td('<span class="id" style="color:#fff">' + esc(l.link_id || "—") + "</span>") +
+        td('<span style="color:var(--muted)">' + esc(l.src || "—") + " ↔ " + esc(l.dst || "—") +
+          '</span><div style="color:var(--muted2);font-size:9.5px">plane ' + esc(l.plane || "?") +
+          " · " + esc(l.su_id || "—") + " · " + esc(l.site || "—") + "</div>") +
+        td(st + ' <span style="color:var(--muted);font-size:11px">BER ' + esc(String(l.ber != null ? l.ber : "—")) +
+          " · SymbolErr " + esc(String(l.symbol_err_rate != null ? l.symbol_err_rate : "—")) + "</span>") +
+        td(l.state === "down"
+          ? '<span style="color:var(--red)">링크 다운 — 반대 plane 우회</span>'
+          : '<span style="color:var(--amber)">가동 중 — 오류율 상승</span>') +
+        td("flap " + obsNum(l.flaps_24h) + "회/24h", "num") +
+        td('<span style="color:var(--green-text)">' +
+          (l.state === "down" ? "케이블·포트 즉시 점검 — 정비 창 편성" : "추이 감시 · 임계 시 케이블 교체") +
+          "</span>") + "</tr>";
+    }).join("") || '<tr><td colspan="6" style="color:var(--green-text)">이상 링크 없음 — 전 링크 정상</td></tr>');
+    setTxt("obs-ft-links-c", badLinks.length
+      ? "이상 " + badLinks.length + "건 (degraded " + fmt(degr) + " · down " + fmt(down) + ") — UFM 라이브"
+      : "이상 링크 없음 — UFM 라이브");
+    /* NetQ — Ethernet 소패널 */
+    obsFtNetqShow(true);
+    var vList = obsFtList(valid, "checks");
+    var vChips = vList.map(function (v) {
+      var cls = v.result === "fail" ? "red" : v.result === "warn" ? "amber" : "green";
+      return '<span class="st ' + cls + '" title="' + esc(v.detail || "") + '">' +
+        esc(v.check || "—") + " · " + esc(v.result || "—") + "</span>";
+    }).join(" ") || '<span style="color:var(--muted)">validation 응답 없음</span>';
+    var swList = obsFtList(nqSw, "switches");
+    var upN = swList.filter(function (s) {
+      var st = String(s.state || s.status || "").toLowerCase();
+      return st === "up" || st === "ok" || st === "active";
+    }).length;
+    var drops = 0;
+    obsFtList(roce, "roce").forEach(function (x) {
+      Object.keys(x || {}).forEach(function (k) {
+        if (/drop/i.test(k) && typeof x[k] === "number") drops += x[k];
+      });
+    });
+    setHtml("obs-ft-netq",
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' + vChips + "</div>" +
+      '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:9px;font-size:11px;color:var(--muted)" class="tabnum">' +
+      "<span>스위치 up <b style='color:#fff'>" + fmt(upN) + "</b> / " + fmt(swList.length) + "</span>" +
+      "<span>RoCE 드롭 합계 <b style='color:" + (drops ? "var(--amber)" : "#fff") + "'>" + fmt(drops) + "</b></span>" +
+      "<span>validation " + fmt(vList.length) + "건 (fail " +
+        fmt(vList.filter(function (v) { return v.result === "fail"; }).length) + " · warn " +
+        fmt(vList.filter(function (v) { return v.result === "warn"; }).length) + ")</span></div>" +
+      /* 스위치 목록 칩 — 클릭 시 NetQ 스위치 상세 모달 */
+      '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:9px">' +
+      swList.map(function (s) {
+        var st = String(s.state || s.status || "").toLowerCase();
+        var cls = st === "down" ? " crit"
+          : (st === "ok" || st === "up" || st === "active") ? "" : " warn";
+        return '<span class="nq-swchip' + cls + '" data-obs-nqsw="' + esc(s.name || "") +
+          '" title="' + esc((s.model || "—") + " · " + (s.os || "—") + " · if " +
+            obsNum(s.interfaces_up) + "/" + obsNum(s.interfaces_total) + " — 클릭 시 상세") + '">' +
+          esc(s.name || "—") + "</span>";
+      }).join("") + "</div>");
+  }
+
+  /* ─ mock 폴백 — UFM/NetQ 미배포 시 기존 정적 토폴로지 유지 ─ */
   var OBS_FT_FAULTS = { "an:su-6:A:3": "warn", "ga:su-2:B:1": "watch" };
   var OBS_FT_SPFAULTS = { "an:A:2": "watch" };
-  function renderObsFabTopo() {
-    obsSrc("obs-fabtopo", false);
+  function obsFtMock() {
+    obsSrc("obs-fabtopo", false, "◌ UFM 미연동 — mock");
+    obsFtNetqShow(false);
     setHtml("obs-ft-kpi",
       kpiCell("IB 스위치", "192", "", kpiSub("리프 176 · 스파인 16 (2사이트)")) +
       kpiCell("활성 링크", "12,672", "green", kpiSub("가동률 99.98%")) +
@@ -2519,10 +2830,12 @@
       ["A", "B"].forEach(function (rail) {
         for (var i = 0; i < 8; i++) {
           var fl = OBS_FT_FAULTS[sk + ":" + su + ":" + rail + ":" + i];
+          var nm = su + " leaf" + rail + "-" + obsPad2(i);
           h += '<span class="ftc ' + (rail === "B" ? "b" : "") + (fl ? " " + fl : "") +
-            '" title="' + su + " leaf" + rail + "-" + obsPad2(i) +
+            '" data-obs-ftsw-mock="' + nm + '" title="' + nm +
             (fl === "warn" ? " — SymbolErr 증가 · flap 2회 · 케이블 열화 예측"
-              : fl === "watch" ? " — 관찰 (RX power 저하)" : " — 정상") + '"></span>';
+              : fl === "watch" ? " — 관찰 (RX power 저하)" : " — 정상") +
+            ' · 클릭 시 상세 (데모)"></span>';
         }
         if (rail === "A") h += '<span style="width:10px;display:inline-block"></span>';
       });
@@ -2533,8 +2846,10 @@
       ["A", "B"].forEach(function (rail) {
         for (var i = 0; i < 4; i++) {
           var fl = OBS_FT_SPFAULTS[sk + ":" + rail + ":" + i];
-          h += '<span class="ft-sp ' + (rail === "B" ? "b" : "") + (fl ? " " + fl : "") + '" title="' +
-            (fl ? "CRC 산발 · BER 경계 — 관찰" : "정상") + '">' + rail + "-" + i + "</span>";
+          h += '<span class="ft-sp ' + (rail === "B" ? "b" : "") + (fl ? " " + fl : "") +
+            '" data-obs-ftsw-mock="' + (sk === "ga" ? "가산" : "안산") + " spine" + rail + "-" + i +
+            '" title="' + (fl ? "CRC 산발 · BER 경계 — 관찰" : "정상") +
+            ' · 클릭 시 상세 (데모)">' + rail + "-" + i + "</span>";
         }
       });
       return h;
@@ -2584,6 +2899,216 @@
         td('<span style="color:var(--green-text)">' + l[5] + "</span>") + "</tr>";
     }).join(""));
     setTxt("obs-ft-links-c", "이상 3건 · 예측 1건 — SymbolErr · BER · flap · 광모듈");
+  }
+
+  /* ─ 스위치 상세 모달 (obs_ftsw) — UFM 스위치 · NetQ 스위치 · mock 데모 공용 ─ */
+  var obsFtSwCur = null;   // {kind:"ufm"|"netq"|"mock", id}  — 새로고침 버튼용
+  var OBS_FTSW_LOADING = '<div style="color:var(--muted);font-size:12px">불러오는 중…</div>';
+
+  function obsFtPortSt(st) {
+    var s = String(st || "").toLowerCase();
+    return s === "active" || s === "up" || s === "ok"
+      ? '<span class="st green">' + esc(st) + "</span>"
+      : s === "down" ? '<span class="st red">down</span>'
+      : '<span class="st amber">' + esc(st || "—") + "</span>";
+  }
+  function obsFtPortBad(st) {
+    var s = String(st || "").toLowerCase();
+    return !(s === "active" || s === "up" || s === "ok");
+  }
+  function obsFtStBadge(st) {
+    return st === "down" ? '<span class="st red">down</span>'
+      : st === "degraded" ? '<span class="st amber">degraded</span>'
+      : '<span class="st green">' + esc(st || "ok") + "</span>";
+  }
+
+  /* (a) 상태 요약 + (b) 포트 테이블 + (c) 트래픽 요약 + (d) 관련 링크 */
+  function obsFtSwBody(meta, ports, badLinks, demo) {
+    meta = meta || {};
+    var bad = ports.filter(function (p) { return obsFtPortBad(p.state); });
+    var good = ports.filter(function (p) { return !obsFtPortBad(p.state); });
+    good.sort(function (a, b) {
+      return ((b.counters || {}).symbol_err || 0) - ((a.counters || {}).symbol_err || 0) ||
+        (a.number || 0) - (b.number || 0);
+    });
+    var show = bad.concat(good.slice(0, Math.max(0, 14 - Math.min(bad.length, 14))));
+    var tx = 0, rx = 0;
+    ports.forEach(function (p) {
+      tx += (p.counters || {}).tx_gbps || 0;
+      rx += (p.counters || {}).rx_gbps || 0;
+    });
+    var name = meta.name || meta.guid || "—";
+    var rel = (badLinks || []).filter(function (l) {
+      return (String(l.src || "") + " " + String(l.dst || "") + " " + String(l.link_id || ""))
+        .indexOf(name) >= 0;
+    });
+    return (demo ? '<div class="callout warn" style="margin-bottom:10px">UFM 미연동 — mock 데모 데이터 (실측 아님)</div>' : "") +
+      '<table class="kv tabnum">' +
+      "<tr><td>스위치 / GUID</td><td><b style='color:#fff'>" + esc(name) + "</b> · <span class='id' style='color:var(--muted2)'>" +
+        esc(meta.guid || "—") + "</span></td></tr>" +
+      "<tr><td>유형 / plane / state</td><td>" + esc(meta.type || "—") + " · plane " + esc(meta.plane || "?") +
+        " · " + obsFtStBadge(meta.state) + "</td></tr>" +
+      "<tr><td>위치</td><td>" + esc(meta.site || "—") + (meta.su_id ? " · " + esc(meta.su_id) : " · 스파인 계층") + "</td></tr>" +
+      "<tr><td>모델 / FW</td><td>" + esc(meta.model || "—") + " · fw " + esc(meta.fw || "—") + "</td></tr>" +
+      "<tr><td>온도 / 포트</td><td>" + obsN1(meta.temperature_c) + " °C · 활성 " +
+        obsNum(meta.ports_active) + " / " + obsNum(meta.ports_total) + "</td></tr>" +
+      "<tr><td>트래픽 합계</td><td>tx <b style='color:#fff'>" + fmt(Math.round(tx)) +
+        "</b> · rx <b style='color:#fff'>" + fmt(Math.round(rx)) + "</b> Gbps (수집 " + fmt(ports.length) + "포트)</td></tr>" +
+      "</table>" +
+      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin:12px 0 5px">포트 — 이상 ' +
+        fmt(bad.length) + " · 전체 " + fmt(ports.length) + " (이상 우선 · 표시 " + fmt(show.length) + ")</div>" +
+      '<div style="overflow-x:auto;max-height:260px;overflow-y:auto"><table class="tbl">' +
+      "<thead><tr><th>포트</th><th>state</th><th>peer</th><th class='num'>SymbolErr</th>" +
+      "<th class='num'>down/recov</th><th class='num'>rcv_err</th><th class='num'>tx / rx Gbps</th></tr></thead><tbody>" +
+      (show.map(function (p) {
+        var c = p.counters || {};
+        var isBad = obsFtPortBad(p.state);
+        return '<tr style="' + (isBad ? "background:rgba(240,163,176,.06)" : "") + '">' +
+          td('<span class="id" style="color:#fff">p' + obsPad2(p.number || 0) + "</span>" +
+            '<div style="color:var(--muted2);font-size:9.5px">' + esc(p.speed || "—") + "</div>") +
+          td(obsFtPortSt(p.state)) +
+          td('<span class="id" style="color:var(--muted)">' + esc(p.peer || "—") + "</span>") +
+          td((c.symbol_err || 0) ? '<b style="color:var(--amber)">' + fmt(c.symbol_err) + "</b>" : "0", "num") +
+          td(fmt(c.link_downed || 0) + " / " + fmt(c.link_error_recovery || 0), "num") +
+          td(fmt(c.rcv_errors || 0), "num") +
+          td(obsN1(c.tx_gbps) + " / " + obsN1(c.rx_gbps), "num") + "</tr>";
+      }).join("") || '<tr><td colspan="7" style="color:var(--muted)">포트 데이터 없음</td></tr>') +
+      "</tbody></table></div>" +
+      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin:12px 0 5px">관련 이상 링크 (UFM links)</div>' +
+      (rel.length
+        ? '<table class="tbl"><tbody>' + rel.map(function (l) {
+            return "<tr>" +
+              td('<span class="id" style="color:#fff">' + esc(l.link_id || "—") + "</span>") +
+              td(l.state === "down" ? '<span class="st red">down</span>' : '<span class="st amber">degraded</span>') +
+              td('<span style="color:var(--muted);font-size:11px">BER ' + esc(String(l.ber != null ? l.ber : "—")) +
+                " · SymbolErr " + esc(String(l.symbol_err_rate != null ? l.symbol_err_rate : "—")) +
+                " · flap " + obsNum(l.flaps_24h) + "회/24h</span>") + "</tr>";
+          }).join("") + "</tbody></table>"
+        : '<div style="color:var(--green-text);font-size:11.5px">관련 이상 링크 없음</div>');
+  }
+
+  function openObsFtSwModal(guid) {
+    obsFtSwCur = { kind: "ufm", id: guid };
+    setTxt("obs-ftsw-m-title", "IB 스위치 상세 — 조회 중");
+    setHtml("obs-ftsw-m-body", OBS_FTSW_LOADING);
+    NC.openModal("obs_ftsw");
+    Promise.all([
+      obsGet("/ufm/v1/resources/systems?site="),
+      obsFetch("/ufm/v1/resources/ports?system_guid=" + encodeURIComponent(guid), { cache: "no-store" }),
+      obsGet("/ufm/v1/resources/links?state=degraded"),
+      obsGet("/ufm/v1/resources/links?state=down"),
+    ]).then(function (r) {
+      var meta = obsFtList(r[0], "systems").filter(function (s) { return s.guid === guid; })[0];
+      var ports = obsFtList(r[1], "ports");
+      if (!meta && !ports.length) {
+        setTxt("obs-ftsw-m-title", "IB 스위치 상세");
+        setHtml("obs-ftsw-m-body",
+          '<div class="callout warn">UFM 응답 없음 — twin 재기동 중이거나 미연동. 잠시 후 새로고침.</div>');
+        return;
+      }
+      setTxt("obs-ftsw-m-title", "IB 스위치 상세 — " + ((meta || {}).name || guid));
+      setHtml("obs-ftsw-m-body", obsFtSwBody(meta || { guid: guid },
+        ports, obsFtList(r[2], "links").concat(obsFtList(r[3], "links")), false));
+    });
+  }
+
+  /* mock 폴백 — 정적 데모 팝업 (무반응 방지) */
+  function openObsFtSwMockModal(label) {
+    obsFtSwCur = { kind: "mock", id: label };
+    var isSpine = label.indexOf("spine") >= 0;
+    var meta = {
+      name: label, guid: "0xDEMO-" + label.replace(/\s+/g, "-"),
+      type: isSpine ? "spine" : "leaf", plane: /B/.test(label) ? "B" : "A",
+      site: label.indexOf("가산") >= 0 || label.indexOf("su-1") >= 0 || label.indexOf("su-2") >= 0 ||
+        label.indexOf("su-3") >= 0 ? "가산" : "안산",
+      su_id: isSpine ? null : label.split(" ")[0],
+      model: "Quantum-X800 Q3400", fw: "31.2014.2036",
+      temperature_c: 46.5, ports_active: isSpine ? 96 : 74, ports_total: 144, state: "ok",
+    };
+    var ports = [
+      { number: 1, state: "active", speed: "XDR 800G", peer: "spine-a-01",
+        counters: { symbol_err: 0, link_error_recovery: 0, link_downed: 0, rcv_errors: 0, tx_gbps: 612.4, rx_gbps: 598.1 } },
+      { number: 2, state: "active", speed: "XDR 800G", peer: "spine-a-02",
+        counters: { symbol_err: 1, link_error_recovery: 0, link_downed: 0, rcv_errors: 0, tx_gbps: 401.2, rx_gbps: 388.7 } },
+      { number: 7, state: "degraded", speed: "XDR 800G", peer: "host tray-04",
+        counters: { symbol_err: 128, link_error_recovery: 2, link_downed: 0, rcv_errors: 3, tx_gbps: 96.3, rx_gbps: 88.0 } },
+      { number: 12, state: "active", speed: "XDR 800G", peer: "host tray-08",
+        counters: { symbol_err: 0, link_error_recovery: 0, link_downed: 0, rcv_errors: 0, tx_gbps: 512.9, rx_gbps: 520.4 } },
+    ];
+    setTxt("obs-ftsw-m-title", "IB 스위치 상세 — " + label + " (데모)");
+    setHtml("obs-ftsw-m-body", obsFtSwBody(meta, ports, [], true));
+    NC.openModal("obs_ftsw");
+  }
+
+  /* NetQ 스위치 상세 — interfaces + protocols + roce 해당 행 */
+  function openObsNqSwModal(name) {
+    obsFtSwCur = { kind: "netq", id: name };
+    setTxt("obs-ftsw-m-title", "NetQ 스위치 상세 — " + name);
+    setHtml("obs-ftsw-m-body", OBS_FTSW_LOADING);
+    NC.openModal("obs_ftsw");
+    Promise.all([
+      obsGet("/netq/v1/switches?site="),
+      obsFetch("/netq/v1/interfaces?switch=" + encodeURIComponent(name), { cache: "no-store" }),
+      obsGet("/netq/v1/protocols"),
+      obsGet("/netq/v1/roce?site="),
+    ]).then(function (r) {
+      var meta = obsFtList(r[0], "switches").filter(function (s) { return s.name === name; })[0] || {};
+      var ifs = obsFtList(r[1], "interfaces");
+      var proto = obsFtList(r[2], "protocols").filter(function (p) { return p.switch === name; })[0];
+      var roce = obsFtList(r[3], "roce").filter(function (p) { return p.switch === name; })[0];
+      if (!ifs.length && !meta.name) {
+        setHtml("obs-ftsw-m-body",
+          '<div class="callout warn">NetQ 응답 없음 — 잠시 후 새로고침.</div>');
+        return;
+      }
+      var bad = ifs.filter(function (p) { return obsFtPortBad(p.state); });
+      var good = ifs.filter(function (p) { return !obsFtPortBad(p.state); });
+      var show = bad.concat(good.slice(0, Math.max(0, 14 - Math.min(bad.length, 14))));
+      var tx = 0, rx = 0;
+      ifs.forEach(function (p) { tx += (p.counters || {}).tx_gbps || 0; rx += (p.counters || {}).rx_gbps || 0; });
+      setHtml("obs-ftsw-m-body",
+        '<table class="kv tabnum">' +
+        "<tr><td>스위치 / state</td><td><b style='color:#fff'>" + esc(name) + "</b> · " +
+          obsFtStBadge(meta.state) + "</td></tr>" +
+        "<tr><td>모델 / OS / 역할</td><td>" + esc(meta.model || "—") + " · " + esc(meta.os || "—") +
+          " · " + esc(meta.role || "—") + "</td></tr>" +
+        "<tr><td>위치</td><td>" + esc(meta.site || "—") + (meta.su_id ? " · " + esc(meta.su_id) : "") +
+          (meta.racks ? " · " + fmt(meta.racks) + "랙" : "") + "</td></tr>" +
+        "<tr><td>인터페이스 / 온도</td><td>up " + obsNum(meta.interfaces_up) + " / " +
+          obsNum(meta.interfaces_total) + " · " + obsN1(meta.temperature_c) + " °C</td></tr>" +
+        "<tr><td>프로토콜 (NetQ)</td><td>" + (proto
+          ? "BGP " + obsNum(proto.bgp_peers_up) + "/" + obsNum(proto.bgp_peers_total) +
+            " · EVPN VNI " + obsNum(proto.evpn_vnis) + " · VXLAN 터널 " + obsNum(proto.vxlan_tunnels) +
+            " · " + obsFtStBadge(proto.state)
+          : muted("데이터 없음")) + "</td></tr>" +
+        "<tr><td>RoCE</td><td>" + (roce
+          ? "PFC pause rx/tx " + fmt(roce.pfc_pause_rx || 0) + "/" + fmt(roce.pfc_pause_tx || 0) +
+            " · ECN " + fmt(roce.ecn_marked || 0) + " · 드롭 <b style='color:" +
+            ((roce.drops || 0) ? "var(--amber)" : "#fff") + "'>" + fmt(roce.drops || 0) + "</b>"
+          : muted("데이터 없음")) + "</td></tr>" +
+        "<tr><td>트래픽 합계</td><td>tx <b style='color:#fff'>" + fmt(Math.round(tx)) +
+          "</b> · rx <b style='color:#fff'>" + fmt(Math.round(rx)) + "</b> Gbps</td></tr>" +
+        "</table>" +
+        '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin:12px 0 5px">인터페이스 — 이상 ' +
+          fmt(bad.length) + " · 전체 " + fmt(ifs.length) + " (이상 우선 · 표시 " + fmt(show.length) + ")</div>" +
+        '<div style="overflow-x:auto;max-height:260px;overflow-y:auto"><table class="tbl">' +
+        "<thead><tr><th>인터페이스</th><th>state</th><th>peer</th><th class='num'>MTU</th>" +
+        "<th class='num'>rx_err / tx_drop</th><th class='num'>carrier</th><th class='num'>tx / rx Gbps</th></tr></thead><tbody>" +
+        (show.map(function (p) {
+          var c = p.counters || {};
+          var isBad = obsFtPortBad(p.state);
+          return '<tr style="' + (isBad ? "background:rgba(240,163,176,.06)" : "") + '">' +
+            td('<span class="id" style="color:#fff">' + esc(p.interface || "—") + "</span>" +
+              '<div style="color:var(--muted2);font-size:9.5px">' + esc(p.speed || "—") + "</div>") +
+            td(obsFtPortSt(p.state)) +
+            td('<span class="id" style="color:var(--muted)">' + esc(p.peer || "—") + "</span>") +
+            td(fmt(p.mtu || 0), "num") +
+            td(fmt(c.rx_errors || 0) + " / " + fmt(c.tx_drops || 0), "num") +
+            td(fmt(c.carrier_transitions || 0), "num") +
+            td(obsN1(c.tx_gbps) + " / " + obsN1(c.rx_gbps), "num") + "</tr>";
+        }).join("") || '<tr><td colspan="7" style="color:var(--muted)">인터페이스 데이터 없음</td></tr>') +
+        "</tbody></table></div>");
+    });
   }
 
   /* ─ 크로스 상관 체인 상세 ─ */
@@ -2710,6 +3235,19 @@
   document.addEventListener("click", function (e) {
     var g = e.target.closest("[data-obs-gpu]");
     if (g) { openObsGpuModal(g.dataset.obsGpu); return; }
+    var fsw = e.target.closest("[data-obs-ftsw]");           // UFM 스위치 (spine 칩·leaf 셀)
+    if (fsw) { openObsFtSwModal(fsw.dataset.obsFtsw); return; }
+    var fswm = e.target.closest("[data-obs-ftsw-mock]");     // mock 폴백 데모 팝업
+    if (fswm) { openObsFtSwMockModal(fswm.dataset.obsFtswMock); return; }
+    var nqsw = e.target.closest("[data-obs-nqsw]");          // NetQ 스위치 칩
+    if (nqsw) { openObsNqSwModal(nqsw.dataset.obsNqsw); return; }
+    var fswr = e.target.closest("#obs-ftsw-refresh");        // 스위치 모달 새로고침
+    if (fswr) {
+      if (obsFtSwCur && obsFtSwCur.kind === "ufm") openObsFtSwModal(obsFtSwCur.id);
+      else if (obsFtSwCur && obsFtSwCur.kind === "netq") openObsNqSwModal(obsFtSwCur.id);
+      else if (obsFtSwCur) openObsFtSwMockModal(obsFtSwCur.id);
+      return;
+    }
     var rb = e.target.closest("[data-obs-rctl]");        // 랙 일괄 제어 툴바
     if (rb) { obsRackCtlClick(rb, null); return; }
     var rb1 = e.target.closest("[data-obs-rctl1]");      // 단일 랙 제어 (상세)
