@@ -2151,13 +2151,20 @@
         '" data-rack="' + esc(rid) + '" data-key="' + esc(rid + ":" + act) + '">' + lbl + "</button>";
     }
     return '<div class="callout warn" style="margin-top:12px">랙 제어 — <b>데모</b> (Emulator twin 대상 · 실설비 아님) · Off/Cordon은 테넌트 영향</div>' +
-      '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px">' +
+      '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:8px;align-items:center">' +
       b("btn-ghost", "power_on", "전원 On") + b("btn-danger", "power_off", "전원 Off") +
       b("btn-warn", "restart", "재시작") +
+      b("btn-warn", "cordon", "Cordon") + b("btn-ghost", "uncordon", "Uncordon") +
+      '<span style="width:1px;height:22px;background:var(--line);flex:none"></span>' +
+      '<input id="obs-rc-cap" class="obs-inp" type="number" min="1" step="1" placeholder="Cap 값">' +
+      '<select id="obs-rc-capu" class="chip" style="appearance:auto;cursor:pointer">' +
+      '<option value="kw">kW</option><option value="pct">%</option></select>' +
       b("btn-warn", "power_cap", "Power Cap 적용") + b("btn-ghost", "power_uncap", "Cap 해제") +
-      b("btn-ghost", "workload", "프로필 적용") +
-      b("btn-warn", "cordon", "Cordon") + b("btn-ghost", "uncordon", "Uncordon") + "</div>" +
-      '<div style="color:var(--muted2);font-size:10px;margin-top:6px">Cap 값 · 워크로드 프로필은 상단 "전체 랙 제어" 입력값 사용 · 1차 클릭 후 3초 내 재클릭 시 실행</div>';
+      '<select id="obs-rc-profile" class="chip" style="appearance:auto;cursor:pointer">' +
+      '<option value="idle">프로필: idle</option><option value="steady" selected>프로필: steady</option>' +
+      '<option value="train">프로필: train</option><option value="burst">프로필: burst</option></select>' +
+      b("btn-ghost", "workload", "프로필 적용") + "</div>" +
+      '<div style="color:var(--muted2);font-size:10px;margin-top:6px">1차 클릭 후 3초 내 재클릭 시 실행 · 전체/일괄 제어는 트윈 대시보드 Twin Control(:9000) 사용</div>';
   }
 
   function renderObsRack() {

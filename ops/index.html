@@ -1019,37 +1019,6 @@
           <span class="rt" style="gap:12px;font-size:10px;color:var(--muted)" id="obs-rack-leg"></span>
         </div>
         <div class="kpi-band" id="obs-rack-ctlkpi" style="display:none"></div>
-        <div class="panel">
-          <div class="ph"><span class="tick amber"></span><span class="t">전체 랙 제어 — 데모</span><span class="c">Emulator twin 대상 · 실설비 아님 · 1차 클릭 후 3초 내 재클릭 시 실행</span></div>
-          <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
-            <select id="obs-rc-scope" class="chip" style="appearance:auto;cursor:pointer">
-              <option value="all">범위: 전체 140랙</option>
-              <option value="site:gasan">사이트: 가산</option>
-              <option value="site:ansan">사이트: 안산</option>
-            </select>
-            <button class="btn-ghost obs-rcb" data-obs-rctl="power_on" data-key="bulk:power_on">전원 On</button>
-            <button class="btn-danger obs-rcb" data-obs-rctl="power_off" data-key="bulk:power_off">전원 Off</button>
-            <button class="btn-warn obs-rcb" data-obs-rctl="restart" data-key="bulk:restart">재시작</button>
-            <button class="btn-warn obs-rcb" data-obs-rctl="cordon" data-key="bulk:cordon">Cordon</button>
-            <button class="btn-ghost obs-rcb" data-obs-rctl="uncordon" data-key="bulk:uncordon">Uncordon</button>
-            <span style="width:1px;height:22px;background:var(--line);flex:none"></span>
-            <input id="obs-rc-cap" class="obs-inp" type="number" min="1" step="1" placeholder="Cap 값">
-            <select id="obs-rc-capu" class="chip" style="appearance:auto;cursor:pointer">
-              <option value="kw">kW</option><option value="pct">%</option>
-            </select>
-            <button class="btn-warn obs-rcb" data-obs-rctl="power_cap" data-key="bulk:power_cap">Power Cap 적용</button>
-            <button class="btn-ghost obs-rcb" data-obs-rctl="power_uncap" data-key="bulk:power_uncap">Cap 해제</button>
-            <span style="width:1px;height:22px;background:var(--line);flex:none"></span>
-            <select id="obs-rc-profile" class="chip" style="appearance:auto;cursor:pointer">
-              <option value="idle">프로필: idle</option>
-              <option value="steady" selected>프로필: steady</option>
-              <option value="train">프로필: train</option>
-              <option value="burst">프로필: burst</option>
-            </select>
-            <button class="btn-ghost obs-rcb" data-obs-rctl="workload" data-key="bulk:workload">프로필 적용</button>
-          </div>
-          <div style="color:var(--muted2);font-size:10px;margin-top:8px">전원 Off·Cordon은 테넌트 워크로드 영향 — 인라인 확인 후 실행 · twin 미연동 시 로컬 데모 반영</div>
-        </div>
         <div class="kpi-band" id="obs-rack-kpi"></div>
         <div class="grid" style="margin-bottom:16px">
           <div class="panel" style="margin-bottom:0">
