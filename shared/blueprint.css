@@ -1,0 +1,376 @@
+/* ═══════════════════════════════════════════════════════════════════
+   NeoCloud "Blueprint" 디자인 레이어 (주간 모드 ☀)
+   handoff: design_handoff_neocloud_consoles/README.md — Design Tokens(Light)
+   ─ 모든 규칙은 body[data-design="blueprint"] 스코프에서만 적용.
+   ─ 야간(☾) = body[data-design="legacy"] — 기존 CSS 그대로, 이 파일 미적용.
+   ─ 순수 스타일 레이어: 마크업/데이터/핸들러 무변경.
+   시각 규칙: 모서리 0 · 그림자 없음(모달/토스트 예외) · 24px 코발트 모눈 ·
+   KPI 코너 틱(7×7 L자) · FIG./TBL. 패널 태그 · 사이드바 활성 좌측 2px 바
+   ═══════════════════════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+
+body[data-design="blueprint"]{
+  /* ── Blueprint 원 토큰 (README Light 컬럼) ── */
+  --bp-mono:'IBM Plex Mono',Menlo,monospace;
+  --bp-sans:'IBM Plex Sans KR','Apple SD Gothic Neo',sans-serif;
+  --bg:#eef2f8; --grid:rgba(36,88,214,.045);
+  --cd:#ffffff; --cd2:#f7f9fc; --ln:#c3cede; --lnS:#dde5ef;
+  --tx:#141c2e; --mu:#5a6a85; --mu2:#8c9ab2;
+  --acc:#2458d6; --accS:#e3ebfa; --accL:#b9cdf0;
+  --grn:#0e8a5f; --grnS:#e0f2ea; --amb:#b45309; --ambS:#f8ecdb;
+  --red:#d1242f; --redS:#fbe7e9;
+  --blu:#1f6feb; --bluS:#e0edfb; --purp:#7048b6; --teal:#0e8a8a;
+  --hov:#f2f6fc; --ovl:rgba(13,21,38,.45);
+
+  /* ── 레거시 토큰 리매핑 → 기존 마크업이 그대로 라이트/코발트로 렌더 ── */
+  --sidebar:var(--cd); --topbar:var(--cd);
+  --card:var(--cd); --card-sub:var(--cd2); --strip:var(--cd2);
+  --kpi-cell:var(--cd);
+  --line:var(--ln); --line-soft:var(--lnS); --line-sidebar:var(--ln);
+  --line2:var(--ln);
+  --text:var(--tx); --strong:var(--tx); --soft:var(--tx);
+  --muted:var(--mu); --muted2:var(--mu2);
+  /* 브랜드 액센트(레거시 NVIDIA green 사용처) → 코발트 */
+  --green:var(--acc); --on-green:#ffffff;
+  --green-text:var(--acc); --green-line:var(--accL);
+  --amber-bg:var(--ambS); --amber-line:#e4c49a;
+  --red-line:#f0b9be;
+  --blue:var(--blu); --blue-text:var(--blu);
+  --menu-act:var(--accS); --menu-hover:var(--hov);
+  --dot-off:#c3cede; --inc-strip:var(--redS);
+
+  background:var(--bg);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px;
+  color:var(--tx);
+  font:12.5px/1.55 var(--bp-sans);
+}
+
+/* ── 모서리 0 (각진 프레임) — 원형은 상태 도트·카운터 뱃지만 ── */
+body[data-design="blueprint"] *{border-radius:0!important;box-shadow:none!important}
+body[data-design="blueprint"] .dot,
+body[data-design="blueprint"] .mi .dot,
+body[data-design="blueprint"] .kpi .dot,
+body[data-design="blueprint"] .leg,
+body[data-design="blueprint"] .step .nd,
+body[data-design="blueprint"] .tb-chip .dot{border-radius:50%!important}
+body[data-design="blueprint"] .modal{
+  box-shadow:0 18px 50px var(--ovl)!important}
+body[data-design="blueprint"] .toast,body[data-design="blueprint"] .tst{
+  box-shadow:0 6px 20px var(--ovl)!important}
+
+/* ── 링크 · 코드 ── */
+body[data-design="blueprint"] a{color:var(--acc)}
+body[data-design="blueprint"] a:hover{color:var(--blu)}
+body[data-design="blueprint"] code,
+body[data-design="blueprint"] .mono,
+body[data-design="blueprint"] .id,
+body[data-design="blueprint"] .log{font-family:var(--bp-mono)}
+
+/* ── 사이드바 ── */
+body[data-design="blueprint"] .sb{padding:12px 10px}
+body[data-design="blueprint"] .sb-brand .lg{
+  background:transparent;border:1.5px solid var(--acc);color:var(--acc);
+  font-family:var(--bp-mono);font-weight:700}
+body[data-design="blueprint"] .sb-brand .t{color:var(--tx)}
+body[data-design="blueprint"] .sb-brand .s{
+  color:var(--mu2);font-family:var(--bp-mono);font-size:8.5px;
+  letter-spacing:.13em;text-transform:uppercase}
+body[data-design="blueprint"] .sb-grp{
+  color:var(--mu2);font-family:var(--bp-mono);font-size:8.5px;
+  letter-spacing:.13em;text-transform:uppercase}
+body[data-design="blueprint"] .sb-scope .k{
+  font-family:var(--bp-mono);letter-spacing:.13em;font-weight:600}
+body[data-design="blueprint"] .mi{
+  border:0;border-left:2px solid transparent;padding:6px 9px;
+  color:var(--mu);font-size:12px;margin-bottom:1px}
+body[data-design="blueprint"] .mi:hover{background:var(--hov);color:var(--tx)}
+body[data-design="blueprint"] .mi.act{
+  border-left:2px solid var(--acc);background:var(--accS);
+  color:var(--acc);font-weight:700}
+body[data-design="blueprint"] .mi.act .dot{background:var(--acc)}
+body[data-design="blueprint"] .mi .bd{
+  font-family:var(--bp-mono);font-size:9px;font-weight:700;
+  background:none;border:1px solid currentColor;padding:0 5px}
+body[data-design="blueprint"] .mi .bd.amber{color:var(--amb)}
+body[data-design="blueprint"] .mi .bd.red{color:var(--red)}
+body[data-design="blueprint"] .mi .bd.cnt,
+body[data-design="blueprint"] .mi .bd.p2{border-color:var(--ln);color:var(--mu2)}
+body[data-design="blueprint"] .sb-user .av{
+  background:transparent;border:1.5px solid var(--amb);color:var(--amb);
+  font-family:var(--bp-mono);font-size:9px}
+body[data-design="blueprint"] .sb-user .nm{color:var(--tx);
+  font-family:var(--bp-mono);font-size:10.5px;font-weight:600}
+
+/* ── 톱바 ── */
+body[data-design="blueprint"] .topbar{height:48px;gap:12px;padding:0 18px}
+body[data-design="blueprint"] .crumb{color:var(--tx);font-size:12.5px;font-weight:700}
+body[data-design="blueprint"] .crumb .sep{color:var(--mu2);font-family:var(--bp-mono);font-size:10px}
+body[data-design="blueprint"] .search{border-color:var(--ln)}
+body[data-design="blueprint"] .search:hover{border-color:var(--acc)}
+body[data-design="blueprint"] .tb-chip{color:var(--mu);border-color:var(--ln)}
+
+/* ── KPI 카드 — 시그니처: 7×7 코너 틱 + 대문자 모노 라벨 + 모노 수치 ── */
+body[data-design="blueprint"] .kpi-band{
+  gap:1px;background:var(--ln);border-color:var(--ln)}
+body[data-design="blueprint"] .kpi{
+  position:relative;background:var(--cd);padding:13px 15px 12px}
+body[data-design="blueprint"] .kpi::before{
+  content:"";position:absolute;top:6px;left:6px;width:7px;height:7px;
+  border-top:2px solid var(--acc);border-left:2px solid var(--acc)}
+body[data-design="blueprint"] .kpi .k{
+  font-family:var(--bp-mono);font-size:8.5px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--mu);padding-left:10px}
+body[data-design="blueprint"] .kpi .v{
+  font-family:var(--bp-mono);font-size:22px;font-weight:600;color:var(--tx)}
+body[data-design="blueprint"] .kpi .v small{color:var(--mu);font-family:var(--bp-mono)}
+body[data-design="blueprint"] .kpi .v.amber{color:var(--amb)}
+body[data-design="blueprint"] .kpi .v.green{color:var(--grn)}
+body[data-design="blueprint"] .kpi .v.red{color:var(--red)}
+body[data-design="blueprint"] .kpi .s{color:var(--mu2);font-size:10px}
+body[data-design="blueprint"] .kpi .bar{background:var(--lnS)}
+body[data-design="blueprint"] .kpi .bar>i{background:var(--acc)}
+
+/* ── 패널 — 시그니처: FIG.NN / TBL.NN 모노 태그 + 볼드 제목 ── */
+body[data-design="blueprint"] .content{counter-reset:bp-fig bp-tbl}
+body[data-design="blueprint"] .panel{
+  background:var(--cd);border-color:var(--ln);padding:14px 16px}
+body[data-design="blueprint"] .ph .tick,
+body[data-design="blueprint"] .sec-h .tick{
+  counter-increment:bp-fig;width:auto;height:auto;background:none;flex:none}
+body[data-design="blueprint"] .ph .tick::after,
+body[data-design="blueprint"] .sec-h .tick::after{
+  content:"FIG." counter(bp-fig,decimal-leading-zero);
+  font-family:var(--bp-mono);font-size:9px;font-weight:700;
+  letter-spacing:.08em;color:var(--acc);
+  border:1px solid var(--accL);background:var(--accS);padding:1px 5px}
+body[data-design="blueprint"] .panel:has(> .tbl) .ph .tick::after,
+body[data-design="blueprint"] .panel:has(> div > .tbl) .ph .tick::after,
+body[data-design="blueprint"] .panel:has(> .tblwrap) .ph .tick::after{
+  content:"TBL." counter(bp-fig,decimal-leading-zero)}
+body[data-design="blueprint"] .ph .tick.red::after{
+  color:var(--red);border-color:#f0b9be;background:var(--redS)}
+body[data-design="blueprint"] .ph .tick.amber::after{
+  color:var(--amb);border-color:#e4c49a;background:var(--ambS)}
+body[data-design="blueprint"] .ph .tick.blue::after{
+  color:var(--blu);border-color:#b9d4f5;background:var(--bluS)}
+body[data-design="blueprint"] .ph .t,
+body[data-design="blueprint"] .sec-h .t{
+  color:var(--tx);font-size:12.5px;font-weight:700}
+body[data-design="blueprint"] .ph .c,
+body[data-design="blueprint"] .sec-h .c{
+  color:var(--mu2);font-size:9px;font-family:var(--bp-mono)}
+body[data-design="blueprint"] .callout{
+  background:var(--cd2);border-color:var(--ln);color:var(--mu)}
+body[data-design="blueprint"] .callout::before{color:var(--acc)}
+body[data-design="blueprint"] .callout.warn::before{color:var(--amb)}
+
+/* ── 상태 도트·라벨 — 성공 시맨틱은 코발트가 아닌 green 유지 ── */
+body[data-design="blueprint"] .dot.green{background:var(--grn)}
+body[data-design="blueprint"] .st{font-family:var(--bp-mono);font-size:10px;
+  font-weight:700;letter-spacing:.05em}
+body[data-design="blueprint"] .st.green{color:var(--grn)}
+body[data-design="blueprint"] .st.amber{color:var(--amb)}
+body[data-design="blueprint"] .st.red{color:var(--red)}
+body[data-design="blueprint"] .st.blue{color:var(--blu)}
+
+/* ── 버튼 ── */
+body[data-design="blueprint"] .btn{background:var(--acc);color:#fff}
+body[data-design="blueprint"] .btn:hover{background:var(--blu)}
+body[data-design="blueprint"] .btn-ghost{
+  color:var(--acc);border-color:var(--accL)}
+body[data-design="blueprint"] .btn-ghost:hover{border-color:var(--acc)}
+body[data-design="blueprint"] .btn-warn{color:var(--amb);border-color:#e4c49a}
+body[data-design="blueprint"] .btn-warn.solid{background:var(--amb);color:#fff}
+body[data-design="blueprint"] .btn-danger{color:var(--red);border-color:#f0b9be}
+body[data-design="blueprint"] .btn-danger.solid{background:var(--red);color:#fff}
+body[data-design="blueprint"] .btn-cancel{color:var(--mu);border-color:var(--ln)}
+body[data-design="blueprint"] .btn-cancel:hover{color:var(--tx);border-color:var(--mu2)}
+
+/* ── 테이블 ── */
+body[data-design="blueprint"] .tbl th{
+  color:var(--mu2);font-family:var(--bp-mono);font-size:9px;
+  letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--ln)}
+body[data-design="blueprint"] .tbl td{border-bottom:1px solid var(--lnS)}
+body[data-design="blueprint"] .tbl tr:hover td{background:var(--hov)}
+body[data-design="blueprint"] .tbl .id{font-family:var(--bp-mono)}
+
+/* ── 모달 · 입력 ── */
+body[data-design="blueprint"] .modal{background:var(--cd);border-color:var(--ln)}
+body[data-design="blueprint"] .mh .t{color:var(--tx)}
+body[data-design="blueprint"] .mh .x:hover{color:var(--tx);background:var(--hov)}
+body[data-design="blueprint"] .mb input,
+body[data-design="blueprint"] .mb select,
+body[data-design="blueprint"] .mb textarea{
+  background:var(--cd2);border-color:var(--ln);color:var(--tx)}
+body[data-design="blueprint"] input:focus,
+body[data-design="blueprint"] select:focus,
+body[data-design="blueprint"] textarea:focus{
+  outline:1.5px solid var(--acc);outline-offset:-1px}
+
+/* ── 스트립 · 스크롤바 ── */
+body[data-design="blueprint"] .strip{background:var(--cd2);border-color:var(--ln)}
+body[data-design="blueprint"] .strip.p2{background:var(--redS);border-bottom-color:#f0b9be}
+body[data-design="blueprint"] ::-webkit-scrollbar{width:10px;height:10px}
+body[data-design="blueprint"] ::-webkit-scrollbar-thumb{
+  background:var(--ln);border:2px solid var(--bg)}
+body[data-design="blueprint"] ::-webkit-scrollbar-track{background:transparent}
+
+/* ═══════════════════════════════════════════════════════════════════
+   OPS 콘솔 — 화면 전용 파생 토큰·클래스 라이트 팔레트
+   (ops/index.html :root 파생 토큰과 하드코딩 다크 값의 blueprint 대응)
+   ═══════════════════════════════════════════════════════════════════ */
+body[data-design="blueprint"]{
+  /* 랙 맵/트랙 — 프로토타입 라이트: ready 셀 = 연코발트(--cellR) */
+  --ready:#b9cdf0; --fault:#e89aa2; --track:#dde5ef; --amber-dim:#e4c49a;
+  --ok-bg:#e0f2ea; --warn-bg:#f8ecdb; --ghost-bg:#fbe7e9;
+  --resolved:#e0f2ea; --teal:#0e8a8a; --orange:#c2600e;
+  --purple:#7048b6; --purple-text:#7048b6; --pink-soft:#b02a3a;
+  --fabA-bg:#e0edfb; --fabA-line:#b9d4f5;
+  --fabB-bg:#efe6fa; --fabB-line:#d5c5ef;
+  --leaf-bg:#f7f9fc; --leaf-text:#5a6a85; --leaf-green:#0e8a5f;
+  --blue-bg:#e0edfb; --blue-line:#b9d4f5;
+}
+/* 하드코딩 다크 값 클래스 대응 */
+body[data-design="blueprint"] .scope-chip.act{color:var(--acc)}
+body[data-design="blueprint"] .spark .v{color:var(--tx);font-family:var(--bp-mono)}
+body[data-design="blueprint"] .obs-inp{color:var(--tx)}
+body[data-design="blueprint"] .ft-site,
+body[data-design="blueprint"] .chain .stg{background:var(--cd2)}
+body[data-design="blueprint"] .chain .stg .m{color:var(--tx)}
+body[data-design="blueprint"] .obs-hm .hc.off{
+  background:#dde5ef;color:#8c9ab2;outline:1px solid #c3cede}
+body[data-design="blueprint"] .obs-hm .hc.sel,
+body[data-design="blueprint"] .obs-hm .hc.off.sel{outline:2px solid var(--tx)}
+body[data-design="blueprint"] .cell.off{
+  background:#dde5ef!important;outline:1px solid #c3cede;color:#8c9ab2}
+body[data-design="blueprint"] .cell.part::before,
+body[data-design="blueprint"] .obs-hm .hc.part::before{
+  background:#dde5ef;border-top:1px solid #c3cede}
+/* box-shadow 전면 금지의 예외 — 트레이 하이라이트 링·파워캡 인셋 */
+body[data-design="blueprint"] .cell.thl{
+  box-shadow:0 0 0 2px var(--tx),0 0 6px 1px rgba(20,28,46,.35)!important}
+body[data-design="blueprint"] .obs-hm .hc.capd{
+  box-shadow:inset 0 -3px 0 var(--blu)!important}
+body[data-design="blueprint"] .obs-rcb.armed{color:#fff}
+body[data-design="blueprint"] .btn-danger.obs-rcb.armed{color:#fff}
+/* 모노 데이터 타이포 — Menlo 하드코딩 클래스 → IBM Plex Mono */
+body[data-design="blueprint"] .rackrow .lb,
+body[data-design="blueprint"] .obs-hmrow .lb,
+body[data-design="blueprint"] .obs-hm .hc,
+body[data-design="blueprint"] .cell.off,
+body[data-design="blueprint"] .mi .bd{font-family:var(--bp-mono)}
+/* 인시던트/알림 카드 — 좌측 컬러 바 유지, 배경 라이트 */
+body[data-design="blueprint"] .acard{background:var(--cd2);border-color:var(--ln)}
+body[data-design="blueprint"] .sub{background:var(--cd2);border-color:var(--ln)}
+body[data-design="blueprint"] .sub.hl{border-color:var(--accL)}
+body[data-design="blueprint"] .chip{background:var(--cd2);border-color:var(--ln);color:var(--mu)}
+body[data-design="blueprint"] .chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+body[data-design="blueprint"] .chip.dim{color:var(--mu2)}
+/* 프로비저닝 스텝 */
+body[data-design="blueprint"] .step .nd{background:var(--cd2);border-color:var(--ln)}
+body[data-design="blueprint"] .step.done .nd{background:var(--acc);border-color:var(--acc)}
+body[data-design="blueprint"] .step.done .lb{color:var(--acc)}
+body[data-design="blueprint"] .step.cur .nd{
+  background:var(--amb);border-color:var(--amb);
+  box-shadow:0 0 0 4px rgba(180,83,9,.16)!important}
+body[data-design="blueprint"] .step.cur .lb{color:var(--amb)}
+body[data-design="blueprint"] .step-bar{background:var(--lnS)}
+body[data-design="blueprint"] .step-bar.done{background:var(--acc)}
+/* 로그 · 타임라인 */
+body[data-design="blueprint"] .log{color:var(--mu);font-family:var(--bp-mono)}
+body[data-design="blueprint"] .log .ts{color:var(--mu2)}
+/* GPU 패브릭 — 스파인 칩·리프 셀 plane A/B (다크 하드코딩 → 라이트) */
+body[data-design="blueprint"] .ft-sp{
+  background:var(--fabA-bg);color:var(--blu);border-color:var(--fabA-line);
+  font-family:var(--bp-mono)}
+body[data-design="blueprint"] .ft-sp.b{
+  background:var(--fabB-bg);color:var(--purp);border-color:var(--fabB-line)}
+body[data-design="blueprint"] .ftc{background:#9db9e8}
+body[data-design="blueprint"] .ftc.b{background:#b9a3e0}
+body[data-design="blueprint"] .nq-swchip{font-family:var(--bp-mono)}
+/* JS 인라인 하드코딩 대응 — 범례 스와치·흰색 텍스트 */
+body[data-design="blueprint"] .leg[style*="#1c2f4a"]{background:#9db9e8!important}
+body[data-design="blueprint"] .leg[style*="#2a2140"]{background:#b9a3e0!important}
+body[data-design="blueprint"] .leg[style*="#1a212b"]{
+  background:#dde5ef!important;outline-color:#c3cede!important}
+body[data-design="blueprint"] .leg[style*="#233043"]{background:#dde5ef!important}
+body[data-design="blueprint"] [style*="color:#fff"]{color:var(--tx)!important}
+
+/* ═══════════════════════════════════════════════════════════════════
+   OPS — Managed K8S (#mk8s-root 네임스페이스 토큰 라이트 리매핑)
+   mk8s.css는 자체 토큰 스코프 사용 — blueprint에서 값만 교체
+   ═══════════════════════════════════════════════════════════════════ */
+body[data-design="blueprint"] #mk8s-root{
+  --accent:#1f6feb; --accent-dark:#1a5fd0; --accent-soft:#e0edfb; --on-accent:#ffffff;
+  --green:#2458d6; --on-green:#ffffff; --green-text:#2458d6;
+  --green-soft:#e3ebfa; --green-line:#b9cdf0;
+  --amber:#b45309; --amber-soft:#f8ecdb; --amber-line:#e4c49a;
+  --red:#d1242f; --red-text:#d1242f; --red-soft:#fbe7e9; --red-line:#f0b9be;
+  --blue:#1f6feb; --blue-text:#1f6feb;
+  --ink:#141c2e; --ink-2:#141c2e; --ink-3:#5a6a85; --ink-4:#8c9ab2;
+  --line:#c3cede; --line-soft:#dde5ef;
+  --bg:#eef2f8; --panel:#ffffff; --panel-sub:#f7f9fc; --strip:#f7f9fc;
+  --sidebar:#ffffff; --topbar:#ffffff; --line-sidebar:#c3cede;
+  --menu-act:#e3ebfa; --menu-hover:#f2f6fc; --dot-off:#c3cede; --track:#dde5ef;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --r:0; color-scheme:light; accent-color:#2458d6;
+  font-family:'IBM Plex Sans KR','Apple SD Gothic Neo',sans-serif;
+  background:transparent;   /* body 모눈 격자 노출 */
+}
+body[data-design="blueprint"] #mk8s-root .btn-primary:hover{
+  background:var(--blue);border-color:var(--blue);color:#fff}
+body[data-design="blueprint"] #mk8s-root .btn-danger:hover{
+  background:#b01c26;border-color:#b01c26;color:#fff}
+/* mk8s 흰색 텍스트 하드코딩 → 라이트 잉크 (화면 제목·카드 헤더·네비) */
+body[data-design="blueprint"] #mk8s-root .page-h h1,
+body[data-design="blueprint"] #mk8s-root .card .card-h,
+body[data-design="blueprint"] #mk8s-root .logo,
+body[data-design="blueprint"] #mk8s-root .whoami b,
+body[data-design="blueprint"] #mk8s-root .nav1:hover,
+body[data-design="blueprint"] #mk8s-root .nav1.active,
+body[data-design="blueprint"] #mk8s-root .nav2:hover,
+body[data-design="blueprint"] #mk8s-root .nav2.active,
+body[data-design="blueprint"] #mk8s-root .btn:hover{color:var(--ink)}
+body[data-design="blueprint"] #mk8s-root .nav2.active{
+  background:linear-gradient(90deg,rgba(36,88,214,.12),transparent)}
+body[data-design="blueprint"] #mk8s-root .btn-primary:hover{color:#fff}
+/* mk8s JS 인라인 다크 셀·칩 대응 (플릿 히트맵 미가동/프로비저닝, 역할 칩) */
+body[data-design="blueprint"] #mk8s-root [style*="#223142"]{background:#dde5ef!important}
+body[data-design="blueprint"] #mk8s-root [style*="#28425e"]{background:#b9d4f5!important}
+body[data-design="blueprint"] #mk8s-root [style*="#3a1a20"]{
+  background:#fbe7e9!important;color:#d1242f!important}
+body[data-design="blueprint"] #mk8s-root [style*="#3a2f12"]{
+  background:#f8ecdb!important;color:#b45309!important}
+body[data-design="blueprint"] #mk8s-root [style*="#152a40"]{
+  background:#e0edfb!important;color:#1f6feb!important}
+body[data-design="blueprint"] #mk8s-root .hm-cell:hover{outline-color:var(--ink)}
+/* mk8s 클래스 기반 흰색 텍스트 → 잉크 (KPI 수치·카드 제목·모달/드로어 헤더) */
+body[data-design="blueprint"] #mk8s-root .kpi .v,
+body[data-design="blueprint"] #mk8s-root .kcard b,
+body[data-design="blueprint"] #mk8s-root .tabs button:hover,
+body[data-design="blueprint"] #mk8s-root .modal .m-h,
+body[data-design="blueprint"] #mk8s-root .modal .m-h .x:hover,
+body[data-design="blueprint"] #mk8s-root .drawer .d-h,
+body[data-design="blueprint"] #mk8s-root .drawer .d-h .x:hover,
+body[data-design="blueprint"] #mk8s-root .tl-item b{color:var(--ink)}
+body[data-design="blueprint"] #mk8s-root .kpi .v{font-family:var(--mono);font-weight:600}
+body[data-design="blueprint"] #mk8s-root .toast{
+  background:#ffffff;color:var(--ink);border-color:var(--line);
+  box-shadow:0 6px 20px rgba(13,21,38,.45)!important}
+
+/* ═══ 디자인 모드 스위치 (양 모드 공통 — 신규 엘리먼트) ═══ */
+.design-toggle{display:flex;flex:none;border:1px solid var(--line,#223142);
+  font-family:Menlo,monospace}
+.design-toggle span{padding:4px 9px;font-size:10.5px;cursor:pointer;
+  color:var(--muted,#8aa0b4);background:transparent;user-select:none;
+  line-height:1.4}
+.design-toggle span+span{border-left:1px solid var(--line,#223142)}
+.design-toggle span.on{background:var(--green,#76b900);
+  color:var(--on-green,#08210a);font-weight:700}
+body[data-design="blueprint"] .design-toggle{border-color:var(--ln)}
+body[data-design="blueprint"] .design-toggle span{color:var(--mu)}
+body[data-design="blueprint"] .design-toggle span+span{border-left-color:var(--ln)}
+body[data-design="blueprint"] .design-toggle span.on{
+  background:var(--acc);color:#fff}

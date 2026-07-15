@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="../shared/tokens.css">
 <link rel="stylesheet" href="../shared/shell.css">
 <link rel="stylesheet" href="mk8s.css"><!-- Managed K8S 인라인 통합 (#mk8s-root 스코프) -->
+<link rel="stylesheet" href="../shared/blueprint.css"><!-- 주간(Blueprint) 디자인 레이어 — body[data-design="blueprint"] 스코프 -->
 <style>
 /* ── Ops 전용 파생 토큰 (레퍼런스 고유색) ───────────────── */
 :root{
@@ -236,6 +237,7 @@ section[data-screen="mk8s"]{margin:0}
 </style>
 </head>
 <body>
+<script src="../shared/design-mode.js"></script><!-- 주간/야간 디자인 모드 — 첫 페인트 전 적용 -->
 <div class="app">
 
   <!-- ══ 사이드바 ══ -->
