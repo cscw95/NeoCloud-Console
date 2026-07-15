@@ -1,273 +1,6 @@
-<!doctype html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NeoCloud 운영자 포탈</title>
-<style>
-/* ── NeoCloud 콘솔 다크 테마 — shared/tokens.css · shell.css 팔레트 정합 ──
-   그림자/글로우 금지 (모달 box-shadow만 예외) */
-:root{
-  --accent:#5aa7e8; --accent-dark:#3d8ad0; --accent-soft:#152a40; --on-accent:#07203a;
-  --green:#76b900; --on-green:#08210a; --green-text:#9fe0a8; --green-soft:#16241a; --green-line:#2d4a12;
-  --amber:#e8c66a; --amber-soft:#3a2f12; --amber-line:#4a3d18;
-  --red:#e5484d; --red-text:#f0a3b0; --red-soft:#3a1a20; --red-line:#43232a;
-  --blue:#5aa7e8; --blue-text:#9fd0ff;
-  --skt-red:#EA002C;
-  --ink:#e6edf3; --ink-2:#cfe0ee; --ink-3:#8aa0b4; --ink-4:#5a6b80;
-  --line:#223142; --line-soft:#1a2433;
-  --bg:#0b121c; --panel:#16202e; --panel-sub:#0d141d; --strip:#121d2c;
-  --sidebar:#0b141f; --topbar:#0d1826; --line-sidebar:#1d2c3e;
-  --menu-act:#16241a; --menu-hover:#101b29; --dot-off:#3a4a5c; --track:#233043;
-  --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;
-  --shadow:none; --shadow-lg:0 18px 50px rgba(0,0,0,.5);
-  --r:10px;
-  color-scheme:dark; accent-color:#76b900;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
-body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR','Segoe UI',sans-serif;
-  font-size:13px;line-height:1.5;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
-button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
-input,select{font:inherit;color:inherit}
-input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{background:var(--panel-sub);color:var(--ink)}
-option{background:var(--panel-sub);color:var(--ink)}
-input::placeholder,textarea::placeholder{color:var(--ink-4)}
-a{color:var(--green);text-decoration:none}
-a:hover{color:#9fd045}
-code{font-family:var(--mono);font-size:12px}
+/* 자동 생성 — ops/build-mk8s-inline.py (원본: managed-k8s.html) · 수동 편집 금지
+   iframe 없이 콘솔에 인라인 통합: 내부 라우터(App.state.route), #mk8s-root 스코프 */
 
-/* ── layout ── */
-#app{display:grid;grid-template-rows:50px 1fr;grid-template-columns:230px 1fr;height:100vh;
-  grid-template-areas:"topbar topbar" "sidebar main"}
-.topbar{grid-area:topbar;display:flex;align-items:center;gap:14px;padding:0 20px;
-  background:var(--topbar);border-bottom:1px solid var(--line);z-index:30}
-.sidebar{grid-area:sidebar;background:var(--sidebar);color:var(--ink-3);overflow-y:auto;padding:12px 0;
-  border-right:1px solid var(--line-sidebar)}
-.main{grid-area:main;overflow-y:auto;padding:18px 22px;position:relative}
-
-/* ── topbar ── */
-.logo{display:flex;align-items:center;gap:8px;font-size:14.5px;font-weight:800;letter-spacing:-.3px;color:#fff}
-.logo .dot{width:9px;height:9px;border-radius:50%;background:var(--skt-red);display:inline-block}
-.logo small{font-weight:500;color:var(--ink-3);font-size:11px;margin-left:2px}
-.gsearch{flex:0 1 360px;display:flex;align-items:center;gap:8px;background:var(--panel-sub);
-  border:1px solid var(--line);border-radius:7px;padding:6px 12px;color:var(--ink-4);font-size:11.5px}
-.gsearch input{border:none;background:none;outline:none;flex:1;font-size:12px;color:var(--ink)}
-.topbar .spacer{flex:1}
-.bell{position:relative;padding:6px;border-radius:6px}
-.bell:hover{background:var(--menu-hover)}
-.bell .n{position:absolute;top:0;right:-2px;background:var(--red);color:#fff;font-size:10px;font-weight:700;
-  min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px}
-.roleswitch{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;font-size:12px}
-.roleswitch button{padding:6px 14px;color:var(--ink-3);font-weight:700;background:transparent;white-space:nowrap}
-.roleswitch button.on{background:var(--green);color:var(--on-green)}
-.whoami{display:flex;flex-direction:column;align-items:flex-end;line-height:1.25}
-.whoami b{font-size:12.5px;color:#fff}
-.whoami span{font-size:11px;color:var(--ink-3)}
-.avatar{width:32px;height:32px;border-radius:50%;background:var(--line);color:var(--ink-2);display:flex;
-  align-items:center;justify-content:center;font-weight:800;font-size:12px}
-
-/* ── sidebar ── */
-.nav-group{margin-bottom:2px}
-.nav1{display:flex;align-items:center;gap:10px;padding:8px 16px;color:var(--ink-3);font-size:12.5px;font-weight:600;
-  cursor:pointer;user-select:none;border-left:3px solid transparent}
-.nav1:hover{background:var(--menu-hover);color:#fff}
-.nav1.active{color:#fff;background:var(--menu-act);border-left-color:var(--green);font-weight:700}
-.nav1 .ico{width:18px;text-align:center;font-size:14px}
-.nav1 .chev{margin-left:auto;font-size:10px;transition:transform .15s}
-.nav1.open .chev{transform:rotate(90deg)}
-.nav2wrap{overflow:hidden;max-height:0;transition:max-height .2s ease}
-.nav2wrap.open{max-height:480px}
-.nav2{display:flex;align-items:center;gap:8px;padding:7px 16px 7px 44px;font-size:12px;font-weight:600;color:var(--ink-3);cursor:pointer}
-.nav2:hover{color:#fff;background:var(--menu-hover)}
-.nav2.active{color:#fff;background:linear-gradient(90deg,rgba(118,185,0,.16),transparent);font-weight:700}
-.nav2 .tag{margin-left:auto;font-size:9.5px;background:var(--line-soft);color:var(--ink-3);border-radius:4px;padding:1px 5px;font-family:var(--mono)}
-.sidebar .sect{padding:14px 16px 5px;font-size:9.5px;font-weight:800;letter-spacing:.1em;color:var(--ink-4);text-transform:uppercase}
-
-/* ── generic ── */
-.page-h{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
-.page-h h1{font-size:17px;font-weight:800;letter-spacing:-.3px;color:#fff}
-.page-h .sub{color:var(--ink-3);font-size:12px;margin-top:3px}
-.page-h .right{margin-left:auto;display:flex;gap:8px;align-items:center}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
-.card .card-h{display:flex;align-items:center;gap:9px;padding:13px 16px;border-bottom:1px solid var(--line-soft);
-  font-weight:700;font-size:13px;color:#fff}
-.card .card-h::before{content:'';width:3px;height:14px;border-radius:2px;background:var(--green);flex:none}
-.card .card-h .right{margin-left:auto;display:flex;gap:8px;align-items:center;font-weight:400}
-.card .card-b{padding:14px 16px}
-.grid{display:grid;gap:14px}
-.muted{color:var(--ink-3)}
-.small{font-size:11.5px}
-.mono{font-family:var(--mono);font-size:12px}
-
-.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:7px;font-size:12px;
-  font-weight:700;border:1px solid var(--line);background:none;color:var(--ink-3);white-space:nowrap}
-.btn:hover{color:#fff;border-color:var(--ink-4)}
-.btn-primary{background:var(--green);border-color:var(--green);color:var(--on-green)}
-.btn-primary:hover{background:#8ad00a;border-color:#8ad00a;color:var(--on-green)}
-.btn-danger{background:var(--red);border-color:var(--red);color:#fff}
-.btn-danger:hover{background:#c93d42;border-color:#c93d42;color:#fff}
-.btn-sm{padding:4px 9px;font-size:11.5px}
-.btn-disabled,.btn-disabled:hover{background:var(--line-soft);color:var(--ink-4);border-color:var(--line);cursor:not-allowed;position:relative}
-
-.tip{position:relative}
-.tip:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
-  background:var(--panel-sub);border:1px solid var(--line);color:var(--ink-2);font-size:11px;font-weight:500;padding:5px 9px;border-radius:5px;white-space:nowrap;z-index:60}
-
-.badge{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:800;letter-spacing:.02em}
-.badge::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
-.b-green{background:var(--green-soft);color:var(--green-text)}
-.b-blue{background:var(--accent-soft);color:var(--blue-text)}
-.b-amber{background:var(--amber-soft);color:var(--amber)}
-.b-red{background:var(--red-soft);color:var(--red-text)}
-.b-gray{background:var(--line-soft);color:var(--ink-3)}
-.chip{display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;background:var(--line-soft);color:var(--ink-2)}
-.chip.day{background:#2a2440;color:#c9b8ff}
-
-.table{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
-.table th{text-align:left;padding:8px 12px;color:var(--ink-3);font-size:10.5px;font-weight:600;
-  border-bottom:1px solid var(--line);white-space:nowrap}
-.table td{padding:9px 12px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
-.table tr.click{cursor:pointer}
-.table tr.click:hover td{background:#1a2635}
-.table tr.dim td{opacity:.55}
-
-.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:16px}
-.tabs button{padding:9px 16px;font-size:12.5px;font-weight:700;color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px}
-.tabs button.on{color:var(--green-text);border-bottom-color:var(--green)}
-.tabs button:hover{color:#fff}
-
-/* ── kanban ── */
-.kanban{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(148px,1fr);gap:10px;overflow-x:auto}
-.kcol{background:var(--panel-sub);border:1px solid var(--line-soft);border-radius:var(--r);padding:10px;min-height:160px}
-.kcol h4{font-size:11px;color:var(--ink-3);font-weight:700;display:flex;justify-content:space-between;margin:2px 4px 10px}
-.kcard{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
-.kcard:hover{border-color:var(--ink-4)}
-.kcard b{font-size:12.5px;display:block;margin-bottom:4px;color:#fff}
-.kcard .meta{font-size:11px;color:var(--ink-3);display:flex;flex-wrap:wrap;gap:4px 10px}
-
-/* ── stepper — done green · now amber (콘솔 프로비저닝 스텝 관례) ── */
-.stepper{display:flex;align-items:center;gap:0;flex-wrap:wrap}
-.step{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--ink-4)}
-.step .ball{width:20px;height:20px;border-radius:50%;background:var(--line);color:var(--ink-3);display:flex;
-  align-items:center;justify-content:center;font-size:10px;font-weight:700}
-.step.done .ball{background:var(--green);color:var(--on-green)}
-.step.now .ball{background:var(--amber);color:#241c05;box-shadow:0 0 0 4px rgba(232,198,106,.18)}
-.step.done{color:var(--green-text)}
-.step.now{color:var(--amber);font-weight:800}
-.step .bar{width:26px;height:2px;background:var(--line);margin:0 4px}
-.step.done .bar{background:var(--green)}
-
-/* ── modal / drawer ── */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:80;display:flex;align-items:center;justify-content:center}
-.modal{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);width:min(720px,92vw);
-  max-height:88vh;overflow-y:auto}
-.modal .m-h{display:flex;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line);font-weight:700;font-size:14px;color:#fff}
-.modal .m-h .x{margin-left:auto;color:var(--ink-4);font-size:18px;padding:2px 8px;border-radius:6px}
-.modal .m-h .x:hover{background:var(--menu-hover);color:#fff}
-.modal .m-b{padding:18px 20px}
-.modal .m-f{display:flex;gap:8px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--line)}
-
-.drawer{position:fixed;top:0;right:0;bottom:0;width:min(620px,92vw);background:var(--panel);z-index:90;border-left:1px solid var(--line);
-  box-shadow:-12px 0 32px rgba(0,0,0,.5);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .22s ease}
-.drawer.open{transform:none}
-.drawer .d-h{display:flex;align-items:center;gap:8px;padding:15px 18px;border-bottom:1px solid var(--line);font-weight:700;color:#fff}
-.drawer .d-h .x{margin-left:auto;color:var(--ink-4);font-size:18px;padding:2px 8px;border-radius:6px}
-.drawer .d-h .x:hover{background:var(--menu-hover);color:#fff}
-.drawer .d-b{flex:1;overflow-y:auto;padding:16px 18px}
-
-/* ── api panel ── */
-.api-ico{display:inline-flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;
-  font-weight:700;color:var(--blue-text);background:var(--accent-soft);border:1px solid #28425e;border-radius:5px;
-  padding:2px 6px;cursor:pointer;vertical-align:middle;margin-left:6px}
-.api-ico:hover{background:#1b3552}
-.code-panel{background:var(--panel-sub);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:12px}
-.code-panel .cp-h{display:flex;align-items:center;padding:8px 12px;background:var(--strip);color:var(--ink-3);font-size:11px;font-weight:700}
-.code-panel .cp-h .copy{margin-left:auto;color:var(--ink-2);font-size:11px;padding:2px 8px;border-radius:4px;background:#223142}
-.code-panel pre{padding:12px 14px;overflow-x:auto;color:var(--ink);font-family:var(--mono);font-size:11.5px;line-height:1.55;white-space:pre}
-.tok-k{color:#7DD3FC}.tok-s{color:#9fe0a8}.tok-n{color:#f0a3b0}.tok-c{color:#5a6b80;font-style:italic}.tok-m{color:#e8c66a}
-
-/* ── logs ── */
-.logbox{background:var(--panel-sub);color:var(--ink-2);font-family:var(--mono);font-size:11px;line-height:1.6;
-  padding:12px 14px;overflow-y:auto;white-space:pre-wrap;word-break:break-all}
-.logbox .lg-ts{color:var(--ink-4)}
-.logbox .lg-info{color:#7DD3FC}.logbox .lg-warn{color:#e8c66a}.logbox .lg-err{color:#f0a3b0}
-.logctl{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--strip);color:var(--ink-2);font-size:11.5px;flex-wrap:wrap;border-bottom:1px solid var(--line-soft)}
-.logctl select,.logctl input[type=text]{background:var(--panel-sub);border:1px solid var(--line);color:var(--ink);border-radius:5px;padding:3px 8px;font-size:11.5px}
-.switch{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
-.switch .tr{width:30px;height:16px;border-radius:8px;background:var(--dot-off);position:relative;transition:background .15s}
-.switch .tr::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;transition:left .15s}
-.switch.on .tr{background:var(--green)}
-.switch.on .tr::after{left:16px}
-
-/* ── heatmap ── */
-.heatmap{display:grid;grid-template-columns:repeat(10,1fr);gap:5px}
-.hm-cell{aspect-ratio:1;border-radius:5px;cursor:pointer;position:relative;display:flex;align-items:flex-end;
-  justify-content:center;font-size:9px;font-weight:700;color:rgba(255,255,255,.85);padding-bottom:3px}
-.hm-cell:hover{outline:2px solid #fff;outline-offset:1px;z-index:5}
-.hm-cell.alarm{outline:2px solid var(--red);animation:pulse 1.6s infinite}
-@keyframes pulse{0%,100%{outline-offset:1px}50%{outline-offset:3px}}
-
-/* ── grafana-style panels (embed 시뮬레이션 — Grafana 고유 다크 팔레트 유지) ── */
-.gwrap{background:#111217;border:1px solid #2C3235;border-radius:8px;padding:10px;color:#D8D9DA}
-.gbar{display:flex;align-items:center;gap:10px;padding:4px 6px 10px;font-size:12px;color:#9FA7B3}
-.gbar b{color:#D8D9DA}
-.gbar .gchip{background:#22252B;border:1px solid #2C3235;border-radius:4px;padding:3px 9px;font-size:11px}
-.ggrid{display:grid;gap:8px}
-.gpanel{background:#181B1F;border:1px solid #2C3235;border-radius:4px;overflow:hidden}
-.gpanel .gp-h{padding:7px 10px 2px;font-size:11px;font-weight:600;color:#9FA7B3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gpanel .gp-b{padding:4px 10px 10px}
-.gstat{font-size:22px;font-weight:800;color:#73BF69;line-height:1.1}
-.gstat.warn{color:#FADE2A}.gstat.red{color:#F2495C}.gstat.blue{color:#5794F2}
-.gsub{font-size:10.5px;color:#7B8087;margin-top:2px}
-.gtable{width:100%;border-collapse:collapse;font-size:11.5px}
-.gtable th{color:#9FA7B3;text-align:left;padding:5px 8px;border-bottom:1px solid #2C3235;font-weight:600;font-size:10.5px}
-.gtable td{padding:5px 8px;border-bottom:1px solid #22252B;color:#D8D9DA}
-.gbadge{display:inline-block;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:700}
-.gb-ok{background:rgba(115,191,105,.18);color:#73BF69}
-.gb-warn{background:rgba(250,222,42,.15);color:#FADE2A}
-.gb-red{background:rgba(242,73,92,.18);color:#F2495C}
-
-/* ── misc viz ── */
-.kpi{display:flex;flex-direction:column;gap:4px;padding:16px 18px}
-.kpi .v{font-size:24px;font-weight:800;letter-spacing:-.5px;color:#fff;font-variant-numeric:tabular-nums}
-.kpi .l{font-size:11px;color:var(--ink-3);font-weight:600}
-.kpi .d{font-size:11px;font-weight:600}
-.bar-o{height:8px;border-radius:4px;background:var(--track);overflow:hidden}
-.bar-i{height:100%;border-radius:4px;background:var(--green)}
-.gauge{position:relative;width:74px;height:40px;overflow:hidden}
-.toast-wrap{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:120;display:flex;flex-direction:column;gap:8px}
-.toast{background:#1b2a3c;border:1px solid var(--line);color:#fff;padding:10px 18px;border-radius:8px;font-size:12.5px;font-weight:600;
-  display:flex;gap:8px;align-items:center;animation:up .25s ease}
-@keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
-.empty{padding:48px 20px;text-align:center;color:var(--ink-4)}
-.empty .big{font-size:32px;margin-bottom:8px}
-.batchgrid{display:grid;grid-template-columns:repeat(20,1fr);gap:3px}
-.batchgrid i{aspect-ratio:1;border-radius:2px;background:var(--line)}
-.batchgrid i.done{background:var(--green)}
-.batchgrid i.run{background:var(--amber);animation:blink 1s infinite}
-@keyframes blink{50%{opacity:.4}}
-.timeline{position:relative;padding-left:22px}
-.timeline::before{content:'';position:absolute;left:7px;top:4px;bottom:4px;width:2px;background:var(--line)}
-.tl-item{position:relative;padding:0 0 16px 8px}
-.tl-item::before{content:'';position:absolute;left:-19px;top:3px;width:10px;height:10px;border-radius:50%;
-  background:var(--line);border:2px solid var(--panel)}
-.tl-item.done::before{background:var(--green)}
-.tl-item.now::before{background:var(--amber);box-shadow:0 0 0 3px rgba(232,198,106,.18)}
-.tl-item b{font-size:12.5px;display:block;color:#fff}
-.tl-item .small{margin-top:1px}
-.matrix{border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:11.5px}
-.matrix table{width:100%;border-collapse:collapse}
-.matrix th,.matrix td{padding:6px 10px;border-bottom:1px solid var(--line-soft);text-align:center}
-.matrix th{background:var(--strip);font-size:10.5px;color:var(--ink-3)}
-.matrix td:first-child,.matrix th:first-child{text-align:left;font-weight:600}
-.ok{color:var(--green-text);font-weight:700}
-.no{color:var(--ink-4)}
-</style>
-</head>
-<body>
-<div id="app"></div>
-<script>
 'use strict';
 /* ============================================================
  * NEOCLOUD_DATA — 목업 전역 데이터 (추후 API 응답 스키마 초안)
@@ -720,7 +453,7 @@ function utilColor(u){
   if (u<30) return '#173350'; if (u<55) return '#22507c'; if (u<75) return '#2f6ea8'; if (u<90) return '#3d8ad0'; return '#5aa7e8';
 }
 function toast(msg){
-  let w=document.querySelector('.toast-wrap'); if(!w){ w=el('<div class="toast-wrap"></div>'); document.body.appendChild(w); }
+  let w=document.querySelector('.toast-wrap'); if(!w){ w=el('<div class="toast-wrap"></div>'); (document.getElementById('mk8s-root')||document.body).appendChild(w); }
   const t=el(`<div class="toast">✓ ${esc(msg)}</div>`); w.appendChild(t); setTimeout(()=>t.remove(), 3200);
 }
 
@@ -766,7 +499,7 @@ function openApiPanel(specId){
     <div class="tabs" style="margin:0 18px">${tabs.map((t,i)=>`<button class="${i===0?'on':''}" onclick="apiTab(this,'${specId}','${esc(t)}')">${esc(t)}</button>`).join('')}</div>
     <div class="d-b" id="api-body">${spec.intro?`<p class="muted small" style="margin-bottom:12px">${spec.intro}</p>`:''}${codeBlock(tabs[0], spec.tabs[tabs[0]])}</div>
   </div>`);
-  document.body.appendChild(d);
+  (document.getElementById('mk8s-root')||document.body).appendChild(d);
   requestAnimationFrame(()=>d.classList.add('open'));
 }
 function apiTab(btn, specId, tab){
@@ -783,7 +516,7 @@ function openModal(title, bodyHtml, footHtml){
   const o=el(`<div class="overlay" id="modal-ov" onclick="if(event.target===this)closeModal()">
     <div class="modal"><div class="m-h">${title}<button class="x" onclick="closeModal()">✕</button></div>
     <div class="m-b" id="modal-body">${bodyHtml}</div>${footHtml?`<div class="m-f" id="modal-foot">${footHtml}</div>`:''}</div></div>`);
-  document.body.appendChild(o);
+  (document.getElementById('mk8s-root')||document.body).appendChild(o);
 }
 function closeModal(){ const o=document.getElementById('modal-ov'); if(o) o.remove(); }
 
@@ -848,7 +581,7 @@ const App={
   register(path, fn){ this.views[path]=fn; },
 
   init(){
-    document.getElementById('app').innerHTML=`
+    document.getElementById('mk8s-root').innerHTML=`
       <div class="topbar">
         <div class="logo"><span class="dot"></span>NeoCloud <small>Operations Portal</small></div>
         <div class="gsearch">🔍 <input placeholder="테넌트, 클러스터, 노드, VIP 검색…"></div>
@@ -871,13 +604,12 @@ const App={
       this.renderSidebar(); this.render();
       toast('역할 전환: '+ROLE_LABEL[this.state.role]);
     });
-    window.addEventListener('hashchange',()=>this.render());
-    if(!location.hash) location.hash='#/k8s/overview';
+    this.state.route=this.state.route||'#/k8s/overview';
     this.renderSidebar(); this.render();
   },
 
   renderSidebar(){
-    const cur=location.hash||'#/k8s/overview';
+    const cur=this.state.route||'#/k8s/overview';
     const k8sOpen=cur.startsWith('#/k8s');
     let html='<div class="sect">NeoCloud Services</div>';
     for(const m of MENU1){
@@ -898,11 +630,11 @@ const App={
     document.getElementById('sidebar').innerHTML=html;
   },
 
-  navigate(hash){ if(location.hash===hash){ this.render(); } else location.hash=hash; },
+  navigate(hash){ this.state.route=hash; this.render(); },
 
   resetDemo(){
     /* 모든 mock 상태는 메모리 전용 — 새로고침이 곧 완전 초기화 */
-    location.hash='#/k8s/overview';
+    location.hash='#/mk8s?v=overview';
     location.reload();
   },
 
@@ -930,7 +662,7 @@ const App={
   render(){
     stopLogStream(); closeApiPanel(); closeModal();
     if(window._monDashTimer){ clearInterval(window._monDashTimer); window._monDashTimer=null; }
-    const hash=location.hash||'#/k8s/overview';
+    const hash=this.state.route||'#/k8s/overview';
     this.state.route=hash;
     this.renderSidebar();
     const main=document.getElementById('main');
@@ -938,6 +670,7 @@ const App={
     if(m){ this.state.params=m.params; main.innerHTML=''; m.fn(main, m.params); }
     else renderPlaceholder(main, hash);
     main.scrollTop=0;
+    if(window.__mk8sOnRoute) window.__mk8sOnRoute(hash);
   },
 };
 
@@ -2136,7 +1869,7 @@ App.register('#/k8s/access', function(elm, p){
     <div id="acc-tab"></div>`;
   const box=document.getElementById('acc-tab');
   if(tab==='issued') accTabIssued(box); else accTabRbac(box);
-  if(p.issue){ issueOpen(p.issue); history.replaceState(null,'','#/k8s/access'); }
+  if(p.issue){ issueOpen(p.issue); App.state.route='#/k8s/access'; }
 });
 
 function nsScopeChips(k){
@@ -4141,27 +3874,7 @@ function day0Save(idx){
 }
 
 App.init();
-</script>
-<style>
-/* ── embed 모드 (?embed=1) — NeoCloud 운영 콘솔 '오케스트레이션 › Managed K8S' iframe 삽입용.
-     자체 사이드바·로고·검색을 숨기고 topbar(역할 토글·데모 리셋)와 본문만 노출.
-     테마는 기본이 콘솔 다크(tokens.css 정합)이므로 별도 오버라이드 불필요 ── */
-body.embed #app{grid-template-columns:1fr;grid-template-areas:"topbar" "main"}
-body.embed .sidebar{display:none}
-body.embed .logo,body.embed .gsearch{display:none}
-/* 부모 콘솔이 계정(로그인)·알림을 담당 — 중복 요소 제거 */
-body.embed .whoami,body.embed .avatar,body.embed .bell{display:none}
-body.embed .topbar{padding:0 16px;gap:12px}
-</style>
-<script>
-(function(){
-  if(!/[?&]embed=1/.test(location.search)) return;
-  document.body.classList.add('embed');
-  /* 내부 해시 이동을 부모 콘솔에 통지 → 서브메뉴 하이라이트 동기화 */
-  var notify=function(){ try{ parent.postMessage({type:'mk8s-hash',hash:location.hash},'*'); }catch(e){} };
-  window.addEventListener('hashchange',notify);
-  notify();
-})();
-</script>
-</body>
-</html>
+document.getElementById('mk8s-root').addEventListener('click',function(e){
+  const a=e.target.closest('a[href^="#/"]'); if(!a) return;
+  e.preventDefault(); App.navigate(a.getAttribute('href'));
+});

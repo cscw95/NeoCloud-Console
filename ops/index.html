@@ -7,6 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%232e5a38'/%3E%3Ctext x='8' y='12' font-size='11' font-weight='bold' text-anchor='middle' fill='%23cfe8a0' font-family='sans-serif'%3EN%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="../shared/tokens.css">
 <link rel="stylesheet" href="../shared/shell.css">
+<link rel="stylesheet" href="mk8s.css"><!-- Managed K8S 인라인 통합 (#mk8s-root 스코프) -->
 <style>
 /* ── Ops 전용 파생 토큰 (레퍼런스 고유색) ───────────────── */
 :root{
@@ -231,8 +232,6 @@
 /* ── Managed K8S 그룹 (portal-mockup 통합 · 통합 OBSERVABILITY 아래 목업 그룹)
      항목은 표준 .mi 그대로 사용 — 활성(.act)·dot·배지 등 타 메뉴와 동일 ── */
 .mk8s-sub{margin:1px 0 3px}
-/* 임베드 프레임 — topbar(50px)+content padding 제외 전체 높이 */
-#mk8s-frame{width:100%;height:calc(100vh - 106px);border:1px solid var(--line);border-radius:10px;background:#0b121c;display:block}
 section[data-screen="mk8s"]{margin:0}
 </style>
 </head>
@@ -1008,9 +1007,9 @@ section[data-screen="mk8s"]{margin:0}
         </div>
       </section>
 
-      <!-- ════════ ⑫-b Managed K8S (portal-mockup 임베드 — 오케스트레이션 서브메뉴) ════════ -->
+      <!-- ════════ ⑫-b Managed K8S (portal-mockup 인라인 통합 — iframe 없음) ════════ -->
       <section data-screen="mk8s">
-        <div id="mk8s-frame-wrap"></div>
+        <div id="mk8s-root"></div>
       </section>
 
       <!-- ════════ ⑬ OBS — 종합 상황판 ════════ -->
@@ -1561,10 +1560,12 @@ section[data-screen="mk8s"]{margin:0}
 <script src="../shared/nocp-api.js"></script>
 <script src="../shared/palette.js"></script>
 <script src="app.js"></script>
+<script src="mk8s.js"></script><!-- Managed K8S 목업 (인라인 · iframe 없음 · 내부 라우터) -->
 <script>
-/* ── 오케스트레이션 › Managed K8S — portal-mockup 임베드 연동 ──
-   단일 iframe(managed-k8s.html?embed=1)을 공유해 승인→설치→개통 E2E 상태를 유지하고,
-   서브메뉴(#/mk8s?v=<view>) ↔ iframe 내부 해시를 양방향 동기화한다. */
+/* ── Managed K8S — portal-mockup 인라인 통합 (iframe 제거) ──
+   mk8s.js가 #mk8s-root에 직접 렌더한다(내부 라우터 App.state.route — 콘솔
+   해시와 분리). 여기서는 서브메뉴(#/mk8s?v=<view>) ↔ 목업 내부 라우트를
+   양방향 동기화하고 브레드크럼을 갱신한다. */
 (function () {
   var VIEWS = {
     overview:   "#/k8s/overview",
@@ -1584,32 +1585,21 @@ section[data-screen="mk8s"]{margin:0}
     sentinel: "장애관리 (NVSentinel)", storage: "스토리지 (GDS)",
     monitoring: "모니터링 (K8s · GPU/랙)", settings: "설정 (Day0)",
   };
-  var frame = null, fromChild = false;
+  var KEYS = Object.keys(VIEWS).sort(function (a, b) {
+    return VIEWS[b].length - VIEWS[a].length;
+  });
+  var fromApp = false;
 
   function currentV() {
     var q = (location.hash.split("?")[1] || "");
     var m = /(?:^|&)v=([^&]+)/.exec(q);
     return (m && VIEWS[m[1]]) ? m[1] : "overview";
   }
-  function ensureFrame(v) {
-    if (frame) return frame;
-    frame = document.createElement("iframe");
-    frame.id = "mk8s-frame";
-    frame.src = "managed-k8s.html?embed=1" + VIEWS[v];
-    frame.addEventListener("load", function () {   // 로딩 중 서브메뉴 전환 경합 보정
-      if (location.hash.indexOf("#/mk8s") === 0) syncFrame(currentV());
+  function vOfRoute(route) {                    // 내부 라우트 → 서브메뉴 키
+    var h = (route || "").split("?")[0];
+    return KEYS.find(function (k) {
+      return h === VIEWS[k] || h.indexOf(VIEWS[k] + "/") === 0;
     });
-    document.getElementById("mk8s-frame-wrap").appendChild(frame);
-    return frame;
-  }
-  function syncFrame(v) {
-    var f = ensureFrame(v);
-    if (fromChild) return;                     // 자식발 이동 — 되돌려 쓰지 않음
-    try {
-      var cw = f.contentWindow;
-      if (cw && cw.location && cw.location.href !== "about:blank" &&
-          cw.location.hash !== VIEWS[v]) cw.location.hash = VIEWS[v];
-    } catch (e) { /* 로딩 전 접근 등 — src 초기 해시로 커버 */ }
   }
   function highlight(active) {
     var v = currentV();
@@ -1619,26 +1609,41 @@ section[data-screen="mk8s"]{margin:0}
     if (active) {
       var crumb = document.querySelector(".crumb .cur");
       if (crumb) crumb.textContent = "Managed K8S (목업) — " + LABELS[v];
-      syncFrame(v);
     }
   }
-  NC.bus.on("route", function (id) { highlight(id === "mk8s"); });
 
-  /* iframe 내부 네비게이션(카드/링크 클릭) → 서브메뉴 하이라이트 역동기화 */
-  window.addEventListener("message", function (e) {
-    if (!e.data || e.data.type !== "mk8s-hash") return;
-    var h = (e.data.hash || "").split("?")[0];
-    var v = Object.keys(VIEWS).sort(function (a, b) {
-      return VIEWS[b].length - VIEWS[a].length;
-    }).find(function (k) { return h === VIEWS[k] || h.indexOf(VIEWS[k] + "/") === 0; });
-    if (!v || !location.hash.startsWith("#/mk8s")) return;
+  /* 콘솔 라우트(#/mk8s?v=) → 목업 내부 라우트 */
+  NC.bus.on("route", function (id) {
+    var active = id === "mk8s";
+    highlight(active);
+    if (!active || typeof App === "undefined" || fromApp) return;
+    var target = VIEWS[currentV()];
+    var cur = (App.state.route || "").split("?")[0];
+    if (cur !== target && cur.indexOf(target + "/") !== 0) App.navigate(target);
+  });
+
+  /* 서브메뉴 재클릭 — 상세 화면에서 해당 목록으로 복귀 (해시 불변이라 별도 처리) */
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest("[data-mk8s-v]");
+    if (!a || typeof App === "undefined") return;
+    var target = VIEWS[a.dataset.mk8sV];
+    if (currentV() === a.dataset.mk8sV && App.state.route !== target)
+      setTimeout(function () { App.navigate(target); }, 0);
+  });
+
+  /* 목업 내부 네비게이션 → 콘솔 해시/서브메뉴 역동기화 (mk8s.js 렌더 훅) */
+  window.__mk8sOnRoute = function (route) {
+    if (location.hash.indexOf("#/mk8s") !== 0) return;
+    var v = vOfRoute(route);
+    document.scrollingElement && (document.scrollingElement.scrollTop = 0);
+    if (!v) return;
     if (currentV() !== v) {
-      fromChild = true;
+      fromApp = true;
       history.replaceState(null, "", "#/mk8s?v=" + v);
       NC.route();
-      fromChild = false;
-    }
-  });
+      fromApp = false;
+    } else highlight(true);
+  };
 })();
 </script>
 </body>
