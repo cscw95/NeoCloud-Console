@@ -360,6 +360,31 @@ body[data-design="blueprint"] #mk8s-root .toast{
   background:#ffffff;color:var(--ink);border-color:var(--line);
   box-shadow:0 6px 20px rgba(13,21,38,.45)!important}
 
+/* ═══════════════════════════════════════════════════════════════════
+   CUSTOMER · BIZ 콘솔 — 화면 전용 클래스·인라인 하드코딩 라이트 대응
+   ═══════════════════════════════════════════════════════════════════ */
+/* customer */
+body[data-design="blueprint"] .ubar{background:#dde5ef}
+body[data-design="blueprint"] .tbl tr.fault td{background:var(--redS)}
+body[data-design="blueprint"] .tbl tr.fault .id{color:#b02a3a}
+body[data-design="blueprint"] .redcall{color:#b02a3a}
+body[data-design="blueprint"] .p2tag,
+body[data-design="blueprint"] .p2-tag{
+  color:var(--blu);border-color:#b9d4f5;background:var(--bluS)}
+/* biz */
+body[data-design="blueprint"] .deal{border-color:var(--ln)}
+body[data-design="blueprint"] .lane .lc.blue{border-color:#b9d4f5}
+body[data-design="blueprint"] .sb-user .av[style],
+body[data-design="blueprint"] .sb-user .av{
+  background:var(--accS)!important;color:var(--acc)!important}
+/* 공통 — JS/마크업 인라인 다크 배경 하드코딩 (진행바 트랙·퍼널·아바타) */
+body[data-design="blueprint"] [style*="background:#233043"]{background:#dde5ef!important}
+body[data-design="blueprint"] [style*="background:#1c2f4a"]{background:var(--bluS)!important}
+body[data-design="blueprint"] [style*="background:#1d3a26"]{
+  background:var(--accS)!important;color:var(--acc)!important}
+body[data-design="blueprint"] [style*="color:#c8a5e8"]{color:var(--purp)!important}
+body[data-design="blueprint"] [style*="color:#241c05"]{color:#fff!important}
+
 /* ═══ 디자인 모드 스위치 (양 모드 공통 — 신규 엘리먼트) ═══ */
 .design-toggle{display:flex;flex:none;border:1px solid var(--line,#223142);
   font-family:Menlo,monospace}
