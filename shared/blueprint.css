@@ -360,6 +360,47 @@ body[data-design="blueprint"] #mk8s-root .toast{
   background:#ffffff;color:var(--ink);border-color:var(--line);
   box-shadow:0 6px 20px rgba(13,21,38,.45)!important}
 
+/* ── mk8s 주간 마감 — 잔여 하드코딩 정리 ─────────────────────────
+   A. 모서리: 전역 radius 0가 이미 적용됨 → 원형이어야 할 요소만 복원 */
+body[data-design="blueprint"] #mk8s-root .badge::before,
+body[data-design="blueprint"] #mk8s-root .step .ball,
+body[data-design="blueprint"] #mk8s-root .tl-item::before,
+body[data-design="blueprint"] #mk8s-root .avatar,
+body[data-design="blueprint"] #mk8s-root .switch .tr::after{border-radius:50%!important}
+body[data-design="blueprint"] #mk8s-root .switch .tr{border-radius:8px!important}
+/* B. 다크 하드코딩 배경 교체 */
+body[data-design="blueprint"] #mk8s-root .table tr.click:hover td{background:#f0f4fa}
+body[data-design="blueprint"] #mk8s-root .chip.day{background:#ece5fa;color:#7048b6}
+body[data-design="blueprint"] #mk8s-root .code-panel .cp-h .copy{
+  background:#dde5ef;color:#141c2e}
+body[data-design="blueprint"] #mk8s-root .api-ico{border-color:#b9d4f5}
+body[data-design="blueprint"] #mk8s-root .api-ico:hover{background:#d0e2f8}
+/* C. 코드 토큰·로그 라이트 팔레트 (다크 전제 시안/연두/핑크 → 라이트 대비) */
+body[data-design="blueprint"] #mk8s-root .tok-k,
+body[data-design="blueprint"] #mk8s-root .logbox .lg-info{color:#0e6a8a}
+body[data-design="blueprint"] #mk8s-root .tok-s{color:#0e8a5f}
+body[data-design="blueprint"] #mk8s-root .tok-n,
+body[data-design="blueprint"] #mk8s-root .logbox .lg-err{color:#d1242f}
+body[data-design="blueprint"] #mk8s-root .tok-m,
+body[data-design="blueprint"] #mk8s-root .logbox .lg-warn{color:#b45309}
+body[data-design="blueprint"] #mk8s-root .tok-c{color:#8c9ab2}
+body[data-design="blueprint"] #mk8s-root .logbox{background:#f7f9fc;color:#141c2e}
+/* D. 히트맵 셀 라벨 — 기본 잉크, 진한 셀(healthy 짙은 녹/critical 적)만 흰 유지 */
+body[data-design="blueprint"] #mk8s-root .hm-cell{color:rgba(20,28,46,.8)}
+body[data-design="blueprint"] #mk8s-root .hm-cell[style*="#3e6b12"],
+body[data-design="blueprint"] #mk8s-root .hm-cell[style*="--red"]{
+  color:rgba(255,255,255,.9)}
+/* E. Blueprint 시그니처 — 카드 헤더 각진 사각 틱 + 라벨 모노 대문자
+   (KPI 코너 틱은 공용 .kpi::before 규칙이 이미 적용) */
+body[data-design="blueprint"] #mk8s-root .card .card-h::before{
+  width:5px;height:5px;background:#2458d6}
+body[data-design="blueprint"] #mk8s-root .kpi .l,
+body[data-design="blueprint"] #mk8s-root .table th,
+body[data-design="blueprint"] #mk8s-root .sect{
+  font-family:var(--mono);letter-spacing:.11em;text-transform:uppercase;
+  font-size:9px}
+/* F. .gwrap/.gpanel 계열(Grafana 임베드 시뮬레이션)은 의도적 다크 유지 — 무접촉 */
+
 /* ═══════════════════════════════════════════════════════════════════
    CUSTOMER · BIZ 콘솔 — 화면 전용 클래스·인라인 하드코딩 라이트 대응
    ═══════════════════════════════════════════════════════════════════ */
