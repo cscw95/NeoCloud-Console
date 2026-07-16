@@ -234,6 +234,19 @@
      항목은 표준 .mi 그대로 사용 — 활성(.act)·dot·배지 등 타 메뉴와 동일 ── */
 .mk8s-sub{margin:1px 0 3px}
 section[data-screen="mk8s"]{margin:0}
+/* ── Managed K8S Mock/Live 토글 — 그룹 헤더 우측 스위치+모드 뱃지 ── */
+.mk8s-mode{margin-left:auto;display:inline-flex;align-items:center;gap:5px;background:none;
+  border:1px solid var(--line);border-radius:9px;padding:1px 6px 1px 3px;cursor:pointer;
+  font:inherit;color:inherit;line-height:1.4}
+.mk8s-mode .sw{width:18px;height:10px;border-radius:5px;background:var(--line);position:relative;
+  display:inline-block;transition:background .15s}
+.mk8s-mode .sw .knob{position:absolute;top:1.5px;left:2px;width:7px;height:7px;border-radius:50%;
+  background:var(--muted2);transition:left .15s,background .15s}
+.mk8s-mode .bd-txt{font-size:9px;font-weight:700;letter-spacing:.4px;color:var(--muted2)}
+.mk8s-mode.live{border-color:var(--green)}
+.mk8s-mode.live .sw{background:var(--green-bg,rgba(74,222,128,.22))}
+.mk8s-mode.live .sw .knob{left:9px;background:var(--green);box-shadow:0 0 6px var(--green)}
+.mk8s-mode.live .bd-txt{color:var(--green-text,var(--green))}
 </style>
 </head>
 <body>
@@ -286,7 +299,10 @@ section[data-screen="mk8s"]{margin:0}
       <a class="mi" href="#/obs-trayops" data-route="obs-trayops"><span class="dot"></span>트레이 수명주기</a>
       <!-- Managed K8S — portal-mockup 통합 (독립 그룹 · 목업 프리뷰) -->
       <div class="sb-grp" style="display:flex;align-items:center;gap:6px">Managed K8S
-        <span class="bd p2" style="margin-left:auto;border:1px solid var(--line);border-radius:8px;padding:0 6px;font-size:9px;color:var(--muted2)">MOCK</span></div>
+        <button id="mk8s-mode-btn" class="mk8s-mode" type="button"
+          title="Managed K8S 데이터 소스 전환 — MOCK(시나리오) ↔ LIVE(NOCP :8000 실연동)">
+          <span class="sw"><span class="knob"></span></span><span class="bd-txt">MOCK</span>
+        </button></div>
       <div id="mk8s-sub" class="mk8s-sub">
         <a class="mi" href="#/mk8s?v=overview"   data-mk8s-v="overview"><span class="dot"></span>Overview</a>
         <a class="mi" href="#/mk8s?v=workflow"   data-mk8s-v="workflow"><span class="dot"></span>요청 · 작업 <span class="bd amber">2</span></a>
@@ -1632,6 +1648,49 @@ section[data-screen="mk8s"]{margin:0}
     if (currentV() === a.dataset.mk8sV && App.state.route !== target)
       setTimeout(function () { App.navigate(target); }, 0);
   });
+
+  /* ── Mock/Live 토글 (R1) — localStorage["nc-mk8s-mode"] · NC.bus "mk8s-mode" ──
+     LIVE 전환 시 GET /api/v1/spec 프로브 — 실패하면 토스트 + 스위치 원복(MOCK 유지).
+     DS(mk8s.js 데이터 프로바이더)가 버스 수신 → 캐시 무효화 + 현재 서브뷰 리렌더. */
+  (function () {
+    var KEY = "nc-mk8s-mode";
+    var btn = document.getElementById("mk8s-mode-btn");
+    if (!btn) return;
+    function mode() { return localStorage.getItem(KEY) === "live" ? "live" : "mock"; }
+    function paint() {
+      var live = mode() === "live";
+      btn.classList.toggle("live", live);
+      btn.querySelector(".bd-txt").textContent = live ? "LIVE" : "MOCK";
+    }
+    function apply(m) {
+      localStorage.setItem(KEY, m);
+      paint();
+      NC.bus.emit("mk8s-mode", m);                     // DS가 수신 → 스왑 + 리렌더
+      if (typeof App !== "undefined" && App.render &&
+          location.hash.indexOf("#/mk8s") === 0) App.render();   // 해시 재적용과 동일 효과
+    }
+    btn.addEventListener("click", function () {
+      if (mode() === "live") {
+        apply("mock");
+        NC.toast("Managed K8S — MOCK 모드 (시나리오 데이터)");
+        return;
+      }
+      var base = localStorage.getItem("nc-nocp") || "http://127.0.0.1:8000";
+      var ctl = new AbortController();
+      var t = setTimeout(function () { ctl.abort(); }, 1500);
+      fetch(base + "/api/v1/spec", { signal: ctl.signal }).then(function (r) {
+        clearTimeout(t);
+        if (!r.ok) throw new Error(r.status);
+        apply("live");
+        NC.toast("Managed K8S — LIVE 모드 (NOCP " + base + " 연동)");
+      }).catch(function () {
+        clearTimeout(t);
+        paint();                                       // 스위치 원복 (MOCK 유지)
+        NC.toast("NOCP(:8000) 미기동 — Mock 모드 유지", "warn");
+      });
+    });
+    paint();                                           // 새로고침 시 저장된 모드 복원
+  })();
 
   /* 목업 내부 네비게이션 → 콘솔 해시/서브메뉴 역동기화 (mk8s.js 렌더 훅) */
   window.__mk8sOnRoute = function (route) {

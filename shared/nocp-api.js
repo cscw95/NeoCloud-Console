@@ -354,6 +354,32 @@
       }
     },
 
+    /* ── Managed K8s Phase 3 계약 (라이브 전용 시그니처 — 백엔드 준비 시 활성.
+          NOCP에 엔드포인트가 없으면 raw()가 throw → wrapped가 null 반환,
+          호출측(mk8s DS)이 mock 폴백/미지원 뱃지로 처리한다) ─────────── */
+    k8sOverview: () => raw(V + "/k8s/overview"),
+    k8sInstalls: () => raw(V + "/k8s/installs"),
+    k8sNodes: cid => raw(`${V}/k8s/clusters/${cid}/nodes`),
+    k8sAcceptance: cid => raw(`${V}/k8s/clusters/${cid}/acceptance`),
+    k8sNodepools: cid => raw(`${V}/k8s/clusters/${cid}/nodepools`),
+    k8sAddons: cid => raw(`${V}/k8s/clusters/${cid}/addons`),
+    k8sAddonAdd: (cid, name) =>
+      jp(`${V}/k8s/clusters/${cid}/addons`, { name }),
+    k8sServices: cid => raw(`${V}/k8s/clusters/${cid}/services`),
+    k8sKubeconfigs: cid => raw(`${V}/k8s/clusters/${cid}/kubeconfigs`),
+    k8sIssueKubeconfig: (cid, role, ttl) =>
+      jp(`${V}/k8s/clusters/${cid}/kubeconfigs`, { role, ttl }),
+    k8sRevokeKubeconfig: (cid, kid) =>
+      raw(`${V}/k8s/clusters/${cid}/kubeconfigs/${kid}`, { method: "DELETE" }),
+    k8sUpgrades: cid => raw(`${V}/k8s/clusters/${cid}/upgrades`),
+    k8sUpgrade: (cid, target) =>
+      jp(`${V}/k8s/clusters/${cid}/upgrades`, { target }),
+    k8sCves: () => raw(V + "/k8s/cves"),
+    k8sHealthEvents: cid => raw(`${V}/k8s/clusters/${cid}/health-events`),
+    k8sStorage: cid => raw(`${V}/k8s/clusters/${cid}/storage`),
+    k8sMetrics: cid => raw(`${V}/k8s/clusters/${cid}/metrics`),
+    k8sRbacTemplates: () => raw(V + "/k8s/rbac-templates"),
+
     /* ── 콘솔 확장 getter (라이브 전용, 실패 시 null) ───────── */
     emuClusters: () => raw(V + "/emu/clusters"),
     emuHistory: (tid, n) =>
