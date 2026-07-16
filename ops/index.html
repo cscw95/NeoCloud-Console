@@ -1626,7 +1626,8 @@ section[data-screen="mk8s"]{margin:0}
     });
     if (active) {
       var crumb = document.querySelector(".crumb .cur");
-      if (crumb) crumb.textContent = "Managed K8S (목업) — " + LABELS[v];
+      /* 페이지 타이틀(마스트헤드)이 뷰 이름을 담당 — 브레드크럼은 경로만 */
+      if (crumb) crumb.textContent = "Managed K8S (목업)";
     }
   }
 

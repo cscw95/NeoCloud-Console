@@ -19,6 +19,10 @@
   --bg:#0b121c; --panel:#16202e; --panel-sub:#0d141d; --strip:#121d2c;
   --sidebar:#0b141f; --topbar:#0d1826; --line-sidebar:#1d2c3e;
   --menu-act:#16241a; --menu-hover:#101b29; --dot-off:#3a4a5c; --track:#233043;
+  /* 히트맵·차트 시맨틱 (JS 인라인에서 참조 — 주간모드는 blueprint.css가 리매핑) */
+  --u0:#223142; --u1:#173350; --u2:#22507c; --u3:#2f6ea8; --u4:#3d8ad0; --u5:#5aa7e8;
+  --hm-ok:#3e6b12; --hm-prov:#28425e; --seg-off:#3a4a5c;
+  --glyph-w:#fff; --glyph-d:#241c05;
   --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;
   --shadow:none; --shadow-lg:0 18px 50px rgba(0,0,0,.5);
   --r:10px;
@@ -1336,8 +1340,8 @@ function sparkline(vals, w=90, h=26){
   return `<svg width="${w}" height="${h}" class="sparkline"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.6"/></svg>`;
 }
 function utilColor(u){
-  if (u<=0) return '#223142';
-  if (u<30) return '#173350'; if (u<55) return '#22507c'; if (u<75) return '#2f6ea8'; if (u<90) return '#3d8ad0'; return '#5aa7e8';
+  if (u<=0) return 'var(--u0)';
+  if (u<30) return 'var(--u1)'; if (u<55) return 'var(--u2)'; if (u<75) return 'var(--u3)'; if (u<90) return 'var(--u4)'; return 'var(--u5)';
 }
 function toast(msg){
   let w=document.querySelector('.toast-wrap'); if(!w){ w=el('<div class="toast-wrap"></div>'); document.body.appendChild(w); }
@@ -1632,7 +1636,7 @@ App.register('#/k8s/overview', function(elm){
   ];
 
   elm.innerHTML=`
-    <div class="page-h"><div><h1>Managed K8S Overview</h1>
+    <div class="page-h"><div><h1>개요</h1>
       <div class="sub">테넌트별 클러스터 Lifecycle 현황 — Reserved 자원 기반 (Vera Rubin NVL72)</div></div>
       <div class="right"><span class="chip">2026-07-09 (수) 10:52 KST</span></div></div>
     ${kpis}
@@ -1953,7 +1957,7 @@ function clTabNodepool(box,t){
   }));
   const total=st.Ready+st.other+st.prov+st.off;
   const donut=(()=> {
-    const segs=[[st.Ready,'var(--green)'],[st.prov,'var(--accent)'],[st.other,'var(--red)'],[st.off,'#3a4a5c']];
+    const segs=[[st.Ready,'var(--green)'],[st.prov,'var(--accent)'],[st.other,'var(--red)'],[st.off,'var(--seg-off)']];
     let acc=0; const C=2*Math.PI*34;
     const arcs=segs.map(([v,c])=>{
       const len=v/total*C, off=-acc/total*C; acc+=v;
@@ -3371,7 +3375,7 @@ App.register('#/k8s/upgrade', function(elm){
   const cal=days.map((d,i)=>`
     <div style="border:1px solid var(--line);border-radius:7px;min-height:86px;padding:7px 9px;background:${i===3?'var(--accent-soft)':'var(--panel)'}">
       <div class="small muted" style="font-weight:700">${d}</div>
-      ${i===3?`<div class="small" style="margin-top:6px;background:var(--accent);color:#07203a;border-radius:5px;padding:4px 7px;font-weight:600">02:00–06:00<br>CLAUDE v1.33.2</div>`:''}
+      ${i===3?`<div class="small" style="margin-top:6px;background:var(--accent);color:var(--on-accent);border-radius:5px;padding:4px 7px;font-weight:600">02:00–06:00<br>CLAUDE v1.33.2</div>`:''}
       ${i===5?`<div class="small" style="margin-top:6px;background:var(--line-soft);border-radius:5px;padding:4px 7px">예비 window</div>`:''}
     </div>`).join('');
 
@@ -3449,7 +3453,7 @@ function rollHtml(){
     const chips=ROLL_STEPS.slice(1,5).map((s,i)=>{
       const idx=i+1;
       const on=n.step>=idx, now=n.step===idx;
-      return `<span class="chip" style="${now?'background:var(--accent);color:#07203a':(on?'background:var(--green-soft);color:var(--green-text)':'')}">${s}${now&&s==='drain'?` (evicting ${n.pods} pods)`:''}</span>`;
+      return `<span class="chip" style="${now?'background:var(--accent);color:var(--on-accent)':(on?'background:var(--green-soft);color:var(--green-text)':'')}">${s}${now&&s==='drain'?` (evicting ${n.pods} pods)`:''}</span>`;
     }).join(' → ');
     return `<div style="display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--line-soft)">
       <code style="width:92px">${n.rack}</code><div class="small" style="flex:1">${chips}</div>
@@ -3554,13 +3558,13 @@ function senTabFleet(box, p){
     const racks=DS.racks(t.id);
     const cells=racks.map(r=>{
       const h=hm[r.rack];
-      let bg='#223142', cls='';
+      let bg='var(--u0)', cls='';
       if(r.status==='active'){
         activeRacks++;
-        bg='#3e6b12';
+        bg='var(--hm-ok)';
         if(h){ if(h.sev==='critical'){ bg='var(--red)'; cls='alarm'; critRacks++; }
                else { bg='#e8c66a'; warnRacks++; } }
-      } else if(r.status==='provisioning') bg='#28425e';
+      } else if(r.status==='provisioning') bg='var(--hm-prov)';
       return `<div class="hm-cell ${cls}" style="background:${bg}"
         title="${r.rack} · ${r.status}${h?' · '+h.evt.errorCode.join(',')+' ('+h.sev+')':''}"
         onclick="senFleetRack('${t.id}','${r.rack}')">${h?'!':''}</div>`;
@@ -3585,11 +3589,11 @@ function senTabFleet(box, p){
       <div class="grid" style="grid-template-columns:1fr 1fr">${maps}
         <div class="card" style="box-shadow:none"><div class="card-b small" style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
           <b>범례</b>
-          <span style="display:inline-flex;align-items:center;gap:5px"><i style="width:12px;height:12px;border-radius:3px;background:#3e6b12;display:inline-block"></i>healthy</span>
+          <span style="display:inline-flex;align-items:center;gap:5px"><i style="width:12px;height:12px;border-radius:3px;background:var(--hm-ok);display:inline-block"></i>healthy</span>
           <span style="display:inline-flex;align-items:center;gap:5px"><i style="width:12px;height:12px;border-radius:3px;background:#e8c66a;display:inline-block"></i>warning</span>
           <span style="display:inline-flex;align-items:center;gap:5px"><i style="width:12px;height:12px;border-radius:3px;background:var(--red);display:inline-block"></i>critical (quarantine)</span>
-          <span style="display:inline-flex;align-items:center;gap:5px"><i style="width:12px;height:12px;border-radius:3px;background:#28425e;display:inline-block"></i>provisioning</span>
-          <span style="display:inline-flex;align-items:center;gap:5px"><i style="width:12px;height:12px;border-radius:3px;background:#223142;display:inline-block"></i>미가동</span>
+          <span style="display:inline-flex;align-items:center;gap:5px"><i style="width:12px;height:12px;border-radius:3px;background:var(--hm-prov);display:inline-block"></i>provisioning</span>
+          <span style="display:inline-flex;align-items:center;gap:5px"><i style="width:12px;height:12px;border-radius:3px;background:var(--u0);display:inline-block"></i>미가동</span>
         </div></div>
       </div>
       <div id="fleet-detail" style="position:sticky;top:0">
@@ -3613,7 +3617,7 @@ function senFleetRack(tenantId, rackId){
       const bad=g.xid || (isEvNode && h.sev!=='critical' && h.evt.gpu.includes('GPU '+g.idx));
       return `<div class="tip" data-tip="GPU ${g.idx}${g.xid?' — '+g.xid:bad?' — '+h.evt.errorCode.join(','):(tr.status==='Ready'?' — 정상':'')}"
         style="width:30px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;
-        font-size:9px;font-weight:800;color:${!g.xid&&bad?'#241c05':'#fff'};background:${g.xid?'var(--red)':(bad?'#e8c66a':(tr.status==='Ready'?'#3e6b12':'#3a4a5c'))}">${g.xid?'✕':(bad?'!':'')}</div>`;
+        font-size:9px;font-weight:800;color:${!g.xid&&bad?'var(--glyph-d)':'var(--glyph-w)'};background:${g.xid?'var(--red)':(bad?'#e8c66a':(tr.status==='Ready'?'var(--hm-ok)':'var(--seg-off)'))}">${g.xid?'✕':(bad?'!':'')}</div>`;
     }).join('');
     const stateLabel=tr.status.includes('NotReady')?`<span class="badge b-red">quarantined</span>`:
       (isEvNode?`<span class="badge b-amber">관찰</span>`:badge(tr.status==='Ready'?'Ready':tr.status));
@@ -3683,7 +3687,7 @@ function senTabEvents(box, p){
     const flow=['quarantined','draining','drain-succeeded','remediating','remediation-succeeded'];
     return `<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">
       <span class="small muted mono">dgxc.nvidia.com/nvsentinel-state:</span>
-      ${flow.map(f=>`<span class="chip" style="${f===s?'background:var(--accent);color:#07203a':(flow.indexOf(f)<flow.indexOf(s)?'background:var(--green-soft);color:var(--green-text)':'')}">${f}</span>`).join('<span class="muted">→</span>')}
+      ${flow.map(f=>`<span class="chip" style="${f===s?'background:var(--accent);color:var(--on-accent)':(flow.indexOf(f)<flow.indexOf(s)?'background:var(--green-soft);color:var(--green-text)':'')}">${f}</span>`).join('<span class="muted">→</span>')}
     </div>`;
   };
   const evtCard=(e)=>{
@@ -4439,12 +4443,12 @@ function monTabK8sLive(box, t){
 function monTabRacks(box, t){
   const racks=DS.racks(t.id);
   const cells=racks.map(r=>{
-    const bg=r.status==='active'?utilColor(r.util):(r.status==='provisioning'?'#28425e':'#223142');
+    const bg=r.status==='active'?utilColor(r.util):(r.status==='provisioning'?'var(--hm-prov)':'var(--u0)');
     return `<div class="hm-cell ${r.alarm?'alarm':''}" style="background:${r.alarm?'var(--red)':bg}"
       title="${r.rack} — util ${r.util}% · ${r.temp}°C · ${r.status}${r.alarm?' · XID!':''}"
       onclick="App.navigate('#/k8s/monitoring/${t.id}/${r.rack}')">${r.idx}</div>`;
   }).join('');
-  const legend=[['0%','#223142'],['<30','#173350'],['<55','#22507c'],['<75','#2f6ea8'],['<90','#3d8ad0'],['90+','#5aa7e8'],['알람','var(--red)']]
+  const legend=[['0%','var(--u0)'],['<30','var(--u1)'],['<55','var(--u2)'],['<75','var(--u3)'],['<90','var(--u4)'],['90+','var(--u5)'],['알람','var(--red)']]
     .map(([l,c])=>`<span style="display:inline-flex;align-items:center;gap:4px" class="small muted"><i style="width:11px;height:11px;border-radius:3px;background:${c};display:inline-block"></i>${l}</span>`).join(' ');
   const act=racks.filter(r=>r.status==='active');
   box.innerHTML=`
@@ -4549,7 +4553,7 @@ function monLogRender(){
         <span class="switch ${MONLOG.ts?'on':''}" onclick="MONLOG.ts=!MONLOG.ts;monLogRender()"><span class="tr"></span> ts</span>
         <span style="margin-left:auto">${apiIcon('pod-logs')}</span>
       </div>
-      <div style="background:#1E293B;padding:5px 12px"><code class="small" style="color:#7DD3FC" id="ml-q">${esc(monLogQuery())}</code></div>
+      <div style="background:var(--strip);padding:5px 12px"><code class="small tok-k" id="ml-q">${esc(monLogQuery())}</code></div>
       <div class="logbox" id="ml-box" style="height:300px"></div>
     </div>`;
   const lines=DS.data().logs[pd.kind==='system'?'installer':pd.kind]||DS.data().logs.vllm;

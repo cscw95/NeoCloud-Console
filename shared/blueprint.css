@@ -314,9 +314,13 @@ body[data-design="blueprint"] #mk8s-root{
   --bg:#eef2f8; --panel:#ffffff; --panel-sub:#f7f9fc; --strip:#f7f9fc;
   --sidebar:#ffffff; --topbar:#ffffff; --line-sidebar:#c3cede;
   --menu-act:#e3ebfa; --menu-hover:#f2f6fc; --dot-off:#c3cede; --track:#dde5ef;
+  /* 히트맵·차트 시맨틱 라이트 램프 (utilColor·플릿맵·도넛 — 메인 랙맵 팔레트 정합) */
+  --u0:#dde5ef; --u1:#d3e0f5; --u2:#b9cdf0; --u3:#94b1e8; --u4:#6b93de; --u5:#2458d6;
+  --hm-ok:#2458d6; --hm-prov:#b9d4f5; --seg-off:#c3cede;
   --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
   --r:0; color-scheme:light; accent-color:#2458d6;
   font-family:'IBM Plex Sans KR','Apple SD Gothic Neo',sans-serif;
+  font-size:12.5px;         /* 메인 콘솔 body 12.5px 밀도 정합 */
   background:transparent;   /* body 모눈 격자 노출 */
 }
 body[data-design="blueprint"] #mk8s-root .btn-primary:hover{
@@ -331,14 +335,21 @@ body[data-design="blueprint"] #mk8s-root .whoami b,
 body[data-design="blueprint"] #mk8s-root .nav1:hover,
 body[data-design="blueprint"] #mk8s-root .nav1.active,
 body[data-design="blueprint"] #mk8s-root .nav2:hover,
-body[data-design="blueprint"] #mk8s-root .nav2.active,
-body[data-design="blueprint"] #mk8s-root .btn:hover{color:var(--ink)}
+body[data-design="blueprint"] #mk8s-root .nav2.active{color:var(--ink)}
 body[data-design="blueprint"] #mk8s-root .nav2.active{
   background:linear-gradient(90deg,rgba(36,88,214,.12),transparent)}
+/* 고스트 버튼 — 메인 콘솔 .btn-ghost 코발트 관례 정합 */
+body[data-design="blueprint"] #mk8s-root .btn{
+  color:var(--green-text);border-color:var(--green-line)}
+body[data-design="blueprint"] #mk8s-root .btn:hover{
+  color:var(--green-text);border-color:var(--green)}
+body[data-design="blueprint"] #mk8s-root .btn-primary{color:#fff;border-color:var(--green)}
 body[data-design="blueprint"] #mk8s-root .btn-primary:hover{color:#fff}
-/* mk8s JS 인라인 다크 셀·칩 대응 (플릿 히트맵 미가동/프로비저닝, 역할 칩) */
-body[data-design="blueprint"] #mk8s-root [style*="#223142"]{background:#dde5ef!important}
-body[data-design="blueprint"] #mk8s-root [style*="#28425e"]{background:#b9d4f5!important}
+body[data-design="blueprint"] #mk8s-root .btn-danger{color:#fff;border-color:var(--red)}
+body[data-design="blueprint"] #mk8s-root .btn-disabled,
+body[data-design="blueprint"] #mk8s-root .btn-disabled:hover{
+  color:var(--ink-4);border-color:var(--line)}
+/* mk8s JS 인라인 다크 칩 대응 (역할 칩 등 — 히트맵 셀은 u0~u5·hm 토큰으로 리매핑됨) */
 body[data-design="blueprint"] #mk8s-root [style*="#3a1a20"]{
   background:#fbe7e9!important;color:#d1242f!important}
 body[data-design="blueprint"] #mk8s-root [style*="#3a2f12"]{
@@ -369,6 +380,11 @@ body[data-design="blueprint"] #mk8s-root .bell .n,
 body[data-design="blueprint"] #mk8s-root .switch .tr::after{
   border-radius:50%!important}
 body[data-design="blueprint"] #mk8s-root .switch .tr{border-radius:8px!important}
+/* 진행 상태 링 — 전역 그림자 금지의 예외 (메인 .step.cur 관례 정합) */
+body[data-design="blueprint"] #mk8s-root .step.now .ball{
+  color:#fff;box-shadow:0 0 0 4px rgba(180,83,9,.16)!important}
+body[data-design="blueprint"] #mk8s-root .tl-item.now::before{
+  box-shadow:0 0 0 3px rgba(180,83,9,.16)!important}
 
 /* ── B. 다크 하드코딩 배경 교체 ── */
 body[data-design="blueprint"] #mk8s-root .table tr.click:hover td{background:#f0f4fa}
@@ -390,69 +406,76 @@ body[data-design="blueprint"] #mk8s-root .logbox .lg-warn{color:#b45309}
 body[data-design="blueprint"] #mk8s-root .tok-c{color:#8c9ab2}
 body[data-design="blueprint"] #mk8s-root .logbox{background:#f7f9fc;color:#141c2e}
 
-/* ── D. 히트맵 셀 라벨 — 라이트 잉크, 진한 셀(JS 인라인 배경)은 흰 라벨 유지 ── */
+/* ── D. 히트맵 셀 라벨 — 라이트 잉크, 진한 셀(코발트 ok·고가동·적)은 흰 라벨 ── */
 body[data-design="blueprint"] #mk8s-root .hm-cell{color:rgba(20,28,46,.8)}
-body[data-design="blueprint"] #mk8s-root .hm-cell[style*="#3e6b12"],
-body[data-design="blueprint"] #mk8s-root .hm-cell[style*="var(--red)"]{
+body[data-design="blueprint"] #mk8s-root .hm-cell[style*="--hm-ok"],
+body[data-design="blueprint"] #mk8s-root .hm-cell[style*="--u4"],
+body[data-design="blueprint"] #mk8s-root .hm-cell[style*="--u5"],
+body[data-design="blueprint"] #mk8s-root .hm-cell[style*="--red"]{
   color:rgba(255,255,255,.9)}
 body[data-design="blueprint"] #mk8s-root .hm-cell:hover{outline-color:var(--ink)}
 
-/* ── E. Blueprint 시그니처 — 카드 헤더 사각 틱 · KPI 코너 틱 · 모노 라벨 ── */
+/* ── E. Blueprint 시그니처 — 카드 헤더 FIG./TBL. 도면 태그 (메인 .ph .tick 관례) ── */
 body[data-design="blueprint"] #mk8s-root .card .card-h::before{
-  width:5px;height:5px;border-radius:0!important;background:#2458d6}
+  counter-increment:bp-fig;
+  content:"FIG." counter(bp-fig,decimal-leading-zero);
+  width:auto;height:auto;border-radius:0!important;
+  font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.08em;
+  color:var(--green-text);border:1px solid var(--green-line);
+  background:var(--green-soft);padding:1px 5px}
+body[data-design="blueprint"] #mk8s-root .card:has(.table) .card-h::before{
+  content:"TBL." counter(bp-fig,decimal-leading-zero)}
+/* KPI — 메인 .kpi-band와 동일한 밴드형 병합 + 코너 틱(6px 인셋) + 모노 라벨 */
+body[data-design="blueprint"] #mk8s-root .grid:has(> .card.kpi){
+  gap:1px;background:var(--line);border:1px solid var(--line)}
+body[data-design="blueprint"] #mk8s-root .grid:has(> .card.kpi) > .card.kpi{
+  border:0;background:var(--panel)}
 body[data-design="blueprint"] #mk8s-root .kpi{position:relative}
 body[data-design="blueprint"] #mk8s-root .kpi::before{
-  content:'';position:absolute;top:-1px;left:-1px;width:7px;height:7px;
+  content:'';position:absolute;top:6px;left:6px;width:7px;height:7px;
   border-top:2px solid #2458d6;border-left:2px solid #2458d6;
   border-bottom:0;border-right:0}
 body[data-design="blueprint"] #mk8s-root .kpi .l,
 body[data-design="blueprint"] #mk8s-root .table th,
-body[data-design="blueprint"] #mk8s-root .sidebar .sect{
+body[data-design="blueprint"] #mk8s-root .sidebar .sect,
+body[data-design="blueprint"] #mk8s-root .sect{
   font-family:var(--mono);letter-spacing:.11em;text-transform:uppercase;
   font-size:8.5px}
 body[data-design="blueprint"] #mk8s-root .table th{font-size:9px}
-/* F. .gwrap 계열(Grafana 임베드 시뮬레이션)은 다크 유지 — 오버라이드 없음 */
-
-/* ── mk8s 주간 마감 — 잔여 하드코딩 정리 ─────────────────────────
-   A. 모서리: 전역 radius 0가 이미 적용됨 → 원형이어야 할 요소만 복원 */
-body[data-design="blueprint"] #mk8s-root .badge::before,
-body[data-design="blueprint"] #mk8s-root .step .ball,
-body[data-design="blueprint"] #mk8s-root .tl-item::before,
-body[data-design="blueprint"] #mk8s-root .avatar,
-body[data-design="blueprint"] #mk8s-root .switch .tr::after{border-radius:50%!important}
-body[data-design="blueprint"] #mk8s-root .switch .tr{border-radius:8px!important}
-/* B. 다크 하드코딩 배경 교체 */
-body[data-design="blueprint"] #mk8s-root .table tr.click:hover td{background:#f0f4fa}
-body[data-design="blueprint"] #mk8s-root .chip.day{background:#ece5fa;color:#7048b6}
-body[data-design="blueprint"] #mk8s-root .code-panel .cp-h .copy{
-  background:#dde5ef;color:#141c2e}
-body[data-design="blueprint"] #mk8s-root .api-ico{border-color:#b9d4f5}
-body[data-design="blueprint"] #mk8s-root .api-ico:hover{background:#d0e2f8}
-/* C. 코드 토큰·로그 라이트 팔레트 (다크 전제 시안/연두/핑크 → 라이트 대비) */
-body[data-design="blueprint"] #mk8s-root .tok-k,
-body[data-design="blueprint"] #mk8s-root .logbox .lg-info{color:#0e6a8a}
-body[data-design="blueprint"] #mk8s-root .tok-s{color:#0e8a5f}
-body[data-design="blueprint"] #mk8s-root .tok-n,
-body[data-design="blueprint"] #mk8s-root .logbox .lg-err{color:#d1242f}
-body[data-design="blueprint"] #mk8s-root .tok-m,
-body[data-design="blueprint"] #mk8s-root .logbox .lg-warn{color:#b45309}
-body[data-design="blueprint"] #mk8s-root .tok-c{color:#8c9ab2}
-body[data-design="blueprint"] #mk8s-root .logbox{background:#f7f9fc;color:#141c2e}
-/* D. 히트맵 셀 라벨 — 기본 잉크, 진한 셀(healthy 짙은 녹/critical 적)만 흰 유지 */
-body[data-design="blueprint"] #mk8s-root .hm-cell{color:rgba(20,28,46,.8)}
-body[data-design="blueprint"] #mk8s-root .hm-cell[style*="#3e6b12"],
-body[data-design="blueprint"] #mk8s-root .hm-cell[style*="--red"]{
-  color:rgba(255,255,255,.9)}
-/* E. Blueprint 시그니처 — 카드 헤더 각진 사각 틱 + 라벨 모노 대문자
-   (KPI 코너 틱은 공용 .kpi::before 규칙이 이미 적용) */
-body[data-design="blueprint"] #mk8s-root .card .card-h::before{
-  width:5px;height:5px;background:#2458d6}
-body[data-design="blueprint"] #mk8s-root .kpi .l,
-body[data-design="blueprint"] #mk8s-root .table th,
-body[data-design="blueprint"] #mk8s-root .sect{
-  font-family:var(--mono);letter-spacing:.11em;text-transform:uppercase;
-  font-size:9px}
 /* F. .gwrap/.gpanel 계열(Grafana 임베드 시뮬레이션)은 의도적 다크 유지 — 무접촉 */
+
+/* ── mk8s 주간 — 페이지 마스트헤드 통일 ──────────────────────────
+   G. 타이틀을 콘텐츠 최상단으로 올리고 대형화(모노 킥커 + 26px h1 + 2px 잉크
+   룰) — 데모리셋·역할 툴바는 절대배치로 우상단에 흡수(자체 행 제거).
+   모든 mk8s 화면이 .page-h를 쓰므로 한 규칙으로 전 페이지 통일. */
+body[data-design="blueprint"] #mk8s-root{position:relative}
+body[data-design="blueprint"] #mk8s-root .topbar{
+  position:absolute;top:10px;right:2px;width:auto;height:auto;
+  border-bottom:0;margin:0;padding:0;background:transparent;z-index:20}
+body[data-design="blueprint"] #mk8s-root .topbar .spacer{display:none}
+body[data-design="blueprint"] #mk8s-root .topbar .btn-sm,
+body[data-design="blueprint"] #mk8s-root .roleswitch button{
+  padding:4px 11px;font-size:11px}
+body[data-design="blueprint"] #mk8s-root .main{padding-top:2px}
+body[data-design="blueprint"] #mk8s-root .page-h{
+  align-items:flex-end;min-height:64px;margin-bottom:18px;
+  padding:0 0 12px;border-bottom:2px solid var(--ink)}
+body[data-design="blueprint"] #mk8s-root .page-h h1{
+  font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.15}
+/* 우상단 절대배치 툴바(≈240px)와의 겹침 방지 — 타이틀 블록 우측 여백 확보 */
+body[data-design="blueprint"] #mk8s-root .page-h>div:first-child{
+  padding-right:250px}
+body[data-design="blueprint"] #mk8s-root .page-h h1::before{
+  content:"MANAGED K8S · OPS CONSOLE";display:block;
+  font-family:var(--mono);font-size:8.5px;font-weight:700;
+  letter-spacing:.13em;color:var(--green-text);margin-bottom:6px}
+/* 콘솔 전역 .sub(박스형 서브패널) 누출 차단 — 타이틀 서브텍스트는 플레인 */
+body[data-design="blueprint"] #mk8s-root .page-h .sub{
+  background:none;border:0;padding:0;font-size:12px;margin-top:6px;
+  color:var(--ink-3);max-width:720px}
+/* 우측 액션·정보 칩 — 마스트헤드 하단선에 정렬(상단 툴바와 겹침 방지) */
+body[data-design="blueprint"] #mk8s-root .page-h .right{
+  align-self:flex-end;margin-bottom:2px}
 
 /* ═══════════════════════════════════════════════════════════════════
    CUSTOMER · BIZ 콘솔 — 화면 전용 클래스·인라인 하드코딩 라이트 대응

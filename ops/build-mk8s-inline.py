@@ -45,6 +45,33 @@ out_css = (
 #mk8s-root .kpi .v{font-size:24px}
 #mk8s-root .chip{cursor:default}
 #mk8s-root .modal{max-width:92vw}
+
+/* ── 야간(레거시) 모드 — 페이지 마스트헤드 (주간 blueprint.css와 동일 지오메트리) ──
+   타이틀 최상단·26px 대형화 + 모노 킥커, 데모리셋·역할 툴바 우상단 절대배치 흡수 */
+body[data-design="legacy"] #mk8s-root{position:relative}
+body[data-design="legacy"] #mk8s-root .topbar{
+  position:absolute;top:10px;right:2px;width:auto;height:auto;
+  border-bottom:0;margin:0;padding:0;background:transparent;z-index:20}
+body[data-design="legacy"] #mk8s-root .topbar .spacer{display:none}
+body[data-design="legacy"] #mk8s-root .topbar .btn-sm,
+body[data-design="legacy"] #mk8s-root .roleswitch button{padding:4px 11px;font-size:11px}
+body[data-design="legacy"] #mk8s-root .main{padding-top:2px}
+body[data-design="legacy"] #mk8s-root .page-h{
+  align-items:flex-end;min-height:64px;margin-bottom:18px;
+  padding:0 0 12px;border-bottom:2px solid var(--ink)}
+body[data-design="legacy"] #mk8s-root .page-h h1{
+  font-size:26px;letter-spacing:-.02em;line-height:1.15}
+body[data-design="legacy"] #mk8s-root .page-h h1::before{
+  content:"MANAGED K8S · OPS CONSOLE";display:block;
+  font-family:var(--mono);font-size:8.5px;font-weight:700;
+  letter-spacing:.13em;color:var(--green-text);margin-bottom:6px}
+/* 툴바(≈240px) 겹침 방지 + 콘솔 전역 .sub 박스 누출 차단 */
+body[data-design="legacy"] #mk8s-root .page-h>div:first-child{padding-right:250px}
+body[data-design="legacy"] #mk8s-root .page-h .sub{
+  background:none;border:0;padding:0;border-radius:0;font-size:12px;
+  margin-top:6px;color:var(--ink-3);max-width:720px}
+body[data-design="legacy"] #mk8s-root .page-h .right{
+  align-self:flex-end;margin-bottom:2px}
 """
 )
 pathlib.Path(__file__).with_name("mk8s.css").write_text(out_css, encoding="utf-8")
