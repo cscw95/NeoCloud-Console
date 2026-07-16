@@ -1636,6 +1636,12 @@ section[data-screen="mk8s"]{margin:0}
     highlight(active);
     if (!active || typeof App === "undefined" || fromApp) return;
     var target = VIEWS[currentV()];
+    /* Day-1 딥링크 — #/mk8s?v=clusters&cluster=<id> → 클러스터 상세 직행 (1회 소비) */
+    var cm = /(?:^|&)cluster=([^&]+)/.exec(location.hash.split("?")[1] || "");
+    if (cm && currentV() === "clusters") {
+      target += "/" + decodeURIComponent(cm[1]);
+      history.replaceState(null, "", "#/mk8s?v=clusters");
+    }
     var cur = (App.state.route || "").split("?")[0];
     if (cur !== target && cur.indexOf(target + "/") !== 0) App.navigate(target);
   });

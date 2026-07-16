@@ -748,7 +748,11 @@
       var nodes = (p.racks || 0) * 18;
       var place = /^su-\d/.test(p.su || "") ? "안산 " + p.su : (p.su || "—");
       var actions = delivered
-        ? '<span class="st green">인도 완료 — 테넌트 인도됨</span>'
+        ? '<span class="st green">인도 완료 — 테넌트 인도됨</span>' +
+          (useK8s
+            ? ' <button class="btn" onclick="location.hash=\'#/mk8s?v=clusters&cluster=' +
+              (p.k8s_cluster_id || p.tenant || "") + '\'">☸ Managed K8S 클러스터 →</button>'
+            : "")
         : p.state === "approval_pending"
           ? (pendStage
               ? '<button class="btn" data-act="approve">게이트 승인 — ' + pendStage + "</button>"

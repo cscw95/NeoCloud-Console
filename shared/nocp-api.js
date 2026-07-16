@@ -142,7 +142,8 @@
           gate: `승인 게이트 — 다음 단계: ${o.pending_stage}`,
           pkey_reserved: "할당 시 발급", requested_at: (o.history[0] || {}).at,
           pending_stage: o.pending_stage, queue: pend.length,
-          managed_k8s: !!o.managed_k8s, k8s_version: o.k8s_version };
+          managed_k8s: !!o.managed_k8s, k8s_version: o.k8s_version,
+          k8s_cluster_id: o.k8s_cluster_id || null };
       }
       const last = os.filter(o => o.approval_mode)
         .sort((a, b) => b.id.localeCompare(a.id, undefined, { numeric: true }))[0];
@@ -150,7 +151,8 @@
         su: "—", state: last.state === "delivered" ? "provisioning" : last.state,
         gate: last.state === "delivered" ? "승인 완료 — 인도됨"
               : `상태: ${last.state}`, pkey_reserved: "—", queue: 0,
-        managed_k8s: !!last.managed_k8s, k8s_version: last.k8s_version };
+        managed_k8s: !!last.managed_k8s, k8s_version: last.k8s_version,
+        k8s_cluster_id: last.k8s_cluster_id || null };
       // 라이브 연결 상태에서 승인형 주문이 없으면 mock 데모 주문(ord-9)을
       // 보여주지 않는다 — 유령 주문이 "진행 안 됨"으로 오인되기 때문.
       return { id: "—", tenant: "승인 대기 주문 없음", racks: 0, su: "—",

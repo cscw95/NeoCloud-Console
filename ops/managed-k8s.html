@@ -690,14 +690,15 @@ function genRacks(tenantId){
 }
 
 /* ============================================================
- * DS — 데이터 프로바이더 계층 (Mock/Live 이중 모드) · Phase 1
+ * DS — 데이터 프로바이더 계층 (Mock/Live 이중 모드) · Phase 3
  *  - MockDS: NEOCLOUD_DATA/genRacks 원본을 그대로 동기 반환
  *    (동일 객체 참조 — 뷰의 in-place 상태 변경도 기존과 동일하게 동작)
- *  - LiveDS: NOCP(:8000) REST 스냅샷 캐시(TTL 2.5s) + 폴링,
- *    데이터 도착/변경 시 리렌더 트리거 (뷰 렌더는 동기 유지)
+ *  - LiveDS: NOCP(:8000) Managed-K8s REST 전면 연동 —
+ *    overview·installs·nodes·acceptance·nodepools·addons·services·
+ *    kubeconfigs(발급/폐기)·upgrades(실행)·cves·health-events·storage·metrics
+ *    스냅샷 캐시(TTL 2.5s) + 폴링, 변경 시 리렌더 (뷰 렌더는 동기 유지)
  *  - 모드: localStorage["nc-mk8s-mode"] ("mock"|"live", 기본 mock)
- *  - 단독 실행(managed-k8s.html 직접 오픈)에서도 동작 — NC/bus 옵셔널,
- *    nocp-api.js(NC.api)가 있으면 경유, 없으면 직접 fetch
+ *  - 단독 실행(managed-k8s.html 직접 오픈)에서도 동작 — NC/bus 옵셔널
  * ============================================================ */
 const DS=(function(){
   const RAW=NEOCLOUD_DATA;
@@ -706,22 +707,51 @@ const DS=(function(){
   const isLive=()=>mode()==='live';
   function apiBase(){ try{ return localStorage.getItem('nc-nocp')||'http://127.0.0.1:8000'; }catch(e){ return 'http://127.0.0.1:8000'; } }
 
-  /* ── 저수준 REST — nocp-api.js(NC.api) 경유 우선, 단독 실행 시 직접 fetch ── */
-  function ncApi(){ return (window.NC&&window.NC.api)||null; }
+  /* ── 저수준 REST ─────────────────────────────────────────── */
   async function rest(path){
     const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),1500);
     try{ const r=await fetch(apiBase()+path,{signal:ctl.signal});
          if(!r.ok) throw new Error('HTTP '+r.status); return await r.json(); }
     finally{ clearTimeout(t); }
   }
+  /* 액션(POST/DELETE) — 에러 본문(detail)을 {error}로 표면화 */
+  async function restJson(path, method, body){
+    const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),5000);
+    try{
+      const r=await fetch(apiBase()+path,{ method:method||'GET', signal:ctl.signal,
+        headers:body?{'Content-Type':'application/json'}:undefined,
+        body:body?JSON.stringify(body):undefined });
+      const txt=await r.text(); let j=null; try{ j=txt?JSON.parse(txt):null; }catch(e){}
+      if(!r.ok) return { error:(j&&j.detail)||txt||('HTTP '+r.status), status:r.status };
+      return j;
+    }catch(e){ return { error:e.message||'network error' }; }
+    finally{ clearTimeout(t); }
+  }
+  const V='/api/v1';
   const FETCH={
-    clusters:   ()=> ncApi()? ncApi().k8sClusters() : rest('/api/v1/k8s/clusters'),
-    spec:       ()=> ncApi()? ncApi().k8sSpec()     : rest('/api/v1/k8s/spec'),
-    orders:     ()=> ncApi()? ncApi().orders()      : rest('/api/v1/orders'),
-    tenantsRaw: ()=> rest('/api/v1/tenants').catch(()=>null),
+    clusters:  ()=>rest(V+'/k8s/clusters'),
+    spec:      ()=>rest(V+'/k8s/spec'),
+    orders:    ()=>rest(V+'/orders'),
+    tenantsRaw:()=>rest(V+'/tenants'),
+    overview:  ()=>rest(V+'/k8s/overview'),
+    installs:  ()=>rest(V+'/k8s/installs'),
+    rbac:      ()=>rest(V+'/k8s/rbac-templates'),
+    cves:      ()=>rest(V+'/k8s/cves'),
+  };
+  const CF={   /* 클러스터 스코프 */
+    nodes:      cid=>()=>rest(`${V}/k8s/clusters/${cid}/nodes`),
+    acceptance: cid=>()=>rest(`${V}/k8s/clusters/${cid}/acceptance`),
+    nodepools:  cid=>()=>rest(`${V}/k8s/clusters/${cid}/nodepools`),
+    addons:     cid=>()=>rest(`${V}/k8s/clusters/${cid}/addons`),
+    services:   cid=>()=>rest(`${V}/k8s/clusters/${cid}/services`),
+    kubeconfigs:cid=>()=>rest(`${V}/k8s/clusters/${cid}/kubeconfigs`),
+    upgrades:   cid=>()=>rest(`${V}/k8s/clusters/${cid}/upgrades`),
+    health:     cid=>()=>rest(`${V}/k8s/clusters/${cid}/health-events`),
+    storage:    cid=>()=>rest(`${V}/k8s/clusters/${cid}/storage`),
+    metrics:    cid=>()=>rest(`${V}/k8s/clusters/${cid}/metrics`),
   };
 
-  /* ── 스냅샷 캐시(TTL) + 변경 감지 리렌더 — 뷰의 동기 렌더 가정 유지 ── */
+  /* ── 스냅샷 캐시(TTL) + 변경 감지 리렌더 ─────────────────── */
   const TTL=2500, cache={};
   let _rrT=null;
   function rerender(){
@@ -729,42 +759,53 @@ const DS=(function(){
     _rrT=setTimeout(function(){
       _rrT=null;
       try{
-        /* 모달/드로어 입력 중에는 폴링 리렌더로 상태를 날리지 않는다 */
         if(document.getElementById('modal-ov')||document.getElementById('api-drawer')) return;
         if(typeof App!=='undefined'&&App.render) App.render();
       }catch(e){}
     },40);
   }
-  function snap(key){
+  function snap(key, fetcher, quiet){
     const c=cache[key]||(cache[key]={data:null,at:0,pending:false,fail:false,_sig:null});
+    c.fn=fetcher||c.fn||FETCH[key]; c.quiet=quiet||c.quiet;
     if(!c.pending && Date.now()-c.at>TTL){
       c.pending=true;
-      Promise.resolve().then(FETCH[key]).then(function(d){
+      Promise.resolve().then(c.fn).then(function(d){
         c.pending=false; c.at=Date.now();
-        if(d==null){ c.fail=true; return; }   /* nocp-api 라이브 전용 getter 실패 = null */
+        if(d==null){ c.fail=true; return; }
         c.fail=false;
         const s=JSON.stringify(d);
-        if(s!==c._sig){ c._sig=s; c.data=d; rerender(); }
+        if(s!==c._sig){ c._sig=s; c.data=d; if(!c.quiet) rerender(); }
       }).catch(function(){ c.pending=false; c.at=Date.now(); c.fail=true; });
     }
     return c;
   }
   function invalidate(){ Object.keys(cache).forEach(function(k){ cache[k].at=0; cache[k].fail=false; }); }
-  setInterval(function(){ if(isLive()) Object.keys(cache).forEach(snap); },4000);   /* live 폴링 */
+  setInterval(function(){
+    if(!isLive()) return;
+    Object.keys(cache).forEach(function(k){ snap(k, cache[k].fn, cache[k].quiet); });
+  },4000);
 
-  /* ── Live → mock shape 매핑 ─────────────────────────────── */
+  /* ── 공통 헬퍼 ───────────────────────────────────────────── */
+  function clist(){ return snap('clusters').data||[]; }
+  function clusterOf(tid){
+    return clist().find(function(c){ return c.tenant_id===tid||c.id===tid; });
+  }
   function tenantNameMap(){
     const c=snap('tenantsRaw'); const m={};
     (Array.isArray(c.data)?c.data:[]).forEach(function(t){ m[t.id]=t.name||t.id; });
     return m;
   }
+  const fmtTs=s=>(s||'').slice(0,16).replace('T',' ');
+  const rackOfNode=n=>String(n).replace(/-tray-\d+$/,'');
+
+  /* ── Live 어댑터: 테넌트(=클러스터) ──────────────────────── */
   const LIFE={running:'Active',installing:'Provisioned',creating:'Provisioned',
-              requested:'Requested',deleting:'Retired',retiring:'Retired'};
+              requested:'Requested',deleting:'Retired',failed:'Requested'};
   function liveTenants(){
     const c=snap('clusters');
-    if(!c.data) return c.fail? RAW.tenants : [];   /* 미도달=mock 폴백 · 로딩 중=빈 목록 */
+    if(!c.data) return c.fail? RAW.tenants : [];
     const names=tenantNameMap();
-    return c.data.map(function(cl){
+    return c.data.filter(function(cl){ return cl.state!=='deleted'; }).map(function(cl){
       const workers=(cl.worker_node_ids||[]).length;
       return { id:cl.tenant_id, short:(cl.tenant_id||'x').replace(/^tnt-/,'').charAt(0),
         company:names[cl.tenant_id]||cl.tenant_id,
@@ -772,39 +813,61 @@ const DS=(function(){
         lifecycle:LIFE[cl.state]||'Active', day:cl.state==='running'?2:1,
         racks:Math.max(1,Math.round(workers/18)), gpus:cl.gpus_total||workers*4,
         k8sVersion:cl.version||'—', nkdVersion:cl.nkd_version?('NKD '+cl.nkd_version):'—',
-        zone:'AIDC-1 (NOCP)', vpc:'—', domainSuffix:'—', f5Partition:'—',
+        zone:'AIDC-1 (NOCP)', vpc:'vni-'+(cl.tenant_id||'').replace(/^tnt-/,''),
+        domainSuffix:(cl.name||'')+'.k8s.neocloud.skt', f5Partition:'kube-vip · Converged Network',
         apiEndpoint:cl.api_vip?(cl.api_vip+':6443'):'—', allowlist:[],
         nsList:['default'], since:(cl.created_at||'').slice(0,10)||null,
-        hotSpareTrays:0, note:null, _cluster:cl, _live:true };
+        hotSpareTrays:(cl.quarantined_nodes||[]).length?0:2,
+        note:cl.state==='installing'?('설치 진행 중 — '+(cl.stage||'')+' ('+(cl.progress_pct||0)+'%)'):null,
+        _cluster:cl, _live:true };
     });
   }
+
+  /* ── 요청(orders) · 작업(installs) ───────────────────────── */
   function liveRequests(){
     const oc=snap('orders');
     if(!oc.data) return oc.fail? RAW.requests : [];
     const names=tenantNameMap();
     const ST={delivered:'개통완료',closed:'개통완료',failed:'반려',rejected:'반려',
-              installing:'진행중',provisioning:'진행중',approved:'승인',requested:'접수대기'};
+              installing:'진행중',provisioning:'진행중',k8s_installing:'진행중',
+              approved:'승인',requested:'접수대기'};
     return oc.data.filter(function(o){ return o.managed_k8s; }).map(function(o){
-      return { id:o.id, tenantId:o.tenant_id, kind:'설치', title:'Managed K8S 신규 설치',
+      return { id:o.id, tenantId:o.tenant_id, kind:'설치', title:'Managed K8S 설치 (BMaaS+K8s)',
         status:o.pending_stage?'검토중':(ST[o.state]||'진행중'),
         racks:o.racks||0, gpuModel:'Vera Rubin NVL72', k8sVersion:o.k8s_version||'—',
-        wantDate:'—', from:'NOCP 주문', createdAt:((o.history||[])[0]||{}).at||'—',
+        wantDate:'—', from:'NOCP 주문', createdAt:fmtTs(((o.history||[])[0]||{}).at)||'—',
         specSummary:'NOCP 주문 '+o.id+' · '+(names[o.tenant_id]||o.tenant_id)
-          +' · allocation '+(o.allocation_id||'-')+(o.k8s_version?' · K8s '+o.k8s_version:''),
-        availability:{ok:true, detail:'NOCP 주문 실데이터 — pending: '+(o.pending_stage||'없음')} };
+          +' · allocation '+((o.allocation_ids||[])[0]||o.allocation_id||'-')
+          +(o.k8s_version?' · K8s '+o.k8s_version:''),
+        availability:{ok:true, detail:'NOCP 주문 실데이터 — state: '+o.state} };
     });
   }
   function liveJobs(){
-    const c=snap('clusters');
-    if(!c.data) return c.fail? RAW.jobs : [];
+    const ic=snap('installs');
+    if(!ic.data) return ic.fail? RAW.jobs : [];
     const names=tenantNameMap();
-    return c.data.filter(function(cl){ return cl.state!=='running'; }).map(function(cl,i){
-      return { id:'JOB-NOCP-'+(cl.id||i), type:'install', tenantId:cl.tenant_id,
-        title:'클러스터 설치 — '+(names[cl.tenant_id]||cl.tenant_id), progress:60,
-        currentStage:'상태: '+cl.state+' (NOCP)', startedAt:(cl.created_at||'').slice(0,16),
-        racksDone:0, stages:[{name:'NOCP 설치 파이프라인',status:'now',at:null}] };
+    return ic.data.map(function(inst){
+      const done=(inst.stages||[]).filter(function(s){ return s.status==='done'; }).length;
+      const prog=inst.state==='succeeded'?100:Math.round(done/8*100);
+      return { id:inst.install_id, type:'install', tenantId:inst.tenant_id,
+        title:'Managed K8S 설치 — '+(names[inst.tenant_id]||inst.tenant_id)
+              +(inst.cluster_id?' ('+inst.cluster_id+')':''),
+        progress:prog,
+        currentStage:inst.state==='succeeded'?'완료 — active'
+          :(inst.state==='failed'?'실패':'스테이지: '+(inst.stage||'대기')),
+        startedAt:fmtTs(inst.created_at), racksDone:prog,
+        stages:(inst.stages||[]).map(function(s){
+          return { name:s.name, status:s.status==='done'?'done':(s.status==='running'?'now':'pending'),
+                   at:fmtTs(s.ts)||null };
+        }),
+        _install:inst };
     });
   }
+  function installFor(tid){
+    return liveJobs().find(function(j){ return j.tenantId===tid&&j._install; });
+  }
+
+  /* ── Day0(설정) ──────────────────────────────────────────── */
   function liveDay0(){
     const c=snap('spec');
     if(!c.data) return c.fail? RAW.day0 : [];
@@ -813,7 +876,7 @@ const DS=(function(){
       { id:'nocp-k8s-spec', ico:'☸️', title:'K8s 배포 스펙 (NOCP live)', seq:1,
         desc:'NOCP Control-Plane 제공 Managed K8S Day0 스펙 — GET /api/v1/k8s/spec',
         fields:[
-          { k:'versions', label:'지원 K8s 버전', v:(s.supported_versions||[]).join(' · ')||'—', type:'text' },
+          { k:'versions', label:'지원 K8s 버전 (N/N-1)', v:(s.supported_versions||[]).join(' · ')||'—', type:'text' },
           { k:'nkd', label:'NKD 버전', v:s.nkd_version||'—', type:'text' },
           { k:'cp', label:'Control Plane', v:(s.cp_nodes_per_cluster||'—')+'식 / 클러스터 · SLA '+(s.cp_sla||'—'), type:'text' },
           { k:'img', label:'CP 이미지', v:s.cp_image||'—', type:'text' },
@@ -824,54 +887,407 @@ const DS=(function(){
         verified:'NOCP live — GET /api/v1/k8s/spec' },
     ];
   }
-  /* worker_node_ids → 랙/트레이 합성 (nodepool·모니터링 뷰가 live 테넌트에서도 동작) */
+
+  /* ── 랙/트레이 합성 (nodes API 상태 반영 — quarantine 표시) ── */
   const _liveRacks={};
   function liveRacks(tid){
-    const c=snap('clusters');
-    const cl=(c.data||[]).find(function(x){ return x.tenant_id===tid; });
+    const cl=clusterOf(tid);
     if(!cl) return RAW.tenants.some(function(t){ return t.id===tid; })? genRacks(tid) : [];
-    const sig=(cl.worker_node_ids||[]).length+':'+cl.state;
+    const nodes=(snap('nodes:'+cl.id, CF.nodes(cl.id)).data||[])
+      .filter(function(n){ return n.role==='gpu-worker'; });
+    const met=snap('met:'+cl.id, CF.metrics(cl.id), true).data;
+    const quar=cl.quarantined_nodes||[];
+    const sig=cl.state+':'+(cl.worker_node_ids||[]).length+':'+nodes.length+':'+quar.join(',')
+      +':'+(met?Math.round(met.gpu_util_pct||0):'-');
     if(_liveRacks[tid]&&_liveRacks[tid].sig===sig) return _liveRacks[tid].racks;
     const groups={};
-    (cl.worker_node_ids||[]).forEach(function(n){
-      const rk=String(n).replace(/-tray-\d+$/,''); (groups[rk]=groups[rk]||[]).push(n);
-    });
+    if(nodes.length){
+      nodes.forEach(function(n){ const rk=rackOfNode(n.name); (groups[rk]=groups[rk]||[]).push(n); });
+    } else {
+      (cl.worker_node_ids||[]).forEach(function(nid){
+        const nm=String(nid).replace(/^ni-/,''); const rk=rackOfNode(nm);
+        (groups[rk]=groups[rk]||[]).push({name:nm,state:cl.state==='running'?'Ready':'Provisioning',gpu_count:4});
+      });
+    }
     const active=cl.state==='running';
-    const racks=Object.keys(groups).map(function(rk,i){
-      return { rack:rk, idx:i+1, status:active?'active':'provisioning', util:0, temp:0, alarm:false,
-        trays:groups[rk].map(function(n,y){
-          return { tray:y+1, node:n, status:active?'Ready':'Provisioning',
-            gpus:[0,1,2,3].map(function(g){ return {idx:g,util:0,temp:0,xid:null}; }), pods:[] };
-        }) };
+    const baseUtil=met?met.gpu_util_pct:(active?70:0), baseTemp=met?met.gpu_temp_max_c:(active?68:0);
+    const racks=Object.keys(groups).sort().map(function(rk,i){
+      const rnd=mulberry32(hashStr(rk));
+      let alarm=false;
+      const trays=groups[rk].map(function(n,y){
+        const q=quar.indexOf(n.name)>=0||n.state==='Quarantined'||n.state==='Draining';
+        if(q) alarm=true;
+        const st=q?'NotReady,SchedulingDisabled':(n.state==='Ready'?'Ready':(n.state||'Provisioning'));
+        const gpus=[0,1,2,3].map(function(g){
+          return { idx:g, util:(active&&!q)?Math.max(0,Math.min(100,Math.round(baseUtil+(rnd()*16-8)))):0,
+                   temp:(active&&!q)?Math.round(Math.max(40,baseTemp-8+rnd()*10)):0,
+                   xid:(q&&g===0)?'XID 79':null };
+        });
+        return { tray:y+1, node:n.name, status:st, gpus:gpus, pods:[] };
+      });
+      const util=active?Math.max(0,Math.min(100,Math.round(baseUtil+(rnd()*10-5)))):0;
+      return { rack:rk, idx:i+1, status:active?'active':'provisioning', util:util,
+        temp:active?Math.round(Math.max(40,baseTemp-6+rnd()*8)):0, alarm:alarm, trays:trays };
     });
     _liveRacks[tid]={sig:sig,racks:racks};
     return racks;
   }
 
-  /* ── DS 인터페이스 ──────────────────────────────────────── */
+  /* ── 장애관리(NVSentinel) ← health-events ────────────────── */
+  const _AGENT={'gpu-xid':'syslog-health-monitor', thermal:'gpu-health-monitor',
+                link:'nic-health-monitor', dpu:'platform-connectors'};
+  const _COMP={'gpu-xid':'GPU', thermal:'GPU', link:'NVSwitch', dpu:'DPU'};
+  function liveSentinel(){
+    const out=[];
+    clist().forEach(function(c){
+      const evs=snap('he:'+c.id, CF.health(c.id)).data||[];
+      evs.forEach(function(e,i){
+        const q=e.action==='quarantined';
+        const xid=(e.message||'').match(/XID[ -]?(\d+)/i);
+        out.push({ id:'EVT-'+c.id+'-'+i, tenantId:c.tenant_id,
+          sev:e.severity==='critical'?'critical':(e.severity==='warning'?'warning':'info'),
+          isFatal:q, agent:_AGENT[e.kind]||'gpu-health-monitor',
+          componentClass:_COMP[e.kind]||'GPU', checkName:e.kind||'health',
+          errorCode:[xid?('XID-'+xid[1]):(e.kind||'EVENT').toUpperCase()],
+          node:e.node, gpu:(e.message||'').match(/GPU ?\d/)?(e.message.match(/GPU ?\d/)[0]):'GPU',
+          at:fmtTs(e.ts), msg:e.message||'',
+          recommendedAction:q?'RESTART_BM':'NONE',
+          state:q?'quarantined':null,
+          status:q?{ nodeQuarantined:'Quarantined', eviction:'InProgress', faultRemediated:false }:null,
+          remediation:q?[
+            { step:'탐지 — health-event 수신 ('+(e.kind||'')+')', status:'done', at:fmtTs(e.ts).slice(5), by:'NVSentinel' },
+            { step:'quarantined — cordon '+e.node, status:'done', at:fmtTs(e.ts).slice(5), by:'NVSentinel' },
+            { step:'draining — 워크로드 eviction', status:'now', at:null, by:'NVSentinel' },
+          ].concat(e.hot_spare?[{ step:'hot-spare 교체 제안 — '+e.hot_spare.node,
+              status:'pending', at:null, by:'NOCP (NKD/Ansible)' }]:[]) : null,
+          _live:e });
+      });
+    });
+    return out;
+  }
+  function liveHotSpare(){
+    return clist().map(function(c){
+      const used=(c.quarantined_nodes||[]).length;
+      return { tenantId:c.tenant_id, total:used+2, used:used };
+    });
+  }
+
+  /* ── 업그레이드 · CVE ────────────────────────────────────── */
+  function specData(){ return snap('spec').data; }
+  function latestVersion(){
+    const s=specData();
+    return s&&s.supported_versions&&s.supported_versions.length
+      ? s.supported_versions[s.supported_versions.length-1] : null;
+  }
+  function liveUpgrades(){
+    const latest=latestVersion();
+    return clist().map(function(c){
+      const ups=snap('upg:'+c.id, CF.upgrades(c.id)).data||[];
+      const run=ups.find(function(u){ return u.state==='running'; });
+      if(run){
+        const np=run.node_progress||{};
+        return { tenantId:c.tenant_id, current:run.from_version, target:run.target_version,
+          nkdTarget:'NKD '+(c.nkd_version||''), window:'즉시 실행 — live 롤링 진행 중',
+          status:'진행 중', approvedBy:'노드 '+(np.done||0)+'/'+(np.total||0)+' 완료',
+          plan:'cordon → drain → upgrade → uncordon · 현재 노드: '+(run.current_node||'—'),
+          _up:run, _cid:c.id };
+      }
+      if(latest&&c.version!==latest&&c.state==='running')
+        return { tenantId:c.tenant_id, current:c.version, target:null, nkdTarget:null,
+          window:null, status:'업그레이드 가능 → '+latest, approvedBy:null, plan:null,
+          _cid:c.id, _target:latest };
+      const done=ups.find(function(u){ return u.state==='succeeded'; });
+      return { tenantId:c.tenant_id, current:c.version, target:null, nkdTarget:null, window:null,
+        status:done?('최신 ('+c.version+') — 롤링 완료'):('최신 ('+c.version+')'),
+        approvedBy:null, plan:null, _cid:c.id };
+    });
+  }
+  function liveCves(){
+    const cc=snap('cves');
+    if(!cc.data) return cc.fail? RAW.cves : [];
+    const cap=s=>s? s.charAt(0).toUpperCase()+s.slice(1) : 'Medium';
+    return cc.data.map(function(c){
+      const affected=clist().filter(function(cl){
+        return (c.affects_clusters||[]).indexOf(cl.version)>=0; })
+        .map(function(cl){ return cl.tenant_id; });
+      return { id:c.cve_id, comp:c.component, sev:cap(c.severity), cvss:c.cvss,
+        desc:c.summary, affected:affected, patch:c.patched_in||'—',
+        due:(c.action||'—') };
+    });
+  }
+
+  /* ── 접근관리 — kubeconfig · RBAC 템플릿 ─────────────────── */
+  function liveKubeconfigs(){
+    const out=[], names=tenantNameMap(), now=Date.now();
+    clist().forEach(function(c){
+      const ks=snap('kc:'+c.id, CF.kubeconfigs(c.id)).data||[];
+      ks.forEach(function(k){
+        const exp=Date.parse(k.expires_at||'')||0;
+        out.push({ user:'oidc-'+k.role+' ('+k.kubeconfig_id+')',
+          email:k.role+'@'+(names[c.tenant_id]||c.tenant_id),
+          tenantId:c.tenant_id, role:k.role, nsScope:'전체',
+          serial:(k.serial||'').replace(/(..)(?=.)/g,'$1:').slice(0,23),
+          issuedAt:fmtTs(k.issued_at), expiresAt:fmtTs(k.expires_at), ttl:k.ttl_h+'h',
+          status:k.revoked?'revoked':(exp&&exp<now?'expired':'active'),
+          _kid:k.kubeconfig_id, _cid:c.id, _yaml:k.kubeconfig_yaml, _rawSerial:k.serial });
+      });
+    });
+    return out;
+  }
+  function liveRbacRoles(){
+    const rc=snap('rbac');
+    if(!rc.data) return rc.fail? RAW.rbacRoles : [];
+    return rc.data.map(function(r){
+      return { id:r.role, label:r.role, group:r.cluster_role,
+        bindingKind:(r.scope==='cluster'?'ClusterRoleBinding':'RoleBinding')+' — '+r.cluster_role,
+        scope:(r.audience||'')+' — '+(r.detail||''),
+        rules:[{ apiGroups:['*'], resources:[r.detail||r.cluster_role],
+                 verbs:[r.scope], where:r.audience||'' }] };
+    });
+  }
+
+  /* ── 네트워킹 ← services ─────────────────────────────────── */
+  function svcOf(c){ return snap('svc:'+c.id, CF.services(c.id)).data; }
+  function liveLbVips(){
+    const out=[];
+    clist().forEach(function(c){
+      const sv=svcOf(c); if(!sv) return;
+      const nodes=snap('nodes:'+c.id, CF.nodes(c.id)).data||[];
+      const cps=nodes.filter(function(n){ return n.role==='cp'; });
+      const gws=nodes.filter(function(n){ return n.role==='gpu-worker'; }).slice(0,3);
+      (sv.entries||[]).filter(function(e){ return e.type==='LB'||e.type==='Ingress'; })
+        .forEach(function(e){
+          const isLB=e.type==='LB';
+          out.push({ id:c.id+'-'+e.name, tenantId:c.tenant_id, vip:e.vip_or_host,
+            ports:(e.ports||[]).join(', ')+' (TCP)',
+            type:isLB?'API VIP (kube-vip · L2/ARP)':'공유 Ingress (fake F5 LB)',
+            boundSvc:isLB?'kube-system/kube-apiserver':'ingress-nginx/ingress-nginx-controller',
+            partition:'vni-'+(c.tenant_id||'').replace(/^tnt-/,''),
+            health:e.state==='active'?'healthy':'degraded',
+            poolMembers:(isLB?cps:gws).map(function(n){
+              return { node:n.name, ep:(n.ip||'—')+':'+(isLB?'6443':'31443'), state:n.state==='Ready'?'up':'down' };
+            }),
+            note:e.target||'', tpGbps:monSeries(c.id+e.name,12,isLB?4:18,isLB?3:9).map(function(v){ return Math.round(v); }) });
+        });
+    });
+    return out;
+  }
+  function liveLbServices(){
+    const out=[];
+    clist().forEach(function(c){
+      const sv=svcOf(c); if(!sv) return;
+      (sv.entries||[]).forEach(function(e){
+        out.push({ tenantId:c.tenant_id, ns:e.type==='Ingress'?'ingress-nginx':'kube-system',
+          name:e.name, ports:(e.ports||[]).map(function(p){ return p+'/TCP'; }).join(', ')||'—',
+          phase:e.state==='active'?'writeback':'ensure',
+          vip:e.type==='DNS'?e.target:e.vip_or_host,
+          createdAt:(c.created_at||'').slice(0,10),
+          annotation:'nocp.skt/type: '+e.type });
+      });
+    });
+    return out;
+  }
+  function liveDnsRecords(){
+    const out=[];
+    clist().forEach(function(c){
+      const sv=svcOf(c); if(!sv) return;
+      (sv.entries||[]).filter(function(e){ return e.type==='DNS'; }).forEach(function(e){
+        out.push({ tenantId:c.tenant_id, fqdn:e.vip_or_host, type:'A', target:e.target,
+          ttl:300, source:'NOCP M6(K8sMgr) — cluster API VIP' });
+      });
+    });
+    return out;
+  }
+  const liveDnsPolicy={
+    provider:'NOCP fake DNS (zone: k8s.neocloud.skt)',
+    flags:['--source=cluster-services (NOCP M6)','--domain-filter=k8s.neocloud.skt',
+           '--policy=upsert-only','--txt-owner-id=nocp-k8smgr'],
+    gate:'NOCP가 클러스터 서비스 엔트리 기반으로 레코드를 발행한다 — GET /k8s/clusters/{id}/services (live)',
+    admission:'클러스터 FQDN은 <cluster>.k8s.neocloud.skt 패턴 강제 (NOCP 계약)',
+  };
+  function liveIngressControllers(){
+    const out=[];
+    clist().forEach(function(c){
+      const sv=svcOf(c); if(!sv) return;
+      (sv.entries||[]).filter(function(e){ return e.type==='Ingress'; }).forEach(function(e){
+        out.push({ tenantId:c.tenant_id, name:'ingress-nginx', cls:'nginx',
+          replicas:'2 / HPA 2–4', vip:e.vip_or_host, version:'1.12.1' });
+      });
+    });
+    return out;
+  }
+  function liveIngresses(){
+    const out=[];
+    clist().forEach(function(c){
+      const sv=svcOf(c); if(!sv) return;
+      (sv.entries||[]).filter(function(e){ return e.type==='Ingress'; }).forEach(function(e){
+        out.push({ tenantId:c.tenant_id, ns:'ingress-nginx', name:e.name,
+          host:(c.name||c.id)+'.k8s.neocloud.skt', path:'/', backend:e.target||'—', tls:'—' });
+      });
+    });
+    return out;
+  }
+
+  /* ── 스토리지 ────────────────────────────────────────────── */
+  function liveStorage(){
+    return clist().map(function(c){
+      const vs=snap('sto:'+c.id, CF.storage(c.id)).data||[];
+      const cap=vs.reduce(function(s,v){ return s+(v.capacity_tb||0); },0);
+      const used=vs.reduce(function(s,v){ return s+(v.used_tb||0); },0);
+      return { tenantId:c.tenant_id, vendor:'VAST Data (NFSoRDMA · fake-vast)',
+        gds:vs.some(function(v){ return v.gds; }), capacityTB:cap, usedTB:Math.round(used),
+        volumes:vs.map(function(v){
+          return { pvc:v.pvc, ns:v.namespace, mode:v.mode, sizeTB:v.capacity_tb,
+                   gds:!!v.gds, sc:v.storage_class }; }) };
+    });
+  }
+
+  /* ── Overview 보조 ───────────────────────────────────────── */
+  function liveAttention(){
+    const out=[], names=tenantNameMap();
+    liveSentinel().forEach(function(e){
+      if(e.isFatal) out.push({ sev:'critical',
+        txt:e.errorCode[0]+' — '+e.node+' quarantine ('+(names[e.tenantId]||e.tenantId)+')',
+        link:'#/k8s/sentinel' });
+    });
+    liveJobs().forEach(function(j){
+      if(j.progress<100) out.push({ sev:'info',
+        txt:'설치 진행 중 — '+j.title+' ('+j.progress+'%)', link:'#/k8s/workflow' });
+    });
+    liveUpgrades().forEach(function(u){
+      if(u._up) out.push({ sev:'warning',
+        txt:'업그레이드 롤링 중 — '+(names[u.tenantId]||u.tenantId)+' '+u.current+' → '+u.target,
+        link:'#/k8s/upgrade' });
+      else if(u._target) out.push({ sev:'info',
+        txt:'업그레이드 가능 — '+(names[u.tenantId]||u.tenantId)+' '+u.current+' → '+u._target,
+        link:'#/k8s/upgrade' });
+    });
+    liveCves().forEach(function(c){
+      if(c.sev==='Critical'&&c.affected.length) out.push({ sev:'warning',
+        txt:c.id+' — '+c.comp+' (영향 '+c.affected.length+' 클러스터)', link:'#/k8s/upgrade' });
+    });
+    return out.length?out:[{ sev:'info', txt:'주의 필요 항목 없음 — 전 클러스터 정상 (NOCP live)', link:'#/k8s/overview' }];
+  }
+
+  /* ── DS 인터페이스 ───────────────────────────────────────── */
   const DS={
-    mode:mode, isLive:isLive,
+    mode:mode, isLive:isLive, invalidate:invalidate,
     tenants(){ return isLive()? liveTenants() : RAW.tenants; },
     tenant(id){
-      if(isLive()){ const t=liveTenants().find(function(x){ return x.id===id; }); if(t) return t; }
+      if(isLive()){
+        const ts=liveTenants();
+        const t=ts.find(function(x){ return x.id===id||(x._cluster&&x._cluster.id===id); });
+        if(t) return t;
+      }
       return RAW.tenants.find(function(t){ return t.id===id; });
     },
-    clusters(){ return isLive()? (snap('clusters').data||[]) : RAW.tenants; },
-    cluster(id){ return this.clusters().find? this.clusters().find(function(c){ return c.id===id||c.tenant_id===id; }) : null; },
+    clusters(){ return isLive()? clist() : RAW.tenants; },
+    cluster(id){ return clist().find(function(c){ return c.id===id||c.tenant_id===id; })||null; },
+    liveCluster:clusterOf,
     racks(tid){ return isLive()? liveRacks(tid) : genRacks(tid); },
     requests(){ return isLive()? liveRequests() : RAW.requests; },
     jobs(){ return isLive()? liveJobs() : RAW.jobs; },
     orders(){ return isLive()? (snap('orders').data||[]) : []; },
-    installs(){ return isLive()? (snap('clusters').data||[]).filter(function(c){ return c.state!=='running'; })
-                               : RAW.jobs.filter(function(j){ return j.type==='install'; }); },
-    spec(){ return isLive()? (snap('spec').data||null) : null; },
+    installs(){ return isLive()? (snap('installs').data||[]) : RAW.jobs.filter(function(j){ return j.type==='install'; }); },
+    installFor:installFor,
+    spec(){ return isLive()? specData() : null; },
+    supportedVersions(){ const s=specData(); return (s&&s.supported_versions)||[]; },
+    latestVersion:latestVersion,
     day0(){ return isLive()? liveDay0() : RAW.day0; },
+    sentinelEvents(){ return isLive()? liveSentinel() : RAW.sentinelEvents; },
+    hotSpare(){ return isLive()? liveHotSpare() : RAW.hotSpare; },
+    upgrades(){ return isLive()? liveUpgrades() : RAW.upgrades; },
+    cves(){ return isLive()? liveCves() : RAW.cves; },
+    kubeconfigs(){ return isLive()? liveKubeconfigs() : RAW.kubeconfigs; },
+    rbacRoles(){ return isLive()? liveRbacRoles() : RAW.rbacRoles; },
+    storage(){ return isLive()? liveStorage() : RAW.storage; },
+    lbVips(){ return isLive()? liveLbVips() : RAW.lbVips; },
+    lbServices(){ return isLive()? liveLbServices() : RAW.lbServices; },
+    dnsRecords(){ return isLive()? liveDnsRecords() : RAW.dnsRecords; },
+    dnsPolicy(){ return isLive()? liveDnsPolicy : RAW.dnsPolicy; },
+    ingressControllers(){ return isLive()? liveIngressControllers() : RAW.ingressControllers; },
+    ingresses(){ return isLive()? liveIngresses() : RAW.ingresses; },
+    certs(){ return isLive()? [] : RAW.certs; },
+    overview(){ return isLive()? (snap('overview').data||null) : null; },
+    attention(){ return liveAttention(); },
+    /* 클러스터 상세 보조 (live 전용 — mock은 뷰 자체 데이터 사용) */
+    clusterAddons(tid){
+      const c=clusterOf(tid); if(!c) return null;
+      return snap('ad:'+c.id, CF.addons(c.id)).data
+        || (c.addons&&c.addons.length?c.addons:null);
+    },
+    acceptance(tid){
+      const c=clusterOf(tid); if(!c) return null;
+      return snap('acc:'+c.id, CF.acceptance(c.id)).data||c.acceptance||null;
+    },
+    nodepools(tid){
+      const c=clusterOf(tid); if(!c) return null;
+      return snap('np:'+c.id, CF.nodepools(c.id)).data;
+    },
+    nodes(tid){
+      const c=clusterOf(tid); if(!c) return null;
+      return snap('nodes:'+c.id, CF.nodes(c.id)).data;
+    },
+    clusterEvents(tid){
+      const c=clusterOf(tid); if(!c) return null;
+      const hist=(c.history||[]).slice(-6).reverse().map(function(h){
+        return ['Normal', h.state, 'nocp-m6', c.id, h.detail, fmtTs(h.at).slice(5)];
+      });
+      const conds=(c.conditions||[]).slice(0,3).map(function(cd){
+        return [cd.result==='PASS'?'Normal':'Warning', cd.check, 'acceptance', c.id, cd.detail, fmtTs(cd.at).slice(5)];
+      });
+      return hist.concat(conds);
+    },
+    metrics(tid){
+      const c=clusterOf(tid); if(!c) return null;
+      return snap('met:'+c.id, CF.metrics(c.id), true).data;
+    },
+    metricsRefresh(tid){
+      const c=clusterOf(tid); if(!c) return;
+      const key='met:'+c.id; if(cache[key]) cache[key].at=0;
+      snap(key, CF.metrics(c.id), true);
+    },
+    optionalCatalog(){
+      return [
+        { name:'kube-prometheus-stack', desc:'모니터링 — Prometheus·Grafana (DCGM 대시보드)' },
+        { name:'kueue', desc:'배치 잡 큐잉 — GPU 쿼터·우선순위 스케줄링' },
+        { name:'volcano', desc:'갱 스케줄링 — 분산 학습 잡 동시 기동' },
+        { name:'vast-csi', desc:'VAST CSI — RWX PVC·GDS 경로' },
+      ];
+    },
+    /* Day-2 설치 대상 — delivered 주문의 allocation 중 미설치분 */
+    allocOptions(){
+      const os=snap('orders').data||[], names=tenantNameMap();
+      const taken={};
+      clist().forEach(function(c){
+        if(c.allocation_id&&c.state!=='deleted'&&c.state!=='failed') taken[c.allocation_id]=1; });
+      const out=[];
+      os.filter(function(o){ return o.state==='delivered'; }).forEach(function(o){
+        (o.allocation_ids||[]).forEach(function(a){
+          if(!taken[a]) out.push({ tenant_id:o.tenant_id, allocation_id:a, order_id:o.id,
+            racks:o.racks, label:(names[o.tenant_id]||o.tenant_id)+' · '+a+' ('+o.id+' · '+(o.racks||'?')+'랙)' });
+        });
+      });
+      return out;
+    },
   };
-  /* Phase 1 백엔드 미구현 도메인 — 항상 mock (live에서는 패널 뱃지로 구분) */
-  ['systemNs','lifecycleSteps','lbVips','lbServices','dnsRecords','dnsPolicy',
-   'ingressControllers','ingresses','certs','kubeconfigs','rbacRoles','upgrades','cves',
-   'sentinelEvents','sentinelModules','hotSpare','storage','logs'
+  /* Phase 3에서도 mock 유지 도메인 (정책/문서성 콘텐츠) */
+  ['systemNs','lifecycleSteps','sentinelModules','logs'
   ].forEach(function(k){ DS[k]=function(){ return RAW[k]; }; });
+
+  /* ── 액션 (live REST — 에러는 {error}로 반환) ────────────── */
+  DS.api={
+    install:function(tid,aid,ver){
+      return restJson(V+'/k8s/installs','POST',{tenant_id:tid,allocation_id:aid,k8s_version:ver}); },
+    addonAdd:function(cid,name){
+      return restJson(`${V}/k8s/clusters/${cid}/addons`,'POST',{name:name}); },
+    issueKubeconfig:function(cid,role,ttl_h){
+      return restJson(`${V}/k8s/clusters/${cid}/kubeconfigs`,'POST',{role:role,ttl_h:ttl_h}); },
+    revokeKubeconfig:function(cid,kid){
+      return restJson(`${V}/k8s/clusters/${cid}/kubeconfigs/${kid}`,'DELETE'); },
+    upgrade:function(cid,target){
+      return restJson(`${V}/k8s/clusters/${cid}/upgrades`,'POST',{target_version:target}); },
+  };
 
   /* NEOCLOUD_DATA 대체 파사드 — 기존 뷰의 `D.x` 접근을 게터로 관통 */
   const facade={};
@@ -888,49 +1304,8 @@ const DS=(function(){
     window.NC.bus.on('mk8s-mode',function(){ invalidate(); rerender(); });
   }
 
-  /* ── LIVE 미지원 패널 뱃지 — live 모드에서만 DOM 장식 (mock 픽셀 무변화) ── */
-  function naChip(txt){
-    const s=document.createElement('span');
-    s.className='badge b-gray mk8s-na';
-    s.textContent=txt||'LIVE 미지원 · 백엔드 미구현 (mock 표시)';
-    s.style.cssText='margin-left:auto;flex:none;opacity:.85;border:1px dashed var(--line)';
-    return s;
-  }
-  function badgeCards(scope){
-    scope.querySelectorAll('.card-h').forEach(function(h){
-      if(!h.querySelector('.mk8s-na')) h.appendChild(naChip());
-    });
-    scope.querySelectorAll('.card.kpi').forEach(function(k){
-      if(k.querySelector('.mk8s-na')) return;
-      const c=naChip('LIVE 미지원'); c.style.cssText+=';align-self:flex-start;margin:6px 0 0;font-size:9.5px';
-      k.appendChild(c);
-    });
-  }
-  DS.decorate=function(main, route){
-    if(!isLive()||!main) return;
-    const h=(route||'').split('?')[0], seg=h.split('/');
-    const view=seg[2]||'overview', s3=seg[3]||'', s4=seg[4]||'';
-    if(view==='overview'){
-      const kpi=main.querySelectorAll('.card.kpi');
-      if(kpi[3]&&!kpi[3].querySelector('.mk8s-na')){
-        const c=naChip('LIVE 미지원'); c.style.cssText+=';align-self:flex-start;margin:6px 0 0;font-size:9.5px';
-        kpi[3].appendChild(c);
-      }
-      main.querySelectorAll('.card-h').forEach(function(x){
-        if(/주의 필요/.test(x.textContent)&&!x.querySelector('.mk8s-na')) x.appendChild(naChip());
-      });
-    } else if(view==='workflow'||view==='settings'){
-      /* live 데이터 기반 — 뱃지 없음 */
-    } else if(view==='clusters'){
-      if(s3==='new'||s4){ badgeCards(main); }              /* 설치 마법사 · 진행/검증 화면 */
-      else if(s3){                                          /* 클러스터 상세 — 개요 탭만 live */
-        const tab=(App.state.params&&App.state.params.tab)||'overview';
-        if(tab!=='overview') badgeCards(main);
-      }
-    } else {
-      badgeCards(main);   /* networking · access · upgrade · sentinel · storage · monitoring */
-    }
-  };
+  /* Phase 3: 전 뷰 live 연동 완료 — 패널 뱃지 장식은 더 이상 필요 없음 */
+  DS.decorate=function(){};
   return DS;
 })();
 
@@ -1098,7 +1473,7 @@ const App={
         <div class="logo"><span class="dot"></span>NeoCloud <small>Operations Portal</small></div>
         <div class="gsearch">🔍 <input placeholder="테넌트, 클러스터, 노드, VIP 검색…"></div>
         <div class="spacer"></div>
-        <button class="btn btn-sm tip" data-tip="승인/설치/발급 등 데모 중 변경한 상태를 모두 초기화" onclick="App.resetDemo()">↺ 데모 리셋</button>
+        <button id="demo-reset-btn" class="btn btn-sm tip" data-tip="승인/설치/발급 등 데모 중 변경한 상태를 모두 초기화" onclick="App.resetDemo()">↺ 데모 리셋</button>
         <button class="bell" title="알림">🔔<span class="n">3</span></button>
         <div class="roleswitch" id="roleswitch">
           <button data-r="admin" class="on">관리자</button><button data-r="operator">운영자</button>
@@ -1183,6 +1558,9 @@ const App={
     if(m){ this.state.params=m.params; main.innerHTML=''; m.fn(main, m.params); }
     else renderPlaceholder(main, hash);
     main.scrollTop=0;
+    /* 데모 리셋 버튼 — mock 전용 (live 데이터는 NOCP가 소유 · 리셋 대상 아님) */
+    const drb=document.getElementById('demo-reset-btn');
+    if(drb) drb.style.display=(typeof DS!=='undefined'&&DS.isLive&&DS.isLive())?'none':'';
     if(typeof DS!=='undefined'&&DS.decorate) DS.decorate(main, hash);
   },
 };
@@ -1209,12 +1587,13 @@ App.register('#/k8s/overview', function(elm){
   const totalRacks=D.tenants.reduce((s,t)=>s+t.racks,0);
   const totalGpus=D.tenants.reduce((s,t)=>s+t.gpus,0);
 
+  const ov=DS.isLive()?DS.overview():null;
   const kpis=`
     <div class="grid" style="grid-template-columns:repeat(4,1fr)">
       <div class="card kpi"><span class="v">${totalRacks.toLocaleString()} <span class="muted" style="font-size:14px">racks</span></span>
-        <span class="l">Vera Rubin NVL72 총 할당</span><span class="d muted">테넌트 5 × 100랙 · GPU ${totalGpus.toLocaleString()}기</span></div>
+        <span class="l">Vera Rubin NVL72 총 할당</span><span class="d muted">${ov?'클러스터 '+ov.clusters_total+' (NOCP live)':'테넌트 5 × 100랙'} · GPU ${totalGpus.toLocaleString()}기</span></div>
       <div class="card kpi"><span class="v" style="color:var(--green)">${activeTenants} / ${D.tenants.length}</span>
-        <span class="l">Active 테넌트</span><span class="d muted">Provisioning 1 · Requested 1 · Retiring 1</span></div>
+        <span class="l">Active 테넌트</span><span class="d muted">${ov?'active '+ov.by_state.active+' · installing '+ov.by_state.installing+' · 설치 작업 '+ov.installs_active+' · 업그레이드 '+ov.upgrades_active:'Provisioning 1 · Requested 1 · Retiring 1'}</span></div>
       <div class="card kpi"><span class="v" style="color:var(--amber)">${pendingReqs}</span>
         <span class="l">미처리 요청 (Biz. 포털)</span><span class="d"><a href="#/k8s/workflow">요청·작업 보드 →</a></span></div>
       <div class="card kpi"><span class="v" style="color:var(--red)">${critAlarms}</span>
@@ -1243,7 +1622,7 @@ App.register('#/k8s/overview', function(elm){
       </div></div>`;
   };
 
-  const attention=[
+  const attention=DS.isLive()?DS.attention():[
     { sev:'critical', txt:'XID 79 — vr72-a-017-t09 (CLAUDE) remediation 진행 중', link:'#/k8s/sentinel' },
     { sev:'warning',  txt:'kubeconfig 만료 임박 — 최수아 (CLAUDE, 오늘 18:05)', link:'#/k8s/access' },
     { sev:'warning',  txt:'TLS 인증서 D-12 — api.claude.neocloud.skt.com', link:'#/k8s/networking' },
@@ -1312,7 +1691,7 @@ App.register('#/k8s/workflow', function(elm){
       <div><span class="chip">${typeChip}</span> <span class="small muted">${j.id}</span></div>
       <div><b class="small">${esc(j.title)}</b><div class="small muted">${esc(j.currentStage)}</div></div>
       <div>${bar(j.progress, j.type==='retire'?'var(--amber)':null)}</div>
-      <div class="small" style="text-align:right"><b>${j.progress}%</b> <span class="muted">(${j.racksDone}/100랙)</span></div>
+      <div class="small" style="text-align:right"><b>${j.progress}%</b> <span class="muted">${j._install?'(stage: '+(j._install.stage||'—')+')':'('+j.racksDone+'/100랙)'}</span></div>
     </div>`;
   };
 
@@ -1546,7 +1925,7 @@ function clTabOverview(box,t){
     <div class="card"><div class="card-h">클러스터 스펙 ${apiIcon('cluster-crd')}</div>
       ${kv([
         ['Control Plane','전용 3식 (16 vCPU / 64 GB) — hosted, 고객 접근 불가'],
-        ['Worker','Vera Rubin NVL72 × '+t.racks+'랙 = 1,800 트레이(노드) · GPU '+t.gpus.toLocaleString()+'기'],
+        ['Worker','Vera Rubin NVL72 × '+t.racks+'랙 = '+(t.racks*18).toLocaleString()+' 트레이(노드) · GPU '+t.gpus.toLocaleString()+'기'],
         ['Hot Spare',t.hotSpareTrays+' tray (NVSentinel 자동 투입)'],
         ['GPU 라벨','<code>nvidia.com/gpu.product: Rubin</code> · <code>topology.neocloud.skt/rack</code>'],
         ['K8s / NKD',t.k8sVersion+' / '+t.nkdVersion],
@@ -1601,10 +1980,20 @@ function clTabNodepool(box,t){
         </div></div></div>
     <div class="card"><div class="card-h">랙 (VR NVL72) <div class="right small muted">상위 12 / ${racks.length} — 전체는 모니터링 히트맵</div></div>
       <table class="table"><tr><th>랙</th><th>상태</th><th>구성</th><th colspan="2">GPU Util</th></tr>${rackRows}</table>
-      <div class="card-b small"><a href="#/k8s/monitoring/${t.id}">… 88 more — 랙 히트맵에서 전체 보기 →</a></div></div></div>`;
+      <div class="card-b small"><a href="#/k8s/monitoring/${t.id}">… ${Math.max(0,racks.length-12)} more — 랙 히트맵에서 전체 보기 →</a></div></div></div>`;
 }
 
 function clTabAddons(box,t){
+  const liveAddons=DS.isLive()?DS.clusterAddons(t.id):null;
+  if(liveAddons){
+    box.innerHTML=`<div class="card"><div class="card-h">애드온 <span class="chip">NOCP live — GET /k8s/clusters/{id}/addons</span></div>
+      <table class="table"><tr><th>이름</th><th>버전</th><th>역할</th><th>채널</th><th>상태</th></tr>
+      ${liveAddons.map(a=>`<tr><td><b>${esc(a.name)}</b></td><td class="mono">${esc(a.version||'—')}</td>
+        <td class="small">${esc(a.role||'—')}</td><td class="small muted">${esc(a.channel||'nkd-bundle')}</td>
+        <td>${badge((a.status==='installed'||a.status==='running')?'Active':'Provisioned')}</td></tr>`).join('')}
+      </table></div>`;
+    return;
+  }
   const addons=[
     ['ingress-nginx','1.13.1','L7 라우팅 · TLS 종료',t.lifecycle==='Active'?'Running':'Installing'],
     ['cert-manager','1.18.0','TLS 인증서 발급/갱신 (DNS-01)',t.lifecycle==='Active'?'Running':'Installing'],
@@ -1632,6 +2021,16 @@ function clTabAccept(box,t){
 }
 
 function clTabEvents(box,t){
+  const liveEvts=DS.isLive()?DS.clusterEvents(t.id):null;
+  if(liveEvts){
+    box.innerHTML=`<div class="card"><div class="card-h">이벤트 <span class="muted small">NOCP lifecycle · acceptance</span> <span class="chip">live</span></div>
+      <table class="table"><tr><th>Type</th><th>Reason</th><th>From</th><th>Object</th><th>Message</th><th>At</th></tr>
+      ${liveEvts.map(e=>`<tr><td>${badge(e[0]==='Warning'?'warning':'info')}</td><td class="mono small">${esc(e[1])}</td>
+        <td class="small muted">${esc(e[2])}</td><td class="mono small">${esc(e[3])}</td><td class="small">${esc(e[4])}</td><td class="small muted">${esc(e[5])}</td></tr>`).join('')
+      ||'<tr><td colspan="6" class="small muted">이벤트 없음</td></tr>'}
+      </table></div>`;
+    return;
+  }
   const evts=[
     ['Normal','NodeReady','node-controller','vr72-'+t.short+'-042-t07','Node became ready','2m'],
     ['Warning','FailedScheduling','default-scheduler','pod/vllm-inference-x1f4q','0/1800 nodes available: insufficient nvidia.com/gpu (cordoned)','6m'],
@@ -1743,6 +2142,13 @@ const WIZ={ step:1, data:{} };
 const WIZ_STEPS=['기본 정보','노드풀','네트워킹','스토리지','애드온','검토 · 실행'];
 
 App.register('#/k8s/clusters/new', function(elm, p){
+  /* live: Day-2 설치 — delivered allocation 선택 → POST /k8s/installs */
+  if(DS.isLive()){
+    if(!WIZ.data._live){
+      WIZ.step=1;
+      WIZ.data={ _live:true, allocIdx:0, k8sVersion:DS.latestVersion()||'v1.33.2', addons:[], err:null };
+    }
+  } else
   /* 승인된 요청에서 진입 시 프리필 */
   if(p.req && WIZ.data.reqId!==p.req){
     const r=DS.data().requests.find(x=>x.id===p.req);
@@ -1757,7 +2163,7 @@ App.register('#/k8s/clusters/new', function(elm, p){
         addons:['ingress-nginx','cert-manager','external-dns','NVSentinel','GPU Operator','Prometheus/Grafana/Loki'] };
     }
   }
-  if(!WIZ.data.name){
+  if(!DS.isLive() && !WIZ.data.name){
     WIZ.data={ tenantId:null, name:'', k8sVersion:'v1.33.2', zone:'AIDC-1 / Zone C', racks:100, spare:4,
       vpc:'vpc-new-01', partition:'part-new', suffix:'<tenant>.neocloud.skt.com',
       endpoint:'k8s-new.api.neocloud.skt.com:6443', allow:'',
@@ -1783,9 +2189,29 @@ App.register('#/k8s/clusters/new', function(elm, p){
   wizBody();
 });
 function wizGo(n){ wizSave(); WIZ.step=Math.max(1,Math.min(6,n)); App.render(); }
+/* live: 설치 완료 대기 후 선택 애드온 POST (running 전이 시까지 재시도) */
+function wizApplyAddons(tid, names, tries){
+  const c=DS.liveCluster(tid);
+  if(c && c.state==='running'){
+    names.forEach(function(n){
+      DS.api.addonAdd(c.id, n).then(function(r){
+        toast(r&&r.error?('애드온 '+n+' — '+r.error):('애드온 추가 완료 — '+n));
+      });
+    });
+    return;
+  }
+  if(tries>0) setTimeout(function(){ wizApplyAddons(tid, names, tries-1); }, 3000);
+  else toast('선택 애드온 적용 보류 — 클러스터 active 전이 확인 후 애드온 탭에서 추가');
+}
 function wizSave(){
   const g=id=>document.getElementById(id);
   const d=WIZ.data;
+  if(d._live){
+    if(g('wl-alloc')) d.allocIdx=+g('wl-alloc').value;
+    if(g('wl-ver')) d.k8sVersion=g('wl-ver').value;
+    if(document.querySelector('.w-addon')) d.addons=[...document.querySelectorAll('.w-addon:checked')].map(c=>c.value);
+    return;
+  }
   if(g('w-name')) { d.name=g('w-name').value; d.k8sVersion=g('w-ver').value; d.zone=g('w-zone').value; }
   if(g('w-racks')) { d.racks=+g('w-racks').value; d.spare=+g('w-spare').value; }
   if(g('w-vpc')) { d.vpc=g('w-vpc').value; d.partition=g('w-part').value; d.suffix=g('w-suffix').value; d.endpoint=g('w-ep').value; d.allow=g('w-allow').value; }
@@ -1796,6 +2222,7 @@ function wizBody(){
   const d=WIZ.data, box=document.getElementById('wiz-body');
   const F=(label,inner,hint)=>`<div style="margin-bottom:14px"><label class="small" style="font-weight:700;display:block;margin-bottom:5px">${label}</label>${inner}${hint?`<div class="small muted" style="margin-top:4px">${hint}</div>`:''}</div>`;
   const inp=(id,val,mono)=>`<input id="${id}" value="${esc(val)}" style="width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:6px${mono?';font-family:var(--mono);font-size:12px':''}">`;
+  if(d._live){ wizBodyLive(box, d, F); return; }
   if(WIZ.step===1){
     box.innerHTML=`<div class="grid" style="grid-template-columns:1fr 1fr">
       <div>${F('클러스터 이름', inp('w-name',d.name,true),'테넌트 ID와 동일 권장 (one-tenant-per-cluster)')}
@@ -1850,9 +2277,73 @@ function wizBody(){
       </div></div>`;
   }
 }
+/* ── live 위저드 본문 — Day-2 설치 (NOCP 계약: tenant/allocation/version) ── */
+function wizBodyLive(box, d, F){
+  const sel=(id,opts,cur)=>`<select id="${id}" style="width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:6px">${opts.map(o=>`<option value="${esc(o.v)}" ${o.v===cur?'selected':''}>${esc(o.l)}</option>`).join('')}</select>`;
+  const allocs=DS.allocOptions();
+  const a=allocs[Math.min(d.allocIdx||0, Math.max(0,allocs.length-1))];
+  const vers=DS.supportedVersions();
+  const err=d.err?`<div class="card" style="background:var(--red-soft,rgba(240,80,100,.12));border-color:transparent;margin-bottom:12px"><div class="card-b small">⛔ <b>설치 요청 거절 (NOCP)</b> — ${esc(d.err)}</div></div>`:'';
+  if(WIZ.step===1){
+    box.innerHTML=allocs.length?err+`<div class="grid" style="grid-template-columns:1fr 1fr">
+      <div>${F('대상 allocation (delivered · K8s 미설치)', sel('wl-alloc', allocs.map((o,i)=>({v:String(i),l:o.label})), String(d.allocIdx||0)),'BMaaS 개통 완료(delivered) 주문의 allocation만 표시 — Day-2 애드온 설치')}
+      ${F('Kubernetes 버전 (N/N-1)', sel('wl-ver', vers.map(v=>({v:v,l:v})), d.k8sVersion),'NOCP /k8s/spec supported_versions')}</div>
+      <div>${F('테넌트', `<div class="chip" style="padding:8px 12px">${a?esc(a.tenant_id):'—'}</div>`)}
+      ${F('클러스터 이름 (자동)', `<div class="chip mono" style="padding:8px 12px">${a?esc(a.tenant_id+'-mk8s'):'—'}</div>`,'one-tenant-per-cluster — NOCP가 명명')}</div></div>`
+    :err+`<div class="card"><div class="empty"><div class="big">📦</div><b>설치 가능한 allocation 없음</b>
+      <p class="muted small" style="margin-top:6px">delivered 상태이면서 Managed K8s가 아직 없는 allocation이 필요합니다.</p></div></div>`;
+  } else if(WIZ.step===2){
+    box.innerHTML=err+`
+      ${F('Control Plane','<div class="chip" style="padding:8px 12px">전용 3식 — CPU 노드 풀에서 NICo(DPU isolation) 경유 할당</div>','부족 시 NOCP가 409 (insufficient CPU pool) 반환')}
+      ${F('GPU Worker','<div class="chip" style="padding:8px 12px">'+(a?('allocation '+a.allocation_id+' — '+(a.racks||'?')+'랙 (Reserved 계약 수량 · 변경 불가)'):'—')+'</div>','delivered BMaaS 트레이 전체가 gpu-worker로 join')}`;
+  } else if(WIZ.step===3){
+    box.innerHTML=err+`
+      ${F('API VIP','<div class="chip mono" style="padding:8px 12px">kube-vip — Converged Network 상 자동 할당</div>','CP 3노드 L2/ARP · 설치 net-attach 스테이지에서 확정')}
+      ${F('DNS','<div class="chip mono" style="padding:8px 12px">&lt;cluster&gt;.k8s.neocloud.skt → API VIP</div>','NOCP fake DNS zone (live)')}`;
+  } else if(WIZ.step===4){
+    box.innerHTML=err+`
+      ${F('스토리지','<div class="chip" style="padding:8px 12px">VAST NFSoRDMA 뷰 자동 mount + GDS 경로 검증</div>','acceptance storage-mount 체크로 검증됨')}`;
+  } else if(WIZ.step===5){
+    const managed=(DS.spec()&&DS.spec().managed_addons)||[];
+    const cat=DS.optionalCatalog();
+    box.innerHTML=err+`
+      <p class="small muted" style="margin-bottom:10px">관리형 애드온 ${managed.length}종은 설치 파이프라인이 자동 배포 — 아래는 <b>선택 애드온</b> (설치 완료 후 POST /addons)</p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${managed.map(m=>`<span class="chip">${esc(m.name)} ${esc(m.version||'')}</span>`).join('')}</div>
+      <div class="grid" style="grid-template-columns:1fr 1fr">${cat.map(c=>`
+        <label class="card" style="display:flex;gap:10px;padding:12px 14px;cursor:pointer;box-shadow:none">
+          <input type="checkbox" class="w-addon" value="${esc(c.name)}" ${d.addons.includes(c.name)?'checked':''}>
+          <div><b class="small">${esc(c.name)}</b><div class="small muted">${esc(c.desc)}</div></div></label>`).join('')}</div>`;
+  } else {
+    box.innerHTML=err+`<table class="table">
+      ${[['대상', a?esc(a.label):'—'],
+        ['버전',`<code>${esc(d.k8sVersion)}</code> · NKD ${(DS.spec()||{}).nkd_version||'—'}`],
+        ['선택 애드온', d.addons.length?d.addons.map(x=>`<span class="chip">${esc(x)}</span>`).join(' '):'<span class="muted">없음</span>'],
+        ['API 호출','<code>POST /api/v1/k8s/installs</code> {tenant_id, allocation_id, k8s_version}'],
+      ].map(([k,v])=>`<tr><td class="muted" style="width:110px">${k}</td><td>${v}</td></tr>`).join('')}</table>
+      <div class="card" style="margin-top:14px;background:var(--accent-soft);border-color:transparent"><div class="card-b small">
+        실행 시 NOCP 설치 saga 8단계: cp-reserve → os-provision → net-attach → nkd-bootstrap → addons → acceptance → telemetry → active. 진행 화면에서 2~3s 폴링으로 관찰합니다.
+      </div></div>`;
+  }
+}
 function wizSubmit(){
   wizSave();
   const d=WIZ.data;
+  if(d._live){
+    const allocs=DS.allocOptions();
+    const a=allocs[Math.min(d.allocIdx||0, Math.max(0,allocs.length-1))];
+    if(!a){ toast('설치 가능한 allocation 없음'); return; }
+    d.err=null;
+    toast('설치 요청 전송 — POST /k8s/installs ('+a.tenant_id+' · '+a.allocation_id+')');
+    DS.api.install(a.tenant_id, a.allocation_id, d.k8sVersion).then(function(r){
+      if(r&&r.error){ d.err=r.error; App.render(); toast('설치 거절 — NOCP 응답 확인'); return; }
+      const pending=d.addons.slice();
+      if(pending.length) wizApplyAddons(a.tenant_id, pending, 40);
+      WIZ.data={};
+      DS.invalidate();
+      App.navigate('#/k8s/clusters/'+a.tenant_id+'/progress');
+    });
+    return;
+  }
   if(d.tenantId){
     const t=DS.data().tenant(d.tenantId);
     t.lifecycle='Reserved'; t.note='설치 파이프라인 시작됨';
@@ -1897,7 +2388,7 @@ App.register('#/k8s/clusters/:tenantId/progress', function(elm, p){
           ${job.stages.map(s=>`<div class="tl-item ${s.status}">
             <b>${esc(s.name)}</b><div class="small muted">${s.at||'대기'}</div></div>`).join('')}
         </div></div></div>
-        <div class="card"><div class="card-h">${isRetire?'Secure Erase':'랙 Batch'} 진행 <div class="right small muted">${job.racksDone}/100랙 (${job.progress}%)</div></div>
+        <div class="card"><div class="card-h">${isRetire?'Secure Erase':(job._install?'설치 saga':'랙 Batch')} 진행 <div class="right small muted">${job._install?(job.progress+'% · stage: '+(job._install.stage||'—')):(job.racksDone+'/100랙 ('+job.progress+'%)')}</div></div>
           <div class="card-b"><div class="batchgrid">${cells}</div>
           <div style="margin-top:10px">${bar(job.progress, isRetire?'var(--amber)':null)}</div></div></div>
       </div>
@@ -1905,7 +2396,7 @@ App.register('#/k8s/clusters/:tenantId/progress', function(elm, p){
         <div class="logctl">
           <b>${isRetire?'wipe.log':'nkd-installer.log'}</b>
           <span class="switch on" onclick="this.classList.toggle('on');progressLog('${t.id}',${isRetire},this.classList.contains('on'))"><span class="tr"></span> follow</span>
-          <span class="muted mono" style="margin-left:auto">tail -f · ${isRetire?'secure-erase':'batch '+Math.ceil((job.racksDone+1)/6)+'/17'}</span>
+          <span class="muted mono" style="margin-left:auto">tail -f · ${isRetire?'secure-erase':(job._install?('saga '+(job._install.stage||'—')):'batch '+Math.ceil((job.racksDone+1)/6)+'/17')}</span>
         </div>
         <div class="logbox" id="prog-log" style="flex:1"></div>
       </div>
@@ -1914,6 +2405,16 @@ App.register('#/k8s/clusters/:tenantId/progress', function(elm, p){
 });
 function progressLog(tenantId, isRetire, follow){
   const box=document.getElementById('prog-log'); if(!box) return;
+  if(DS.isLive()&&!isRetire){
+    const j=DS.installFor(tenantId);
+    if(j&&j._install){
+      const lines=(j._install.stages||[]).map(s=>
+        `[nocp] ${(s.ts||'').slice(11,19)||'--:--:--'} stage ${s.name} — ${s.status}`);
+      lines.unshift(`[nocp] install ${j._install.install_id} · ${j._install.k8s_version} · allocation ${j._install.allocation_id||'-'}`);
+      startLogStream(box, lines, {follow, tail:60});
+      return;
+    }
+  }
   startLogStream(box, DS.data().logs[isRetire?'wipe':'installer'], {follow, tail:60});
 }
 
@@ -1926,6 +2427,22 @@ const ACCEPTANCE={
 };
 function renderAcceptance(box, tenantId, opts={}){
   const t=DS.data().tenant(tenantId);
+  const liveAcc=DS.isLive()?DS.acceptance(tenantId):null;
+  if(liveAcc){
+    const pass=liveAcc.status==='pass';
+    box.innerHTML=`
+      <div class="card" style="background:${pass?'var(--green-soft)':'var(--amber-soft)'};border-color:transparent;margin-bottom:14px"><div class="card-b" style="display:flex;align-items:center;gap:14px">
+        <span style="font-size:26px">${pass?'✅':'⚠️'}</span><div><b>Acceptance 종합 ${(liveAcc.status||'').toUpperCase()}</b>
+        <div class="small muted">${esc(t?t.company:tenantId)} · 리포트 ${(liveAcc.report_ts||'').slice(0,19).replace('T',' ')} · NOCP live — GET /k8s/clusters/{id}/acceptance</div></div>
+      </div></div>
+      <div class="card"><div class="card-h">검증 체크 (${(liveAcc.checks||[]).length})</div>
+        <table class="table"><tr><th>체크</th><th>판정</th><th>측정값</th><th>상세</th></tr>
+        ${(liveAcc.checks||[]).map(c=>`<tr><td class="mono small"><b>${esc(c.name)}</b></td>
+          <td>${c.status==='pass'?'<span class="badge b-green">✓ PASS</span>':'<span class="badge b-red">FAIL</span>'}</td>
+          <td class="mono small">${esc(c.value||'—')}</td><td class="small">${esc(c.detail||'')}</td></tr>`).join('')}
+        </table></div>`;
+    return;
+  }
   const sec=(title,head,rows)=>`<div class="card" style="box-shadow:none;margin-bottom:12px"><div class="card-h small">${title}</div>
     <table class="table"><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr>
     ${rows.map(r=>`<tr>${r.map((c,i)=>`<td class="${i===r.length-1?'ok':''} small">${c==='PASS'?'✓ PASS':c}</td>`).join('')}</tr>`).join('')}</table></div>`;
@@ -2392,7 +2909,8 @@ function nsScopeChips(k){
 function accTabIssued(box){
   const roleChip=r=>({'skt-admin':'<span class="chip" style="background:#3a1a20;color:#f0a3b0">SKT Admin</span>',
     'tenant-operator':'<span class="chip" style="background:#3a2f12;color:#e8c66a">Tenant-operator</span>',
-    'tenant-user':'<span class="chip" style="background:#152a40;color:#9fd0ff">Tenant-user</span>'}[r]);
+    'tenant-user':'<span class="chip" style="background:#152a40;color:#9fd0ff">Tenant-user</span>'}[r]
+    ||('<span class="chip" style="background:#152a40;color:#9fd0ff">'+esc(r)+'</span>'));
   const rows=DS.data().kubeconfigs.map((k,i)=>{
     const t=DS.data().tenant(k.tenantId);
     const dim=k.status==='revoked'||k.status==='expired';
@@ -2422,6 +2940,7 @@ function accTabIssued(box){
 
 /* 사용자별 kubeconfig 본문 생성 (개인키는 발급 시 1회만 노출 — 서버 미보관) */
 function kubeconfigText(k, showKey){
+  if(k._yaml) return `# NOCP live — ${k._kid} · serial ${k._rawSerial} · TTL ${k.ttl}\n`+k._yaml;
   const t=DS.data().tenant(k.tenantId);
   const short=k.tenantId.replace('tenant-','');
   const orgs = k.role==='tenant-user' ? (k.nsScope||['default']).map(ns=>'tenant-user-'+ns)
@@ -2456,6 +2975,18 @@ function accViewKubeconfig(i){
 }
 function accReissue(i){
   const k=DS.data().kubeconfigs[i];
+  if(k&&k._kid){                                  /* live: 동일 role/TTL 신규 발급 */
+    DS.api.issueKubeconfig(k._cid, k.role, parseInt(k.ttl)||12).then(function(r){
+      if(r&&r.error){ toast('재발급 실패 — '+r.error); return; }
+      DS.invalidate(); App.render();
+      openModal(`재발급 완료 — ${esc(r.kubeconfig_id)} <span class="chip mono">${esc(r.serial)}</span>`,
+        codeBlock('kubeconfig ('+r.kubeconfig_id+') — NOCP live', r.kubeconfig_yaml||'')+
+        `<p class="small muted">기존 인증서(${esc(k._kid)})는 남은 TTL 동안 유효 — 필요 시 회수로 폐기하세요.</p>`,
+        `<button class="btn" onclick="closeModal()">닫기</button>`);
+      toast('Vault PKI 재발급 완료 (live) — '+r.kubeconfig_id);
+    });
+    return;
+  }
   k.issuedAt='2026-07-09 14:30'; k.expiresAt='2026-07-12 14:30'; k.status='active';
   k.serial=Array.from({length:6},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join(':');
   App.render();
@@ -2481,13 +3012,25 @@ function accRevoke(i){
 }
 function accRevokeExec(i){
   const k=DS.data().kubeconfigs[i];
+  if(k&&k._kid){                                  /* live: DELETE — CRL 등재 */
+    DS.api.revokeKubeconfig(k._cid, k._kid).then(function(r){
+      closeModal();
+      if(r&&r.error){ toast('회수 실패 — '+r.error); return; }
+      DS.invalidate(); App.render();
+      toast('회수 완료 (live) — '+k._kid+' · serial CRL 등재');
+    });
+    return;
+  }
   k.status='revoked'; closeModal(); toast(`회수 완료 — ${k.user} (RoleBinding 삭제 + 회전 중단)`); App.render();
 }
 
 /* ---------- 발급 마법사 (모달 3단계) ---------- */
 function issueOpen(tenantId){
-  ISSUE.step=1; ISSUE.tenantId=tenantId||'tenant-alpha'; ISSUE.role='tenant-user'; ISSUE.ttl='72h'; ISSUE.user='';
-  ISSUE.nsScope=['default'];
+  const live=DS.isLive();
+  ISSUE.step=1;
+  ISSUE.tenantId=tenantId||(live?((DS.data().tenants[0]||{}).id||null):'tenant-alpha');
+  ISSUE.role=live?(((DS.data().rbacRoles[0]||{}).id)||'edit'):'tenant-user';
+  ISSUE.ttl=live?'12h':'72h'; ISSUE.user=''; ISSUE.nsScope=['default']; ISSUE._issued=null;
   issueRender();
 }
 function issueToggleNs(ns){
@@ -2556,19 +3099,39 @@ function issueRender(){
     foot=`<button class="btn" onclick="ISSUE.step=2;issueRender()">← 이전</button>
       <button class="btn btn-primary" onclick="issueExec()">🔐 Vault PKI 발급</button>`;
   } else {
+    const iss=ISSUE._issued;
     body=`<div style="text-align:center;padding:12px 0">
-      <div style="font-size:40px">✅</div><h3 style="margin:8px 0">발급 완료</h3>
-      <p class="small muted">인증서 serial <code>9a:1f:44:b8:2e:63</code> · 만료 ${ISSUE.ttl} 후 (자동 회전 등록됨)</p>
+      <div style="font-size:40px">✅</div><h3 style="margin:8px 0">발급 완료${iss?' (NOCP live)':''}</h3>
+      <p class="small muted">인증서 serial <code>${iss?esc(iss.serial):'9a:1f:44:b8:2e:63'}</code> · 만료 ${ISSUE.ttl} 후${iss?' · '+esc(iss.kubeconfig_id):' (자동 회전 등록됨)'}</p>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
-        <button class="btn btn-primary" onclick="toast('kubeconfig-${ISSUE.tenantId}.yaml 다운로드 (mock)')">⬇ kubeconfig 다운로드</button>
-        <button class="btn" onclick="toast('고객포탈 보안 전달함으로 발송 (mock)')">고객포탈로 전달</button>
+        ${iss?`<button class="btn btn-primary" onclick="issueShowYaml()">⬇ kubeconfig 보기 (1회)</button>`
+             :`<button class="btn btn-primary" onclick="toast('kubeconfig-${ISSUE.tenantId}.yaml 다운로드 (mock)')">⬇ kubeconfig 다운로드</button>`}
+        <button class="btn" onclick="toast('고객포탈 보안 전달함으로 발송 ${iss?'(live 데모)':'(mock)'}')">고객포탈로 전달</button>
         <button class="btn" onclick="openApiPanel('kubeconfig-yaml')">파일 구조 보기</button>
       </div></div>`;
     foot=`<button class="btn" onclick="closeModal();App.render()">닫기</button>`;
   }
   openModal(`kubeconfig 발급 <span class="chip">step ${Math.min(ISSUE.step,3)}/3</span>`, body, foot);
 }
+function issueShowYaml(){
+  const iss=ISSUE._issued; if(!iss) return;
+  openModal(`kubeconfig — ${esc(iss.kubeconfig_id)} <span class="chip mono">${esc(iss.serial)}</span>`,
+    codeBlock('kubeconfig ('+iss.kubeconfig_id+') — NOCP live', iss.kubeconfig_yaml||'')+
+    `<p class="small muted">OIDC exec-plugin 방식 — issuer는 테넌트 realm. 이 본문은 발급 응답에서 1회 제공.</p>`,
+    `<button class="btn" onclick="closeModal();App.render()">닫기</button>`);
+}
 function issueExec(){
+  if(DS.isLive()){
+    const t=DS.data().tenant(ISSUE.tenantId);
+    const c=t&&t._cluster? t._cluster : DS.liveCluster(ISSUE.tenantId);
+    if(!c){ toast('발급 실패 — 대상 클러스터 없음'); return; }
+    DS.api.issueKubeconfig(c.id, ISSUE.role, parseInt(ISSUE.ttl)||12).then(function(r){
+      if(r&&r.error){ toast('발급 실패 — '+r.error); return; }
+      ISSUE._issued=r; ISSUE.step=4; DS.invalidate(); issueRender();
+      toast('Vault PKI 발급 완료 (live) — '+r.kubeconfig_id);
+    });
+    return;
+  }
   DS.data().kubeconfigs.unshift({ user:ISSUE.user.split('@')[0], email:ISSUE.user, tenantId:ISSUE.tenantId,
     role:ISSUE.role, nsScope:ISSUE.role==='tenant-user'?[...ISSUE.nsScope]:'전체',
     serial:'9a:1f:44:b8:2e:63', issuedAt:'2026-07-09 14:35',
@@ -2799,6 +3362,7 @@ App.register('#/k8s/upgrade', function(elm){
         ${u.target?`<div style="margin-bottom:6px">🗓 <b>${u.window}</b> · ${esc(u.approvedBy)}</div>
           <div class="muted">${esc(u.plan)} · ${u.nkdTarget}</div>`
         :`<div class="muted">${u.status==='계획 미수립'?'v1.33.2 업그레이드 계획 수립 필요 (CVE-2026-32871 해소 포함)':esc(u.status)}</div>`}
+        ${u._target?`<div style="margin-top:8px">${actionBtn('▶ 업그레이드 실행 — '+u._target,'upgrade',`upgLiveStart('${u._cid}','${u._target}')`,{sm:true})}</div>`:''}
       </div></div>`;
   }).join('');
 
@@ -2829,14 +3393,53 @@ App.register('#/k8s/upgrade', function(elm){
     <div class="grid" style="grid-template-columns:1.1fr 1fr;align-items:start;margin-bottom:14px">
       <div class="card"><div class="card-h">Maintenance Window (2026-07-13 주)</div>
         <div class="card-b"><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:7px">${cal}</div></div></div>
-      <div class="card"><div class="card-h">롤링 시뮬레이션 — CLAUDE Worker (동시 5랙 · PDB 존중) ${apiIcon('cordon-evict')}
-        <div class="right">${actionBtn(ROLL.running?'진행 중…':'▶ 롤링 시작 (시연)','upgrade','rollStart()',{sm:true})}</div></div>
-        <div class="card-b" id="roll-box">${rollHtml()}</div></div>
+      <div class="card"><div class="card-h">${DS.isLive()?'롤링 진행 (NOCP live — cordon/drain/upgrade/uncordon)':'롤링 시뮬레이션 — CLAUDE Worker (동시 5랙 · PDB 존중)'} ${apiIcon('cordon-evict')}
+        <div class="right">${DS.isLive()?'<span class="chip">GET /k8s/clusters/{id}/upgrades · 폴링</span>':actionBtn(ROLL.running?'진행 중…':'▶ 롤링 시작 (시연)','upgrade','rollStart()',{sm:true})}</div></div>
+        <div class="card-b" id="roll-box">${DS.isLive()?upgLivePanel():rollHtml()}</div></div>
     </div>
     <div class="card"><div class="card-h">CVE / 보안 패치 <span class="muted small">(${D.cves.length})</span></div>
       <table class="table"><tr><th>CVE</th><th>심각도</th><th>컴포넌트</th><th>영향 테넌트</th><th>패치</th><th></th></tr>${cveRows}</table></div>`;
 });
 
+/* ── live 업그레이드 실행/진행 (NOCP saga) ── */
+function upgLiveStart(cid, target){
+  openModal(`업그레이드 실행 — <code>${esc(cid)}</code> → ${esc(target)}`,
+    `<p class="small">전 노드(CP 우선 → GPU 워커) 롤링: cordon → drain → upgrade → uncordon.<br>
+     <b style="color:var(--amber)">되돌릴 수 없습니다</b> (다운그레이드 불가 — NOCP N/N-1 정책).</p>`,
+    actionBtn('실행','upgrade',`upgLiveExec('${cid}','${target}')`,{danger:true})
+    +`<button class="btn" onclick="closeModal()">취소</button>`);
+}
+function upgLiveExec(cid, target){
+  closeModal();
+  DS.api.upgrade(cid, target).then(function(r){
+    if(r&&r.error){ toast('업그레이드 거절 — '+r.error); return; }
+    toast('업그레이드 시작 (live) — '+r.upgrade_id+' · 노드 '+(r.node_progress&&r.node_progress.total||'?')+'대 롤링');
+    DS.invalidate(); App.render();
+  });
+}
+function upgLivePanel(){
+  const rows=DS.upgrades().filter(function(u){ return u._up; });
+  if(!rows.length){
+    const hist=DS.upgrades().find(function(u){ return /롤링 완료/.test(u.status||''); });
+    return hist?`<div class="small">✓ 최근 롤링 완료 — <b>${esc(hist.current)}</b> (전 노드)</div>
+      <p class="small muted" style="margin-top:8px">이력: GET /k8s/clusters/{id}/upgrades — cordon→drain→upgrade→uncordon 이벤트 로그 보존.</p>`
+    :'<div class="small muted">진행 중인 업그레이드 없음 — 버전 카드의 [업그레이드 실행]으로 시작 (N/N-1 검증 · 노드 롤링)</div>';
+  }
+  return rows.map(function(u){
+    const up=u._up, np=up.node_progress||{}, pct=np.total?Math.round((np.done||0)/np.total*100):0;
+    const ev=(up.events||[]).slice(-6).reverse();
+    return `<div style="margin-bottom:10px">
+      <div class="small" style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
+        <b>${esc(u._cid)}</b> <span class="chip mono">${esc(up.from_version)}</span>→<span class="chip mono" style="background:var(--accent-soft);color:var(--accent)">${esc(up.target_version)}</span>
+        <span class="muted">노드 ${np.done||0}/${np.total||0} · 현재 ${esc(up.current_node||'—')}</span></div>
+      ${bar(pct)}
+      <div style="margin-top:8px">${ev.map(function(e){
+        return `<div class="small" style="display:flex;gap:10px;padding:3px 0;border-bottom:1px solid var(--line-soft)">
+          <span class="muted mono">${(e.ts||'').slice(11,19)}</span><code style="flex:1">${esc(e.node)}</code>
+          <span class="chip" style="${e.step==='upgrade'?'background:var(--accent-soft);color:var(--accent)':''}">${esc(e.step)}</span></div>`; }).join('')}</div>
+    </div>`;
+  }).join('')+'<p class="small muted" style="margin-top:6px">이벤트 = NOCP saga 실기록 (cordon→drain→upgrade→uncordon) · 4s 폴링 자동 갱신</p>';
+}
 const ROLL_STEPS=['대기','cordon','drain','upgrade','uncordon','완료'];
 function rollHtml(){
   if(!ROLL.nodes.length){
@@ -2973,7 +3576,7 @@ function senTabFleet(box, p){
   const maps=D.tenants.map(tenantMap).join('');
   box.innerHTML=`
     <div class="grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
-      <div class="card kpi"><span class="v">36,000</span><span class="l">전체 GPU (500랙 × 72)</span></div>
+      <div class="card kpi"><span class="v">${DS.isLive()?D.tenants.reduce((s,t)=>s+t.gpus,0).toLocaleString():'36,000'}</span><span class="l">${DS.isLive()?'전체 GPU ('+D.tenants.reduce((s,t)=>s+t.racks,0)+'랙 — NOCP live)':'전체 GPU (500랙 × 72)'}</span></div>
       <div class="card kpi"><span class="v" style="color:var(--red)">${critRacks}</span><span class="l">Critical 랙 (quarantine 진행)</span></div>
       <div class="card kpi"><span class="v" style="color:var(--amber)">${warnRacks}</span><span class="l">Warning 랙 (관찰 중)</span></div>
       <div class="card kpi"><span class="v" style="color:var(--green)">${(activeRacks-critRacks-warnRacks)}</span><span class="l">Healthy 랙 (가동 중)</span></div>
@@ -3610,7 +4213,7 @@ App.register('#/k8s/monitoring', function(elm){
       <div class="card-b" style="display:flex;gap:16px;align-items:center">
         ${gauge}
         <div class="small">
-          <div><b>${act.length}</b>/100 랙 가동 · GPU ${(act.length*72).toLocaleString()}기</div>
+          <div><b>${act.length}</b>/${racks.length} 랙 가동 · GPU ${(act.length*72).toLocaleString()}기</div>
           <div class="muted" style="margin-top:3px">평균 GPU Util ${avg}% · ${esc(t.workload)}</div>
           <div class="muted" style="margin-top:3px">${t.lifecycle==='Active'?'▲ SLO 99.9% 충족':esc(t.note||'—')}</div>
         </div>
@@ -3632,7 +4235,7 @@ App.register('#/k8s/monitoring/:tenantId', function(elm, p){
   if(t.dynamoDGDs && t.dynamoDGDs.length) tabs.splice(1,0,['dynamo','Dynamo (Inferium)']);
   elm.innerHTML=`
     <div class="page-h"><div><h1>${esc(t.company)} — 모니터링 ${badge(t.lifecycle)}</h1>
-      <div class="sub">K8s ${t.k8sVersion} · 100 racks · GPU ${t.gpus.toLocaleString()} · NS ${t.nsList.join('/')} ${apiIcon('grafana-embed')}</div></div>
+      <div class="sub">K8s ${t.k8sVersion} · ${t.racks} racks · GPU ${t.gpus.toLocaleString()} · NS ${t.nsList.join('/')} ${apiIcon('grafana-embed')}</div></div>
       <div class="right"><button class="btn" onclick="App.navigate('#/k8s/monitoring')">← 테넌트</button></div></div>
     <div class="tabs">${tabs.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="App.navigate('#/k8s/monitoring/${t.id}?tab=${k}')">${l}</button>`).join('')}</div>
     <div id="mon-tab"></div>`;
@@ -3667,6 +4270,7 @@ function monTabK8s(box, t){
   if(!['Active','Provisioned'].includes(t.lifecycle)){
     box.innerHTML='<div class="card"><div class="empty"><div class="big">⏳</div>클러스터 미개통 — 대시보드 없음</div></div>'; return;
   }
+  if(DS.isLive()){ monTabK8sLive(box, t); return; }
   const s=(m,b,a,d)=>monSeries(t.id+m, 48, b, a, d);
   const last=v=>v[v.length-1];
   const apiReq=s('apireq', 4200, 700), apiP99=s('apip99', 84, 26), pend=s('pend', 12, 8),
@@ -3754,6 +4358,80 @@ function monTabK8s(box, t){
     $('gs-p99').textContent=last(apiP99).toFixed(0)+' ms';
     $('gs-etcd').textContent=Math.max(1.2,last(etcdFsync)).toFixed(1)+' ms';
     const live=$('g-live'); if(live) live.style.opacity=(live.style.opacity==='0.25'?'1':'0.25');
+  }, 2000);
+}
+
+/* ---------- 클러스터 (K8s) 탭 — live (NOCP GET /k8s/clusters/{id}/metrics 2s 폴링) ---------- */
+function monTabK8sLive(box, t){
+  const cl=t._cluster||DS.liveCluster(t.id);
+  if(!cl){ box.innerHTML='<div class="card"><div class="empty"><div class="big">⏳</div>클러스터 없음 (live)</div></div>'; return; }
+  const draw=()=>{
+    const m=DS.metrics(t.id);
+    if(!m){ box.innerHTML=`<div class="card"><div class="empty"><div class="big">⏳</div>메트릭 수집 중 — <code>GET /k8s/clusters/${esc(cl.id)}/metrics</code></div></div><div id="glive-mark" style="display:none"></div>`; return; }
+    const nodes=DS.nodes(t.id)||[];
+    const workers=nodes.filter(n=>n.role==='gpu-worker');
+    const ready=workers.filter(n=>n.state==='Ready').length;
+    const quar=(cl.quarantined_nodes||[]).length;
+    const ticks=(m.ticks||[]).slice(-48);
+    const utilS=ticks.map(x=>x.util), tempS=ticks.map(x=>x.temp);
+    const lastTick=ticks[ticks.length-1]||{util:m.gpu_util_pct,temp:m.gpu_temp_max_c};
+    const sto=DS.data().storage.find(x=>x.tenantId===t.id);
+    const pvcs=(sto&&sto.volumes)||[];
+    const cps=(cl.cp_node_ids||[]).map(n=>[n,'ok','CP 전용 (CPU pool · NICo 격리)']);
+    box.innerHTML=`
+    <div class="card" style="background:var(--accent-soft);border-color:transparent;margin-bottom:12px"><div class="card-b small">
+      🛰 <b>NOCP live 텔레메트리</b> — <code>GET /api/v1/k8s/clusters/${esc(cl.id)}/metrics</code> 2s 폴링 (DCGM ${esc(m.dcgm_mode||'in-band')} · fake-vast · kube-vip). 실개발 시 이 자리에 Grafana iframe(kiosk)이 들어갑니다. ${apiIcon('grafana-embed')}</div></div>
+    <div class="gwrap" id="glive-mark">
+      <div class="gbar">📊 <b>Grafana</b> · neocloud-${esc(cl.name||cl.id)} / <b>K8s Cluster Overview</b>
+        <span class="gchip">⏱ Live (NOCP)</span><span class="gchip">↻ 2s</span>
+        <span class="gchip"><span id="g-live" style="color:#73BF69">●</span> live</span>
+        <span class="gchip" style="margin-left:auto;cursor:pointer" onclick="toast('Grafana 새 창 열기 (live 데모) — /d/k8s-overview?cluster=${esc(cl.id)}')">Open in Grafana ↗</span></div>
+
+      <div class="ggrid" style="grid-template-columns:repeat(6,1fr)">
+        ${gPanel('GPU Util (클러스터 평균)','<div class="gstat" id="gs-util">'+(lastTick.util!=null?lastTick.util.toFixed(1):'—')+'%</div><div class="gsub">GPU '+(m.gpus_total||t.gpus).toLocaleString()+'기 · DCGM '+esc(m.dcgm_mode||'—')+'</div>','avg(DCGM_FI_DEV_GPU_UTIL)')}
+        ${gPanel('GPU Temp (max)','<div class="gstat '+((lastTick.temp||0)>84?'warn':'')+'" id="gs-temp">'+(lastTick.temp!=null?lastTick.temp.toFixed(1):'—')+'°C</div><div class="gsub">throttle 임계 90°C</div>','max(DCGM_FI_DEV_GPU_TEMP)')}
+        ${gPanel('Nodes Ready','<div class="gstat '+(quar?'warn':'')+'">'+ready+' / '+workers.length+'</div><div class="gsub">'+(quar?quar+' quarantined (NVSentinel)':'all ready')+'</div>','sum(kube_node_status_condition{condition="Ready",status="true"})')}
+        ${gPanel('ECC Correctable (누적)','<div class="gstat blue" id="gs-ecc">'+(m.ecc_correctable!=null?m.ecc_correctable.toLocaleString():'—')+'</div><div class="gsub">uncorrectable 0 · 임계 내</div>','DCGM_FI_DEV_ECC_SBE_VOL_TOTAL')}
+        ${gPanel('IB / NVLink BW','<div class="gstat" id="gs-ib">'+(m.ib_bw_tbs!=null?m.ib_bw_tbs.toFixed(1):'—')+' TB/s</div><div class="gsub">Converged Network (RoCE)</div>','rate(dcgm_nvlink_bandwidth_total[5m])')}
+        ${gPanel('API Server','<div class="gstat">UP</div><div class="gsub">VIP '+esc(cl.api_vip||'—')+':6443 (kube-vip)</div>','up{job="apiserver"}')}
+      </div>
+
+      <div class="ggrid" style="grid-template-columns:1fr 1fr;margin-top:8px">
+        ${gPanel('GPU Util 추이 (live ticks)','<div id="gc-util">'+gLine(utilS)+'</div><div class="gsub" id="gt-util">now '+(lastTick.util!=null?lastTick.util.toFixed(1):'—')+'% · 표본 '+ticks.length+' (2s 간격)</div>','avg(DCGM_FI_DEV_GPU_UTIL) — NOCP metrics.ticks')}
+        ${gPanel('GPU Temp 추이 (live ticks)','<div id="gc-temp">'+gLine(tempS,{color:'#FADE2A'})+'</div><div class="gsub" id="gt-temp">now '+(lastTick.temp!=null?lastTick.temp.toFixed(1):'—')+'°C · max '+(m.gpu_temp_max_c!=null?m.gpu_temp_max_c.toFixed(1):'—')+'°C</div>','max(DCGM_FI_DEV_GPU_TEMP) — NOCP metrics.ticks')}
+      </div>
+
+      <div class="ggrid" style="grid-template-columns:1.5fr 1fr;margin-top:8px">
+        ${gPanel('클러스터 (NOCP CRD)', `<table class="gtable">
+          <tr><td>버전</td><td><b>${esc(cl.version||'—')}</b> · NKD ${esc(cl.nkd_version||'—')}</td></tr>
+          <tr><td>상태</td><td><span class="gbadge ${cl.state==='running'?'gb-ok':'gb-warn'}">${esc((cl.state||'').toUpperCase())}</span></td></tr>
+          <tr><td>GPU Worker</td><td>${workers.length.toLocaleString()} 노드 (${ready} Ready${quar?' · '+quar+' quarantined':''})</td></tr>
+          <tr><td>OIDC</td><td style="color:#7B8087">${esc(cl.oidc_issuer||'—')}</td></tr>
+        </table>`,'GET /k8s/clusters/{id}')}
+        <div class="ggrid">
+          ${gPanel('Control Plane', `<table class="gtable">
+            ${cps.map(c=>`<tr><td>${esc(c[0])}</td><td><span class="gbadge gb-ok">UP</span></td><td style="color:#7B8087">${esc(c[2])}</td></tr>`).join('')||'<tr><td class="gsub">—</td></tr>'}
+          </table>`,'up{job=~"apiserver|etcd|scheduler"}')}
+          ${gPanel('PVC 사용량 (VAST CSI · live)', pvcs.length?pvcs.map(v=>{
+            const pct=sto&&sto.capacityTB?Math.min(100,Math.round(sto.usedTB/sto.capacityTB*100)):0;
+            return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:11px">
+              <span style="width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.ns)}/${esc(v.pvc)}</span>
+              <div style="flex:1;height:7px;background:#22252B;border-radius:4px"><div style="width:${pct}%;height:100%;border-radius:4px;background:${pct>85?'#F2495C':(pct>70?'#FADE2A':'#73BF69')}"></div></div>
+              <span style="color:#7B8087">${pct}%${v.gds?' · GDS':''}</span></div>`;}).join('')
+            :'<div class="gsub">PVC 없음</div>','GET /k8s/clusters/{id}/storage')}
+        </div>
+      </div>
+    </div>
+    <p class="small muted" style="margin-top:10px">GPU 하드웨어 헬스(XID·격리·복구)는 <a href="#/k8s/sentinel">장애관리(NVSentinel)</a>, 랙 히트맵은 <a href="#/k8s/monitoring/${t.id}?tab=racks">GPU/랙 탭</a> — 데이터 소스: NOCP <code>metrics</code>·<code>nodes</code>·<code>storage</code> (live)</p>`;
+  };
+  draw();
+  /* 2s 폴링 — 라우트 이탈(#glive-mark 소멸) 시 자동 정리 */
+  if(window._monDashTimer) clearInterval(window._monDashTimer);
+  window._monDashTimer=setInterval(()=>{
+    if(!document.getElementById('glive-mark')){ clearInterval(window._monDashTimer); window._monDashTimer=null; return; }
+    DS.metricsRefresh(t.id);
+    draw();
+    const live=document.getElementById('g-live'); if(live) live.style.opacity=(live.style.opacity==='0.25'?'1':'0.25');
   }, 2000);
 }
 
