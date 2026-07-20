@@ -164,6 +164,29 @@
 .rt-lg{font-size:11px;font-weight:800;letter-spacing:.02em;border:1px solid #1f4a6a;
   background:#0e2438;color:var(--blue-text);border-radius:5px;padding:3px 10px}
 .rt-lg.biz{border-color:#3a2a52;background:#1d1430;color:#c8a5e8}
+/* RBAC 게이팅 — viewer(전체)·member(admin 전용 작업) 비활성 표시.
+   양 디자인 모드 공통: 토큰 변수만 사용 (blueprint/legacy 무관) */
+.rbac-off{opacity:.42!important;cursor:not-allowed!important;
+  filter:saturate(.35)}
+button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
+  border-color:var(--line)!important;background:var(--card-sub)!important}
+/* 데모 로그인 전환 모달 — 사용자·역할 선택 카드 */
+.dl-opt{display:flex;align-items:center;gap:9px;border:1px solid var(--line);
+  border-radius:8px;padding:9px 12px;cursor:pointer;font-size:11.5px;
+  color:var(--muted);margin:0}
+.dl-opt input{width:auto;flex:none}
+.dl-opt b{color:var(--strong);font-size:12px}
+.dl-opt .sub{color:var(--muted2);font-size:10.5px;margin-left:auto;flex:none}
+.dl-opt.on{border-color:var(--green-line);background:var(--menu-act)}
+.dl-grid{display:grid;gap:7px}
+.dl-grid.r3{grid-template-columns:repeat(3,1fr)}
+.dl-grid.r3 .dl-opt{justify-content:center;text-align:center}
+/* 세션 역할 뱃지 (톱바·사이드바) */
+.role-bd{font-size:9px;font-weight:800;letter-spacing:.05em;border-radius:4px;
+  padding:1px 6px;border:1px solid var(--line);color:var(--muted)}
+.role-bd.admin{color:var(--green-text);border-color:var(--green-line)}
+.role-bd.member{color:var(--blue-text);border-color:#1f4a6a}
+.role-bd.viewer{color:var(--amber);border-color:var(--amber-line)}
 /* 페이지네이션 바 (pagedTable 헬퍼) — 행이 적으면 자동 숨김 */
 .pgr{display:none;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .pgr.on{display:flex}
@@ -185,13 +208,13 @@
     <div class="sb-brand"><span class="lg">N</span>
       <div><div class="t">NeoCloud <span style="color:var(--green)">Console</span></div>
       <div class="s">CUSTOMER PORTAL</div></div></div>
-    <div class="sb-scope"><div class="k">조직 / 프로젝트</div>
+    <!-- 테넌트 스코프 — 로그인 세션 테넌트로 고정 (전환 불가 · 격리) -->
+    <div class="sb-scope"><div class="k">조직 / 프로젝트 <span style="float:right" title="로그인 테넌트로 고정 — 다른 테넌트 데이터는 조회할 수 없습니다">🔒</span></div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
         <span id="scope-avatar" style="width:18px;height:18px;border-radius:4px;background:#1d3a26;color:var(--green-text);display:grid;place-items:center;font-size:10px;font-weight:800;flex:none">F</span>
         <div style="min-width:0;flex:1">
-          <select id="tenant-select" title="테넌트 전환" style="width:100%;background:var(--card-sub);border:1px solid var(--line);border-radius:5px;color:var(--strong);font-size:11px;font-weight:700;padding:2px 4px;font-family:inherit;cursor:pointer">
-            <option value="">불러오는 중…</option></select>
-        <div style="color:var(--muted2);font-size:9.5px;margin-top:2px">llm-pretrain ▾</div></div></div></div>
+          <div id="scope-tenant" title="로그인 테넌트 (고정)" style="color:var(--strong);font-size:11.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">불러오는 중…</div>
+        <div id="scope-scale" style="color:var(--muted2);font-size:9.5px;margin-top:2px">로그인 테넌트 고정</div></div></div></div>
     <nav>
       <a class="mi" data-route="dashboard" href="#/dashboard"><span class="dot"></span>대시보드</a>
       <div class="sb-grp">컴퓨트</div>
@@ -213,8 +236,10 @@
       <a class="mi" data-route="marketplace" href="#/marketplace"><span class="dot"></span>마켓플레이스 <span class="bd p2">P2</span></a>
       <a class="mi" data-route="settings" href="#/settings"><span class="dot"></span>설정 — 조직 · 멤버 · 키</a>
     </nav>
-    <div class="sb-user"><span class="av" style="background:#1d3a26;color:var(--green-text)">JH</span>
-      <div style="min-width:0"><div class="nm">김지현</div><div class="rl">org admin · MFA ✓</div></div></div>
+    <div class="sb-user" id="user-card" data-open="demo_login" title="데모 로그인 전환 — 사용자·역할 변경 (클릭)" style="cursor:pointer">
+      <span class="av" id="user-av" style="background:#1d3a26;color:var(--green-text)">JH</span>
+      <div style="min-width:0"><div class="nm" id="user-name">김지현</div><div class="rl" id="user-role">org admin · MFA ✓</div></div>
+      <span style="margin-left:auto;color:var(--muted2);font-size:10px;flex:none">전환 ▾</span></div>
   </aside>
 
   <div class="main">
@@ -223,6 +248,7 @@
       <span class="crumb">NeoCloud <span class="sep">/</span> <span class="cur"></span></span>
       <span class="search"><span style="font-family:Menlo,monospace;flex:none">⌕</span><span class="q">리소스 · 문서 검색</span><span class="kbd">⌘K</span></span>
       <span class="tb-right">
+        <span class="tb-chip" id="session-chip" data-open="demo_login" title="현재 세션 — 테넌트 · 역할 (클릭 시 데모 로그인 전환)" style="cursor:pointer"><span class="dot" style="background:var(--blue)"></span><span id="session-chip-tx" style="font-weight:700">세션</span></span>
         <span class="tb-chip" id="sys-chip"><span class="dot" id="sys-chip-dot"></span><span id="sys-chip-tx" style="color:var(--green-text);font-weight:700">모든 시스템 정상</span></span>
         <span class="bell" data-notif>알림 <span class="n" id="tb-bell-n">3</span></span>
         <button class="btn" data-open="create_cluster">+ 클러스터 생성</button>
@@ -233,7 +259,7 @@
 
       <!-- ════════ 대시보드 ════════ -->
       <section data-screen="dashboard">
-        <div class="hero"><span class="hi">안녕하세요, 김지현 님</span>
+        <div class="hero"><span class="hi" id="hero-hi">안녕하세요, 김지현 님</span>
           <span class="sub" id="hero-sub">prod-training 클러스터가 정상 가동 중입니다 · 마지막 갱신 방금 전</span></div>
 
         <!-- CP-004 인수 검증 대기 액션 카드 — 해당 주문 존재 시 렌더 -->
@@ -288,7 +314,7 @@
               <rect x="8" y="66" width="52" height="22" style="fill:var(--green-line)"></rect><rect x="78" y="58" width="52" height="30" style="fill:var(--green-line)"></rect><rect x="148" y="52" width="52" height="36" style="fill:var(--green-line)"></rect><rect x="218" y="46" width="52" height="42" style="fill:var(--green-line)"></rect><rect x="288" y="40" width="52" height="48" style="fill:var(--green-line)"></rect><rect x="358" y="34" width="52" height="54" style="fill:#3f6a1a"></rect><rect x="428" y="30" width="52" height="58" style="fill:#3f6a1a"></rect><rect x="498" y="26" width="52" height="62" style="fill:var(--green)"></rect>
             </svg>
             <div style="display:flex;justify-content:space-between;color:var(--muted2);font-size:10px;font-family:Menlo,monospace"><span>07-01</span><span>예산 라인 $7.5M</span><span>07-08</span></div>
-            <table class="tbl" style="margin-top:12px"><tbody>
+            <table class="tbl" style="margin-top:12px"><tbody id="dash-cost-lines">
               <tr><td>컴퓨트 (reserved 32랙)</td><td class="num id">$5,116,800</td><td class="num" style="color:var(--muted);width:52px">94.4%</td></tr>
               <tr><td>스토리지 (VAST 16PB · QoS)</td><td class="num id">$248,400</td><td class="num" style="color:var(--muted)">4.6%</td></tr>
               <tr><td>이그레스 · 기타</td><td class="num id">$56,180</td><td class="num" style="color:var(--muted)">1.0%</td></tr>
@@ -512,7 +538,7 @@
       <section data-screen="network">
         <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(460px,1fr))">
           <div class="panel" style="margin-bottom:0">
-            <div class="ph"><span class="tick"></span><span class="t">내 VPC — seg-fin-corp</span>
+            <div class="ph"><span class="tick"></span><span class="t" id="net-vpc-title">내 VPC — seg-fin-corp</span>
               <span class="st green" style="display:inline-flex;align-items:center;gap:5px"><span class="dot green" style="width:6px;height:6px"></span>정상</span></div>
             <table class="kv2"><tbody>
               <tr><td>VRF</td><td class="id" id="net-vrf">vrf-fin-corp · L3VNI 30101 / Conv 30102 / OOB 30103</td></tr>
@@ -699,7 +725,7 @@
           </div>
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">인보이스 · 결제</span></div>
-            <table class="tbl"><tbody>
+            <table class="tbl"><tbody id="bill-invoices">
               <tr><td class="id">INV-2026-06</td><td class="num">$20,481,300</td><td class="st green">결제 완료</td><td class="num"><button class="tbtn" data-demo="INV-2026-06 인보이스 PDF 다운로드">PDF ↓</button></td></tr>
               <tr><td class="id">INV-2026-05</td><td class="num">$20,052,700</td><td class="st green">결제 완료</td><td class="num"><button class="tbtn" data-demo="INV-2026-05 인보이스 PDF 다운로드">PDF ↓</button></td></tr>
             </tbody></table>
@@ -859,7 +885,7 @@
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">멤버 · 역할 (RBAC)</span>
               <button class="btn" style="margin-left:auto;padding:5px 12px;font-size:11.5px" data-open="invite">+ 멤버 초대</button></div>
-            <table class="tbl"><tbody>
+            <table class="tbl"><tbody id="member-rows">
               <tr><td><b>김지현</b> <span style="color:var(--muted2);font-size:10px">kim.jh@fin-corp.com</span></td><td class="st green" style="font-size:11.5px">org admin</td><td style="color:var(--muted)">MFA ✓ · SSO</td></tr>
               <tr><td><b>이승민</b> <span style="color:var(--muted2);font-size:10px">lee.sm@fin-corp.com</span></td><td class="st blue" style="font-size:11.5px">operator</td><td style="color:var(--muted)">MFA ✓ · SSO</td></tr>
               <tr><td><b>정하윤</b> <span style="color:var(--muted2);font-size:10px">jung.hy@fin-corp.com</span></td><td style="color:var(--muted);font-weight:700">viewer</td><td style="color:var(--muted)">MFA ✓</td></tr>
@@ -876,7 +902,7 @@
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">조직 · 프로젝트 · 키</span></div>
             <table class="kv2"><tbody>
-              <tr><td style="width:130px">조직</td><td>fin-corp <span class="mono" style="color:var(--muted2);font-size:10px">tnt-fin-corp</span> · 계약 reserved 3y</td></tr>
+              <tr><td style="width:130px">조직</td><td id="org-cell">fin-corp <span class="mono" style="color:var(--muted2);font-size:10px">tnt-fin-corp</span> · 계약 reserved 3y</td></tr>
               <tr><td>프로젝트</td><td>llm-pretrain (기본) · inference-lab — <span class="lnk" data-demo="프로젝트 생성">+ 프로젝트</span></td></tr>
               <tr><td>SSH 키</td><td class="id">ed25519 ×2 (mlops · ci) <span class="lnk" style="font-family:-apple-system,'Apple SD Gothic Neo',sans-serif" data-demo="SSH 키 등록">+ 등록</span></td></tr>
               <tr><td>보안 정책</td><td>MFA 필수 · 세션 12h · API 키 로테이션 90일</td></tr>
@@ -1134,6 +1160,19 @@
   <div class="mf"><button class="btn-dim" data-close>닫기</button>
     <button class="btn-danger" data-act="accept_reject">반려 — 재테스트 요청</button>
     <button class="btn" data-act="accept_approve" id="accept-approve-btn">승인 — 청구 개시</button></div>
+</div></div>
+
+<!-- 데모 로그인 전환 — 데모용 세션 전환 (테넌트·역할 교체, 실제 인증 아님) -->
+<div class="modal-ov" data-modal="demo_login"><div class="modal">
+  <div class="mh"><span class="tick blue"></span><span class="t">데모 로그인 전환 — 데모용 세션 전환</span><span class="x" data-close>✕</span></div>
+  <div class="mb">
+    <label>사용자 (테넌트)</label>
+    <div class="dl-grid" id="dl-users"><!-- app.js 렌더 — 사용자 3종 --></div>
+    <label style="margin-top:12px">역할 (RBAC)</label>
+    <div class="dl-grid r3" id="dl-roles"><!-- app.js 렌더 — admin/member/viewer --></div>
+    <div class="callout" style="margin-top:12px">데모용 세션 전환입니다 — 실제 인증 없이 <b>X-Tenant-Id / X-Tenant-Role</b> 세션만 교체되며, 콘솔 전 화면이 해당 테넌트·역할 스코프로 다시 렌더됩니다. viewer는 읽기 전용, member는 인수 승인/반려·종료·멤버 초대 불가(admin 전용)입니다.</div>
+  </div>
+  <div class="mf"><button class="btn-dim" data-close>취소</button><button class="btn" data-act="demo_login">세션 전환</button></div>
 </div></div>
 
 <script src="../shared/app.js"></script><script src="../shared/mock-api.js"></script>

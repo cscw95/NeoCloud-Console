@@ -9,11 +9,79 @@
   const V = BASE + "/api/v1";
   const mock = Object.assign({}, NC.api);   // 폴백 보관
 
+  /* ── 고객 콘솔 테넌트 세션 (RBAC) — customer 경로에서만 활성 ──
+     계약: 세션 존재 시 모든 NOCP 요청에 X-Tenant-Id/X-Tenant-Role 부착.
+     ops/biz 콘솔은 같은 파일을 공유하므로 location.pathname이 /customer/로
+     시작할 때만 동작한다 (헤더 미부착 → 기존 동작 불변). */
+  const IS_CUSTOMER = /^\/customer\//.test(location.pathname);
+  function ncSession() {
+    if (!IS_CUSTOMER) return null;
+    try {
+      const s = JSON.parse(localStorage.getItem("nc-session") || "null");
+      if (s && s.tenant_id && s.role) return s;
+    } catch (e) {}
+    return null;
+  }
+  if (IS_CUSTOMER && !ncSession()) {        // 기본 데모 세션 시드
+    try {
+      localStorage.setItem("nc-session", JSON.stringify({
+        tenant_id: "tnt-fin-corp", tenant_name: "fin-corp",
+        user: "김지현", role: "admin" }));
+    } catch (e) {}
+  }
+  NC.session = ncSession;                   // customer/app.js 공용 접근자
+
+  // 세션 ↔ 테넌트 id 매칭 — live(tnt-fin-corp) · mock(fin-corp) 양쪽 수용
+  const tnorm = x => String(x == null ? "" : x)
+    .replace(/^tnt-/, "").toLowerCase();
+  function sessionOwns(tid) {
+    const s = ncSession();
+    if (!s) return true;                    // 세션 없음 — 필터 미적용
+    const n = tnorm(tid);
+    return n !== "" &&
+      (n === tnorm(s.tenant_id) || n === tnorm(s.tenant_name));
+  }
+  NC.sessionOwns = sessionOwns;
+
+  /* 403 표면화 — redcall 배너 + 토스트. mock 폴백으로 새지 않는다 */
+  let f403t = null;
+  function surface403(e) {
+    let detail = (e && e.message) || "";
+    try { detail = JSON.parse(detail).detail || detail; } catch (_) {}
+    const readOnly = /read.?only/i.test(detail);
+    const msg = readOnly
+      ? "권한 없음 — viewer 역할은 읽기 전용입니다 (read-only role)"
+      : "권한 없음 — 다른 테넌트의 리소스입니다 (tenant scope violation)";
+    if (NC.toast) NC.toast(msg, "warn");
+    const host = document.querySelector(".content");
+    if (!host) return;
+    let el = document.getElementById("nc-403-call");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "nc-403-call";
+      el.className = "redcall";
+      el.style.cssText = "margin:0 0 14px";
+      host.insertBefore(el, host.firstChild);
+    }
+    el.innerHTML = '<span class="ic">⛔</span><span><b>403 Forbidden</b> — ' +
+      msg + "</span>";
+    el.style.display = "flex";
+    clearTimeout(f403t);
+    f403t = setTimeout(() => { el.style.display = "none"; }, 8000);
+  }
+
   /* ── 저수준 fetch (1.5s 타임아웃) + 생존 캐시 ─────────────── */
   let aliveUntil = 0, dead = false;
   async function raw(url, opt) {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 1500);
+    const s = ncSession();                  // 고객 콘솔 — 세션 헤더 자동 부착
+    if (s) {
+      opt = Object.assign({}, opt);
+      opt.headers = Object.assign(
+        { "X-Tenant-Id": s.tenant_id, "X-Tenant-Role": s.role },
+        opt.headers || {});
+    }
     try {
       const r = await fetch(url, Object.assign({ signal: ctl.signal }, opt));
       if (!r.ok) {
@@ -196,6 +264,7 @@
       rec.sort((x, y) => (x.resolved === y.resolved) ? 0 : (x.resolved ? 1 : -1));
       const a = rec.slice(0, 6).map((x, i) => ({
         id: "AL-" + (300 + i), sev: x.resolved ? "info" : "warn",
+        tenant: x.tenant_id || null,        // 고객 콘솔 테넌트 필터용
         msg: (x.kind && x.kind !== "reprovision" && x.detail
                 ? x.detail.slice(0, 72)
                 : `${x.tray_id || "tray"} XID ${x.xid}`) +
@@ -465,13 +534,18 @@
     billingUsage: () => raw(V + "/billing/usage"),
   };
 
-  /* ── NC.api 교체: 라이브 시도 → getter 단위 mock 폴백 ────── */
+  /* ── NC.api 교체: 라이브 시도 → getter 단위 mock 폴백 ──────
+     403(tenant scope violation · read-only role)은 백엔드 가드의 시맨틱
+     응답 — mock으로 새지 않고 redcall로 표면화 후 null 반환 */
   const wrapped = {};
   Object.keys(mock).forEach(k => {
     wrapped[k] = async function (...args) {
       if (liveApi[k] && await live()) {
         try { return await liveApi[k](...args); }
-        catch (e) { console.warn("[nocp-api]", k, "폴백:", e.message); }
+        catch (e) {
+          if (e && e.status === 403) { surface403(e); return null; }
+          console.warn("[nocp-api]", k, "폴백:", e.message);
+        }
       }
       return mock[k](...args);
     };
@@ -480,6 +554,7 @@
     if (!wrapped[k]) wrapped[k] = async function (...args) {
       if (await live()) {
         try { return await liveApi[k](...args); } catch (e) {
+          if (e && e.status === 403) { surface403(e); return null; }
           console.warn("[nocp-api]", k, e.message); return null; }
       }
       return null;
@@ -487,12 +562,60 @@
   });
   NC.api = wrapped;
 
-  /* 현재 테넌트(고객 콘솔 로그인 매핑) — 할당 보유 테넌트 우선 */
+  /* ── 고객 콘솔 테넌트 스코핑 (이중 방어) — 세션 존재 시 목록형
+     getter 결과를 클라이언트에서도 일괄 필터. live는 헤더 기반 백엔드
+     필터가 정본이지만, 백엔드 가드 미배포·mock 폴백 경로에서도 동일
+     동작을 보장한다 (customer 경로 전용 — ops/biz 무영향) ────────── */
+  if (IS_CUSTOMER) {
+    const arr = v => (Array.isArray(v) ? v : []);
+    const S_FILTERS = {
+      tenants:  l => arr(l).filter(t => sessionOwns(t.id) || sessionOwns(t.name)),
+      tickets:  l => arr(l).filter(x => sessionOwns(x.tenant || x.tenant_id)),
+      contracts: l => arr(l).filter(c => sessionOwns(c.tenant)),
+      incidents: l => arr(l).filter(i => !i.tenant || i.tenant === "—" ||
+        sessionOwns(i.tenant)),
+      alerts: l => arr(l).filter(a => !a.tenant || sessionOwns(a.tenant)),
+      orders: l => arr(l).filter(o => sessionOwns(o.tenant_id)),
+      fulfillOrders: l => arr(l).filter(o => sessionOwns(o.tenant_id)),
+      acceptanceOrders: l =>
+        arr(l).filter(o => sessionOwns(o.tenant_id || o.tenant)),
+      emuClusters: l => arr(l).filter(c => sessionOwns(c.tenant_id)),
+      k8sClusters: l => arr(l).filter(c => sessionOwns(c.tenant_id)),
+      k8sInstalls: l => arr(l).filter(o => sessionOwns(o.tenant_id)),
+      storageViews: l => arr(l).filter(v => sessionOwns(v.tenant_ref)),
+      segments: l => arr(l).filter(s => sessionOwns(s.tenant_ref)),
+      audit: l => arr(l).filter(a => !a.tenant_ref || sessionOwns(a.tenant_ref)),
+      billingUsage: u => (u && u.lines
+        ? Object.assign({}, u,
+            { lines: u.lines.filter(x => sessionOwns(x.tenant_id)) })
+        : u),
+      accessPackages: l => arr(l),           // tid 인자로 이미 스코프됨
+    };
+    Object.keys(S_FILTERS).forEach(k => {
+      const base = wrapped[k];
+      if (!base) return;
+      wrapped[k] = async function (...args) {
+        const r = await base.apply(null, args);
+        if (r == null || !ncSession()) return r;
+        try { return S_FILTERS[k](r); } catch (e) { return r; }
+      };
+    });
+  }
+
+  /* 현재 테넌트 — 고객 콘솔은 세션 테넌트로 고정(전환 불가).
+     세션 미존재(ops/biz 경유 등)일 때만 기존 폴백 유지 */
   NC.currentTenantId = localStorage.getItem("nc-tenant") || null;
   NC.setTenant = id => { NC.currentTenantId = id;
     localStorage.setItem("nc-tenant", id); NC.bus.emit("tenant.changed", id); };
   NC.api.currentTenant = async function () {
+    const s = ncSession();
     const ts = await NC.api.tenants();
+    if (s) {
+      return ts.find(t => sessionOwns(t.id) || sessionOwns(t.name))
+        || { id: s.tenant_id, name: s.tenant_name || s.tenant_id,
+             racks: 0, gpus: 0, clusters: 0, site: "—", pkey: "—",
+             contract: "active", sus: [], _session_only: true };
+    }
     return ts.find(t => t.id === NC.currentTenantId)
       || ts.find(t => t.racks > 0) || ts[0] || null;
   };

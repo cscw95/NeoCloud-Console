@@ -154,6 +154,269 @@
     };
   }
 
+  /* ══ 테넌트 세션 (localStorage nc-session) — 로그인 테넌트 고정 ══
+     nocp-api.js가 세션 헤더 부착·목록 필터·403 표면화를 담당하고,
+     여기서는 세션 UI·데모 로그인 전환·역할 게이팅(RBAC)을 담당한다. */
+  var DEMO_USERS = [
+    { user: "김지현", tenant_id: "tnt-fin-corp",
+      tenant_name: "fin-corp", av: "JH" },
+    { user: "박현우", tenant_id: "tnt-hyperscale-x",
+      tenant_name: "hyperscale-x", av: "HW" },
+    { user: "이서연", tenant_id: "tnt-gamma-labs",
+      tenant_name: "gamma-labs", av: "SY" },
+  ];
+  var DEMO_ROLES = [
+    ["admin", "org admin", "전체 권한 — 승인·종료·초대 포함"],
+    ["member", "member", "일반 작업 — 승인·종료·초대 제외"],
+    ["viewer", "viewer", "읽기 전용 — 모든 변경 불가"],
+  ];
+  var DEFAULT_SESSION = { tenant_id: "tnt-fin-corp",
+    tenant_name: "fin-corp", user: "김지현", role: "admin" };
+
+  function getSession() {
+    try {
+      var s = JSON.parse(localStorage.getItem("nc-session") || "null");
+      if (s && s.tenant_id && s.role) return s;
+    } catch (e) {}
+    return DEFAULT_SESSION;
+  }
+  function setSession(s) {
+    try { localStorage.setItem("nc-session", JSON.stringify(s)); }
+    catch (e) {}
+    NC.bus.emit("session.changed", s);
+  }
+
+  /* ── RBAC 중앙 헬퍼 — can(action) ─────────────────────────────
+     viewer: 모든 변경 액션 불가 · member: admin 전용 액션만 불가 */
+  var CHANGE_ACTIONS = { create_cluster: 1, resize: 1, reclaim: 1,
+    reboot: 1, volume: 1, qos: 1, snapshot: 1, pkey_req: 1, alert_rule: 1,
+    ticket: 1, apikey: 1, invite: 1, accept_approve: 1, accept_reject: 1,
+    k8s_install: 1, terminate: 1, workload: 1, demo_change: 1 };
+  var ADMIN_ONLY = { accept_approve: 1, accept_reject: 1, reclaim: 1,
+    terminate: 1, invite: 1 };
+  function can(action) {
+    var r = getSession().role;
+    if (r === "admin") return true;
+    if (r === "viewer") return !CHANGE_ACTIONS[action];
+    return !ADMIN_ONLY[action];              // member
+  }
+  NC.can = can;
+
+  // 변경성 데모 버튼(data-demo) 판별 — 발급·회수·편집류만 게이팅
+  var DEMO_CHANGE_RE =
+    /등록|폐기|로테이션|복원|편집|프로젝트 생성|재발행|예약/;
+  function gateActionOf(el) {
+    if (el.id === "k8s-install-btn") return "k8s_install";
+    if (el.id === "term-confirm-btn") return "terminate";
+    if (el.dataset && el.dataset.wlP != null) return "workload";
+    if (el.dataset && el.dataset.invResend != null) return "invite";
+    if (el.dataset && el.dataset.demo != null)
+      return DEMO_CHANGE_RE.test(el.dataset.demo) ? "demo_change" : null;
+    var a = (el.dataset && (el.dataset.act || el.dataset.open)) || "";
+    if (a === "acceptance") return null;     // PT 리포트 열람은 조회 (버튼별 게이팅)
+    if (a === "console_access" || a === "demo_login") return null;
+    return CHANGE_ACTIONS[a] ? a : null;
+  }
+  function gateTitle(role) {
+    return role === "viewer" ? "viewer 권한 — 읽기 전용"
+      : "admin 전용 — " + role + " 권한으로는 실행할 수 없습니다";
+  }
+
+  /* 게이팅 적용 — 버튼 disabled + .rbac-off + title. 동적 렌더(클러스터
+     카드·인수 카드 등)는 MutationObserver가 재적용한다 */
+  function applyRbacGates() {
+    var role = getSession().role;
+    $$("[data-open],[data-act],[data-wl-p],[data-demo],[data-inv-resend]," +
+       "#k8s-install-btn,#term-confirm-btn").forEach(function (el) {
+      var act = gateActionOf(el);
+      var denied = !!act && !can(act);
+      var isBtn = el.tagName === "BUTTON" || el.tagName === "INPUT";
+      if (denied) {
+        if (!el.classList.contains("rbac-off")) {
+          if (el.title) el.dataset.rbacTitle = el.title;
+          el.classList.add("rbac-off");
+          el.setAttribute("aria-disabled", "true");
+          if (isBtn && !el.disabled) {
+            el.disabled = true;
+            el.dataset.rbacDis = "1";
+          }
+        }
+        el.title = gateTitle(role);
+      } else if (el.classList.contains("rbac-off")) {
+        el.classList.remove("rbac-off");
+        el.removeAttribute("aria-disabled");
+        el.title = el.dataset.rbacTitle || "";
+        delete el.dataset.rbacTitle;
+        if (isBtn && el.dataset.rbacDis) {
+          el.disabled = false;
+          delete el.dataset.rbacDis;
+        }
+      }
+    });
+  }
+
+  // 캡처 단계 차단 — shared/app.js 모달 오프너·액션 핸들러보다 먼저 실행
+  document.addEventListener("click", function (e) {
+    var el = e.target.closest(
+      "[data-open],[data-act],[data-wl-p],[data-demo],[data-inv-resend]," +
+      "#k8s-install-btn,#term-confirm-btn");
+    if (!el) return;
+    var act = gateActionOf(el);
+    if (act && !can(act)) {
+      e.preventDefault();
+      e.stopPropagation();
+      NC.toast(gateTitle(getSession().role) + " — 관리자에게 요청하세요",
+        "warn");
+    }
+  }, true);
+
+  // 동적 렌더 후 게이트 재적용 (childList만 관찰 — 속성 변경 무한루프 방지)
+  var rbacMoT = null;
+  new MutationObserver(function () {
+    clearTimeout(rbacMoT);
+    rbacMoT = setTimeout(applyRbacGates, 80);
+  }).observe(document.body, { childList: true, subtree: true });
+
+  /* ── 세션 UI — 사이드바 사용자 카드 · 톱바 뱃지 · 인사말 ────── */
+  function roleBadge(role) {
+    var lbl = role === "admin" ? "org admin" : role;
+    return '<span class="role-bd ' + esc(role) + '">' + esc(lbl) + "</span>";
+  }
+  function applySessionUi() {
+    var s = getSession();
+    var demo = null;
+    DEMO_USERS.forEach(function (u) {
+      if (u.tenant_id === s.tenant_id && u.user === s.user) demo = u;
+    });
+    var av = $("#user-av");
+    if (av) av.textContent = (demo && demo.av) ||
+      s.user.charAt(0).toUpperCase();
+    var nm = $("#user-name");
+    if (nm) nm.textContent = s.user;
+    var rl = $("#user-role");
+    if (rl) rl.innerHTML = roleBadge(s.role) + " · " + esc(s.tenant_name) +
+      (s.role === "viewer" ? " · 읽기 전용" : " · MFA ✓");
+    var chip = $("#session-chip-tx");
+    if (chip) chip.innerHTML = esc(s.user) + " · " + esc(s.tenant_name) +
+      " " + roleBadge(s.role);
+    var hero = $("#hero-hi");
+    if (hero) hero.textContent = "안녕하세요, " + s.user + " 님";
+    var org = $("#org-cell");
+    if (org) org.innerHTML = esc(s.tenant_name) +
+      ' <span class="mono" style="color:var(--muted2);font-size:10px">' +
+      esc(s.tenant_id) + "</span> · 계약 reserved";
+    var sav = $("#scope-avatar");
+    if (sav) sav.textContent =
+      (s.tenant_name || "?").charAt(0).toUpperCase();
+  }
+
+  /* ── 데모 로그인 전환 모달 ──────────────────────────────────── */
+  function fillDemoLogin() {
+    var s = getSession();
+    var ub = $("#dl-users");
+    if (ub) ub.innerHTML = DEMO_USERS.map(function (u, i) {
+      var on = u.tenant_id === s.tenant_id && u.user === s.user;
+      return '<label class="dl-opt' + (on ? " on" : "") + '">' +
+        '<input type="radio" name="dl-user" value="' + i + '"' +
+        (on ? " checked" : "") + "><b>" + esc(u.user) + "</b>" +
+        '<span style="color:var(--muted)">' + esc(u.tenant_name) + "</span>" +
+        '<span class="sub">' + esc(u.tenant_id) + "</span></label>";
+    }).join("");
+    var rb = $("#dl-roles");
+    if (rb) rb.innerHTML = DEMO_ROLES.map(function (r) {
+      var on = r[0] === s.role;
+      return '<label class="dl-opt' + (on ? " on" : "") +
+        '" title="' + esc(r[2]) + '">' +
+        '<input type="radio" name="dl-role" value="' + esc(r[0]) + '"' +
+        (on ? " checked" : "") + "><b>" + esc(r[1]) + "</b></label>";
+    }).join("");
+  }
+  function submitDemoLogin() {
+    var ui = parseInt((document.querySelector(
+      'input[name="dl-user"]:checked') || {}).value, 10) || 0;
+    var role = (document.querySelector(
+      'input[name="dl-role"]:checked') || {}).value || "admin";
+    var u = DEMO_USERS[ui] || DEMO_USERS[0];
+    NC.closeModal();
+    setSession({ tenant_id: u.tenant_id, tenant_name: u.tenant_name,
+      user: u.user, role: role });
+    NC.toast("로그인: " + u.user + " (" + u.tenant_name + " · " + role + ")");
+  }
+  document.addEventListener("change", function (e) {
+    if (e.target && (e.target.name === "dl-user" ||
+        e.target.name === "dl-role")) {
+      $$('input[name="' + e.target.name + '"]').forEach(function (i2) {
+        var lb = i2.closest(".dl-opt");
+        if (lb) lb.classList.toggle("on", i2.checked);
+      });
+    }
+  });
+
+  /* ── 정적 데모 마크업 스코프 스크럽 — 정적 데모 데이터는 fin-corp
+     소유. 타 테넌트 세션이면 테넌트 귀속 컨테이너를 빈 상태로 교체한다
+     (mock·live 공통 — live 렌더러가 이후 실데이터로 다시 채움) ────── */
+  var scrubCache = {};                       // sel → 원본 innerHTML (복원용)
+  function scrubPut(sel, html) {
+    var el = sel.charAt(0) === "#" ? $(sel) : document.querySelector(sel);
+    if (!el) return;
+    if (!(sel in scrubCache)) scrubCache[sel] = el.innerHTML;
+    el.innerHTML = html;
+  }
+  function scrubRestore() {
+    Object.keys(scrubCache).forEach(function (sel) {
+      var el = sel.charAt(0) === "#" ? $(sel) : document.querySelector(sel);
+      if (el) el.innerHTML = scrubCache[sel];
+    });
+    scrubCache = {};
+    var st = $("#cl-static");
+    if (st) st.style.display = "";
+  }
+  function applyMockScope() {
+    var s = getSession();
+    if ((s.tenant_name || "") === "fin-corp") {
+      if (Object.keys(scrubCache).length) scrubRestore();
+      return;
+    }
+    var EMPTY_NOTE =
+      "이 테넌트에 귀속된 데이터가 없습니다 (테넌트 격리)";
+    scrubPut("#my-clusters", '<div class="ccard" style="color:var(--muted);' +
+      'font-size:11.5px">클러스터 없음 — ' + EMPTY_NOTE + "</div>");
+    var st = $("#cl-static");
+    if (st) st.style.display = "none";
+    var cl = $("#cl-live");
+    if (cl && !cl.innerHTML.trim()) {
+      cl.style.display = "";
+      cl.innerHTML = '<div class="panel"><div class="ph">' +
+        '<span class="tick"></span><span class="t">클러스터 없음</span></div>' +
+        '<div class="mini" style="margin-top:0">' + EMPTY_NOTE + "</div></div>";
+    }
+    scrubPut("#nodes-tbody",
+      '<tr><td colspan="6" style="color:var(--muted2)">' +
+      "노드 없음 — " + EMPTY_NOTE + "</td></tr>");
+    if (!NC.live) $$("[data-node-summary]").forEach(function (el) {
+      el.textContent = "0 노드";             // live는 renderNodes가 실계산
+    });
+    scrubPut("#storage-volumes",
+      '<tr><td colspan="5" style="color:var(--muted2)">' +
+      "할당된 볼륨 없음 — " + EMPTY_NOTE + "</td></tr>");
+    scrubPut("#dash-cost-lines",
+      '<tr><td colspan="3" style="color:var(--muted2)">' +
+      "비용 데이터 없음 — " + EMPTY_NOTE + "</td></tr>");
+    scrubPut("#bill-lines",
+      '<tr><td colspan="3" style="color:var(--muted2)">' +
+      "비용 라인 없음 — " + EMPTY_NOTE + "</td></tr>");
+    scrubPut("#bill-invoices",
+      '<tr><td colspan="4" style="color:var(--muted2)">' +
+      "발행된 인보이스 없음 — " + EMPTY_NOTE + "</td></tr>");
+    scrubPut("#images-custom", "");
+    var vt = $("#net-vpc-title");
+    if (vt) vt.textContent = "내 VPC — seg-" + s.tenant_name;
+    scrubPut("#net-vrf", "—");
+    scrubPut('[data-screen="security"] .log',
+      '<div style="color:var(--muted2)">이 테넌트의 감사 로그가 없습니다 — ' +
+      "Control-Plane 연동 시 실데이터 표시</div>");
+  }
+
   /* ══ 현재 테넌트 (라이브: nocp 테넌트 / 폴백: mock fin-corp) ═══ */
   var curTenant = null;
   function loadTenant() {
@@ -189,23 +452,19 @@
       : "할당된 테넌트가 없습니다 — 계약 개통(주문 승인) 후 표시됩니다";
   }
 
-  /* ══ 사이드바 테넌트 select — NC.api.tenants()로 채움 ═════════ */
+  /* ══ 사이드바 테넌트 스코프 — 로그인 테넌트 고정 표시 (전환 불가).
+     기존 조직/프로젝트 select는 격리 원칙 위반(타 테넌트 열람)으로 제거 ══ */
   function renderTenantScope() {
-    Promise.all([NC.api.tenants(), loadTenant()]).then(function (res) {
-      var tenants = res[0] || [];
-      var cur = res[1];
-      var sel = $("#tenant-select");
-      if (sel) sel.innerHTML = tenants.length
-        ? tenants.map(function (t) {
-            return '<option value="' + esc(t.id) + '"' +
-              (cur && t.id === cur.id ? " selected" : "") + ">" +
-              esc(t.name) +
-              (t.racks ? " · " + t.racks + "랙" : "") + "</option>";
-          }).join("")
-        : '<option value="">테넌트 없음</option>';
+    var s = getSession();
+    var nameEl = $("#scope-tenant"), scaleEl = $("#scope-scale");
+    if (nameEl) nameEl.textContent = s.tenant_name;
+    loadTenant().then(function (cur) {
+      var racks = (cur && cur.racks) || 0;
+      if (scaleEl) scaleEl.textContent = (racks
+        ? racks + "랙 · GPU " + (racks * 72).toLocaleString("en-US")
+        : "할당 랙 없음") + " · 로그인 테넌트 고정";
       var av = $("#scope-avatar");
-      if (av) av.textContent =
-        cur && cur.name ? cur.name.charAt(0).toUpperCase() : "–";
+      if (av) av.textContent = s.tenant_name.charAt(0).toUpperCase();
     }).catch(function () {});
   }
 
@@ -1579,8 +1838,43 @@
   /* ══ 설정 — iamRealm(tid): realm·롤 3종·클라이언트 표 실렌더.
      apikey 발급 이력(localStorage)을 클라이언트별로 연계 표기.
      폴백(nocp 다운): iamRealm null → 패널 숨김 · 정적 멤버 표 유지 */
+  /* 멤버 · 역할(RBAC) 표 — 세션 사용자·역할 반영 (테넌트별 데모 멤버) */
+  function memberRow(name, email, role, extra, me) {
+    var cls = role === "admin" ? "st green" : role === "member"
+      ? "st blue" : "";
+    var lbl = role === "admin" ? "org admin" : role;
+    return "<tr><td><b>" + esc(name) + "</b>" +
+      (me ? ' <span class="role-bd" style="margin-left:4px">나</span>' : "") +
+      ' <span style="color:var(--muted2);font-size:10px">' + esc(email) +
+      "</span></td>" +
+      '<td class="' + cls + '" style="font-size:11.5px;' +
+      (cls ? "" : "color:var(--muted);font-weight:700") + '">' + esc(lbl) +
+      "</td>" +
+      '<td style="color:var(--muted)">' + esc(extra) + "</td></tr>";
+  }
+  function renderMembers() {
+    var tb = $("#member-rows");
+    if (!tb) return;
+    var s = getSession();
+    var dom = s.tenant_name + ".com";
+    var others = DEMO_USERS.filter(function (u) {
+      return u.tenant_id !== s.tenant_id;
+    });
+    tb.innerHTML =
+      memberRow(s.user, "user@" + dom, s.role,
+        s.role === "viewer" ? "MFA ✓ · 읽기 전용" : "MFA ✓ · SSO", true) +
+      memberRow("이승민", "lee.sm@" + dom, "member", "MFA ✓ · SSO") +
+      memberRow("정하윤", "jung.hy@" + dom, "viewer", "MFA ✓") +
+      '<tr><td class="id">svc-' + esc(s.tenant_name) +
+      '</td><td style="color:#c8a5e8;font-weight:700">service account</td>' +
+      '<td style="color:var(--muted)">API 키 인증</td></tr>' +
+      (others.length ? "" : "");
+  }
+
   function renderSettings() {
     renderInvites();                         // 초대 상태 (라이트 · 모의)
+    renderMembers();                         // 멤버 표 — 세션 역할 반영
+    applySessionUi();                        // 조직 셀 등 세션 연동
     loadTenant().then(function (t) {
       var panel = $("#iam-realm-panel");
       if (!panel || !t || !NC.api.iamRealm) return;
@@ -1635,6 +1929,8 @@
   NC.bus.on("route", function (id) {
     curRoute = id;
     if (id !== "clusters") { stopFulfillPoll(); stopTermPoll(); }
+    applyMockScope();                        // 정적 데모(fin-corp) 스크럽
+    setTimeout(applyRbacGates, 0);           // 화면 전환 직후 게이트 재적용
   });
 
   /* ── CP-004 인수 검증 — 액션 카드 + PT 리포트 모달 + 승인/반려 ── */
@@ -1986,6 +2282,9 @@
     loadTenant().then(function (t) {
       if (!t) return;
       NC.api.terminationStatus(t.id).then(function (st) {
+        // mock 폴백은 tid 인자를 무시 — 타 테넌트 종료 상태 노출 방지
+        if (st && st.tenant && NC.sessionOwns && !NC.sessionOwns(st.tenant))
+          st = null;
         if (!st || !st.state || st.state === "closed") {
           wrap.style.display = "none"; wrap.innerHTML = "";
           stopTermPoll(); return;
@@ -2163,6 +2462,8 @@
       NC.api.rcaReports((t && t.id) || "").then(function (rs) {
         var tb = $("#status-rca");
         if (!tb) return;
+        // mock RCA는 fin-corp 시나리오 데이터 — 타 테넌트 세션 차단
+        if (!NC.live && getSession().tenant_name !== "fin-corp") rs = [];
         rcaCache = rs || [];
         tb.innerHTML = rcaCache.length
           ? rcaCache.map(function (r, i) {
@@ -2197,6 +2498,12 @@
     if (!box || !NC.api.slaReport) return;
     var month = ($("#sla-month") || {}).value || "2026-07";
     loadTenant().then(function (t) {
+      // mock SLA 리포트는 fin-corp 시나리오 데이터 — 타 테넌트 세션 차단
+      if (!NC.live && getSession().tenant_name !== "fin-corp") {
+        box.innerHTML = '<div class="mini" style="margin-top:0">' +
+          esc(month) + " 리포트가 없습니다 (테넌트 격리 · mock)</div>";
+        return;
+      }
       NC.api.slaReport((t && t.id) || "fin-corp", month).then(function (r) {
         if (!r) {
           box.innerHTML = '<div class="mini" style="margin-top:0">' +
@@ -2418,12 +2725,16 @@
     if (s && s.cert_ready)
       NC.toast("SAN-0691 Sanitization 증명서가 발급되었습니다 — PDF 다운로드 가능");
   });
-  // 테넌트 전환 — 사이드바 select(NC.setTenant) → 현재 화면 재렌더
-  NC.bus.on("tenant.changed", function () {
+  // 세션 전환 (데모 로그인) — 세션 UI·게이트·전 화면 재렌더
+  NC.bus.on("session.changed", function () {
+    curTenant = null;                        // 테넌트 캐시 무효화
+    applySessionUi();
     renderTenantScope();
     refreshTickets();
-    NC.route();                              // 현재 화면 onShow 재실행
-  });
+    NC.api.alerts().then(renderAlertFeeds);
+    applyRbacGates();
+    NC.route();                              // 현재 화면 onShow 재실행 (route
+  });                                        // 버스에서 스크럽·게이트 재적용)
 
   /* ══ 모달 확정 액션 ═══════════════════════════════════════════
      라이브 실연동: ticket(createTicket) · create_cluster/resize(createOrder)
@@ -2564,6 +2875,8 @@
     if (id === "acceptance") fillAcceptanceModal();
     if (id === "ticket") applyTicketTypeUi();
     if (id === "resize") applyResizeScopeUi();
+    if (id === "demo_login") fillDemoLogin();
+    setTimeout(applyRbacGates, 0);           // 모달 내 액션 버튼 게이팅
   });
 
   function submitReclaimLive() {
@@ -2846,6 +3159,7 @@
     var act = e.target.closest("[data-act]");
     if (act) {
       var a = act.dataset.act;
+      if (a === "demo_login") { submitDemoLogin(); return; }
       if (GUARDS[a] && !GUARDS[a]()) return; // 빈 값 가드 — 모달 유지
       var liveReady = NC.live && curTenant;  // 미기동 → 데모 토스트 폴백
       /* 인수 승인/반려 (CP-004) — mock 폴백 내장 (acceptanceDecision) */
@@ -2928,11 +3242,9 @@
     settings: renderSettings,
   });
 
-  // 사이드바 테넌트 select — 변경 시 NC.setTenant → bus "tenant.changed"
-  var tsel = $("#tenant-select");
-  if (tsel) tsel.addEventListener("change", function () {
-    if (this.value && NC.setTenant) NC.setTenant(this.value);
-  });
+  // 세션 UI·RBAC 게이트 초기 적용 (테넌트 select는 격리 원칙으로 제거됨)
+  applySessionUi();
+  applyRbacGates();
 
   // 사이드바 배지 등 전역 표시는 첫 진입 화면과 무관하게 채운다
   renderTenantScope();
