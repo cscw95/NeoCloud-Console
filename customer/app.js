@@ -263,6 +263,20 @@
     return t.state !== "resolved" && t.state !== "closed";
   }
 
+  /* 티켓 유형·라우팅 (P2-4) — type: tech|change|billing_dispute,
+     routed_to: ops|biz. 구 데이터(필드 없음)는 기술/운영팀으로 표시 */
+  var TKT_TYPE_LBL = { tech: "기술", change: "변경 요청",
+    billing_dispute: "청구 이의" };
+  var TKT_ROUTE_LBL = { ops: "운영팀", biz: "사업팀" };
+  function ticketTypeBadges(t) {
+    var ty = t.type || "tech";
+    var rt = t.routed_to || (ty === "billing_dispute" ? "biz" : "ops");
+    return '<span class="ty-bd">' + esc(TKT_TYPE_LBL[ty] || ty) +
+      (t.change_scope === "contract_amendment" ? " · Amendment" : "") +
+      '</span><span class="rt-bd ' + (rt === "biz" ? "biz" : "ops") + '">' +
+      esc(TKT_ROUTE_LBL[rt] || rt) + "</span>";
+  }
+
   function ticketCard(t) {
     var open = isOpenTicket(t);
     var sev = String(t.sev || "").toUpperCase();
@@ -270,6 +284,7 @@
       '<div class="th"><span class="tid">' + esc(t.id) + "</span>" +
       '<span class="tst' + (open ? "" : " ok") + '">' + esc(sev) +
       (open ? " · 진행 중" : " · 해결됨") + "</span>" +
+      ticketTypeBadges(t) +
       '<span class="tm">' +
       esc(t.linked ? "연계 " + t.linked : (t.tenant || "")) + "</span></div>" +
       '<div class="tt"' + (open ? "" : ' style="color:var(--soft)"') + ">" +
@@ -677,6 +692,7 @@
     NC.api.sanitization().then(applySanitization);
     renderSysChip();
     renderIsolation();
+    renderAcceptance();                      // CP-004 인수 대기 카드
   }
 
   /* 노드 — nodes(tid)+cpuNodes(tid) 전체 목록을 pagedTable로 열람
@@ -1015,6 +1031,7 @@
         if (pj) pj.innerHTML = usdC(proj);
         if (psub) psub.textContent = "활성 주문 월 환산 (Control-Plane)";
       }).catch(function () {});
+      renderSlaPanel();                      // BP-006 SLA 리포트 · 크레딧
       if (NC.api.billingRates) NC.api.billingRates().then(function (r) {
         if (!r || !r.rates) return;
         var box = $("#bill-rates"), rows = $("#bill-rates-rows");
@@ -1259,6 +1276,7 @@
   function renderSecurity() {
     NC.api.sanitization().then(applySanitization);
     renderIsolation();
+    renderWipeCerts();                       // CP-012 Wipe 증명서 보관함
     loadTenant().then(function (t) {
       if (!t || !NC.api.accessPackages) return;
       NC.api.accessPackages(t.id).then(function (pkgs) {
@@ -1503,6 +1521,9 @@
       renderK8sPanel(t);
     });
     refreshTickets();
+    renderAcceptance();                      // CP-004 인수 대기 카드
+    renderFulfillment();                     // IF-08 진행 스테퍼 (3s 폴링)
+    renderTermination();                     // CP-012 종료 워크플로우
   }
 
   /* ══ 이미지 — spec() 블루프린트 카탈로그 실렌더 (폴백: 정적 표 유지)
@@ -1559,6 +1580,7 @@
      apikey 발급 이력(localStorage)을 클라이언트별로 연계 표기.
      폴백(nocp 다운): iamRealm null → 패널 숨김 · 정적 멤버 표 유지 */
   function renderSettings() {
+    renderInvites();                         // 초대 상태 (라이트 · 모의)
     loadTenant().then(function (t) {
       var panel = $("#iam-realm-panel");
       if (!panel || !t || !NC.api.iamRealm) return;
@@ -1605,6 +1627,786 @@
     });
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     시나리오 갭 12종 (P1~P3) — CP-004 인수 · IF-08 스테퍼 · CP-012 종료 ·
+     티켓 라우팅 · 변경 분기 · CP-011 상태 · BP-006 SLA · 초대 · Grafana
+     ═══════════════════════════════════════════════════════════════ */
+  var curRoute = null;
+  NC.bus.on("route", function (id) {
+    curRoute = id;
+    if (id !== "clusters") { stopFulfillPoll(); stopTermPoll(); }
+  });
+
+  /* ── CP-004 인수 검증 — 액션 카드 + PT 리포트 모달 + 승인/반려 ── */
+  var acceptCtx = null, acceptArmed = false;
+  function deemedDday(deadline) {          // "YYYY-MM-DD" 또는 ISO 타임스탬프
+    var s = String(deadline || "");
+    var ts = Date.parse(s.length > 10 ? s : s + "T23:59:59");
+    return Math.ceil((ts - Date.now()) / 864e5);
+  }
+  function shortDate(d) { return String(d || "").slice(0, 10); }
+  function deemedChipHtml(rep) {
+    if (rep.status === "deemed")
+      return '<span class="st green">Deemed 자동 승인됨</span>';
+    if (!rep.deemed_deadline) return "";
+    var d = deemedDday(rep.deemed_deadline);
+    return d >= 0
+      ? '<span class="st amber" title="기한 내 승인/반려가 없으면 자동 승인(Deemed Acceptance)">Deemed D-' + d + "</span>"
+      : '<span class="st red">기한 경과 — 자동 승인 처리</span>';
+  }
+  function acceptCardHtml(o, rep) {
+    var checks = (rep.report && rep.report.checks) || [];
+    var pass = checks.filter(function (c) { return c.status === "pass"; }).length;
+    var stateNote = "";
+    if (rep.status === "rejected")
+      stateNote = '<span class="st red">반려됨 — 재설정 · 재테스트 진행 중</span>';
+    else if (rep.status === "deemed")
+      stateNote = '<span class="st green">기한 경과 — Deemed Acceptance 자동 승인 (청구 개시 ' +
+        esc(rep.billing_start_date || "") + ")</span>";
+    return '<div class="panel" style="border-color:var(--amber-line)">' +
+      '<div class="ph" style="margin-bottom:8px"><span class="tick amber"></span>' +
+      '<span class="t">인수 검증 대기 — ' + esc(o.id) + "</span>" +
+      '<span class="c">' + (o.racks || "—") + "랙 · " +
+      esc(o.blueprint_key || "vr-nvl72") + " · Performance Test 완료</span>" +
+      stateNote +
+      '<span style="margin-left:auto;display:flex;gap:8px;align-items:center">' +
+      deemedChipHtml(rep) +
+      '<button class="btn" style="padding:6px 13px;font-size:11.5px" ' +
+      'data-open="acceptance">PT 리포트 · 승인/반려</button></span></div>' +
+      '<div class="stats">' +
+      "<span>검증 항목 <b>" + pass + "/" + checks.length + " PASS</b></span>" +
+      "<span>노드 <b>" +
+      ((rep.report && rep.report.nodes_tested) || "—") + "</b></span>" +
+      "<span>리포트 <b>" +
+      esc(String((rep.report && rep.report.report_ts) || "—")
+        .slice(0, 16).replace("T", " ")) + "</b></span>" +
+      '<span style="color:var(--muted)">승인 시 청구 개시 · ' +
+      esc(shortDate(rep.deemed_deadline) || "—") +
+      " 까지 미결정 시 자동 승인(Deemed)</span></div></div>";
+  }
+  function renderAcceptance() {
+    var wraps = $$("[data-accept-wrap]");
+    if (!wraps.length || !NC.api.acceptanceOrders) return;
+    loadTenant().then(function (t) {
+      NC.api.acceptanceOrders().then(function (os) {
+        os = (os || []).filter(function (o) {
+          var tid = o.tenant_id || o.tenant;
+          return !t || !tid || tid === t.id;
+        });
+        if (!os.length) {
+          wraps.forEach(function (w) {
+            w.innerHTML = ""; w.style.display = "none";
+          });
+          return;
+        }
+        var o = os[0];
+        NC.api.acceptanceReport(o.id).then(function (rep) {
+          if (!rep || rep.status === "approved") {   // 승인 완료 → 카드 숨김
+            wraps.forEach(function (w) {
+              w.innerHTML = ""; w.style.display = "none";
+            });
+            return;
+          }
+          acceptCtx = { order: o, rep: rep };
+          var html = acceptCardHtml(o, rep);
+          wraps.forEach(function (w) {
+            w.innerHTML = html; w.style.display = "";
+          });
+        }).catch(function () {});
+      }).catch(function () {});
+    });
+  }
+  function fillAcceptanceModal() {
+    if (!acceptCtx) return;
+    acceptArmed = false;
+    var o = acceptCtx.order, rep = acceptCtx.rep;
+    var r = rep.report || {};
+    var tt = $("#accept-title");
+    if (tt) tt.textContent = "인수 검증 — " + o.id + " Performance Test 리포트";
+    var meta = $("#accept-meta");
+    if (meta) meta.innerHTML =
+      "<tr><td>주문</td><td class=\"id\">" + esc(o.id) + " · " +
+      esc(o.blueprint_key || "vr-nvl72") + " × " + (o.racks || "—") +
+      "랙</td></tr>" +
+      "<tr><td>테스트 노드</td><td>" + (r.nodes_tested || "—") +
+      "노드 · NCCL / fio / Burn-in 자동 스위트</td></tr>" +
+      "<tr><td>리포트 시각</td><td>" +
+      esc(String(r.report_ts || "—").slice(0, 16).replace("T", " ")) +
+      "</td></tr>" +
+      "<tr><td>상태</td><td>" + esc(rep.status || "pending") +
+      (rep.billing_start_date
+        ? ' · 청구 기준일 <b style="color:var(--green-text)">' +
+          esc(shortDate(rep.billing_start_date)) + "</b>" : "") + "</td></tr>";
+    var tb = $("#accept-checks");
+    if (tb) tb.innerHTML = ((r.checks || []).map(function (c) {
+      var ok = c.status === "pass";
+      return "<tr><td>" + esc(c.name) + "</td>" +
+        '<td class="num id">' + esc(c.value || "—") + "</td>" +
+        '<td style="color:var(--muted)">' + esc(c.detail || "") + "</td>" +
+        '<td><span class="st ' + (ok ? "green" : "red") + '">' +
+        (ok ? "PASS" : String(c.status || "").toUpperCase()) +
+        "</span></td></tr>";
+    }).join("")) || '<tr><td colspan="4" style="color:var(--muted2)">체크 데이터 없음</td></tr>';
+    var dm = $("#accept-deemed");
+    if (dm) {
+      if (rep.deemed_deadline) {
+        var d = deemedDday(rep.deemed_deadline);
+        var dl = shortDate(rep.deemed_deadline);
+        dm.style.display = "";
+        dm.textContent = rep.status === "deemed"
+          ? "Deemed Acceptance — 기한(" + dl +
+            ") 경과로 자동 승인 처리되었습니다 (청구 개시)"
+          : "Deemed Acceptance — " + dl +
+            "까지 승인/반려가 없으면 자동 승인 처리되고 청구가 개시됩니다" +
+            (d >= 0 ? " (D-" + d + ")" : " (기한 경과)");
+      } else dm.style.display = "none";
+    }
+    var btn = $("#accept-approve-btn");
+    if (btn) btn.textContent = "승인 — 청구 개시";
+  }
+  function submitAcceptApprove() {
+    if (!acceptCtx) { NC.toast("인수 대기 주문이 없습니다", "warn"); return; }
+    var btn = $("#accept-approve-btn");
+    if (!acceptArmed) {                      // 2단계 확인 — 청구 개시 경고
+      acceptArmed = true;
+      if (btn) btn.textContent = "승인 확정 — 청구 기준일 확정 (한 번 더 클릭)";
+      NC.toast("승인 시 청구가 개시됩니다 (청구 기준일 확정) — 확정하려면 " +
+        "버튼을 한 번 더 클릭하세요", "warn");
+      return;
+    }
+    NC.api.acceptanceDecision(acceptCtx.order.id, { decision: "approve" })
+      .then(function (r) {
+        NC.closeModal();
+        if (r && r.error) {
+          NC.toast("승인 실패 — " + r.error, "warn");
+          return;
+        }
+        var bsd = (r && r.billing_start_date) ||
+          new Date().toISOString().slice(0, 10);
+        NC.toast("인수 승인 완료 — 과금 개통 (청구 기준일 " + bsd + ") · " +
+          "접속 정보는 보안 화면 '접속 패키지'에서 확인하세요");
+        renderAcceptance();
+        afterOrderChange();
+      }).catch(function () {
+        NC.toast("승인 처리 실패 — 잠시 후 다시 시도해주세요", "warn");
+      });
+  }
+  function submitAcceptReject() {
+    if (!acceptCtx) { NC.toast("인수 대기 주문이 없습니다", "warn"); return; }
+    var el = $("#accept-reason");
+    var reason = el ? el.value.trim() : "";
+    if (!reason) {
+      guardFail(el, "반려 사유를 입력하세요 — 반려에는 사유가 필수입니다");
+      return;
+    }
+    NC.api.acceptanceDecision(acceptCtx.order.id,
+      { decision: "reject", reason: reason }).then(function (r) {
+      NC.closeModal();
+      if (r && r.error) { NC.toast("반려 실패 — " + r.error, "warn"); return; }
+      NC.toast("인수 반려 접수 — 사유가 운영팀에 전달되었습니다. 재설정 · " +
+        "Performance Test 재실행 후 재인수를 요청드립니다");
+      if (el) el.value = "";
+      renderAcceptance();
+    }).catch(function () {
+      NC.toast("반려 처리 실패 — 잠시 후 다시 시도해주세요", "warn");
+    });
+  }
+
+  /* ── IF-08 Fulfillment 진행 스테퍼 — /orders/{id}/flow 3s 폴링 ── */
+  var FULFILL_STEPS = [
+    { lb: "자원 할당", m: ["received", "validated", "reserved"] },
+    { lb: "네트워크·패브릭", m: ["isolating"] },
+    { lb: "스토리지", m: ["storage_binding"] },
+    { lb: "테넌트 OS", m: ["provisioning"] },
+    { lb: "Managed K8s", m: ["k8s_installing"], opt: true },
+    { lb: "Performance Test", m: ["acceptance"] },
+    { lb: "인수 대기", m: ["delivered"] },
+  ];
+  function fulfillPanelHtml(flow, o) {
+    var steps = FULFILL_STEPS.filter(function (s) {
+      return !s.opt || o.managed_k8s;
+    });
+    var reached = -1;
+    (flow.stages || []).forEach(function (st) {
+      steps.forEach(function (s, i) {
+        if (s.m.indexOf(st.state) >= 0 && i > reached) reached = i;
+      });
+    });
+    var delivered = flow.state === "delivered";
+    // 주문이 acceptance 상태면 PT 완료 → "인수 대기"가 현재 단계
+    if (flow.state === "acceptance") reached = steps.length - 1;
+    if (delivered) reached = steps.length;
+    var nodes = steps.map(function (s, i) {
+      var cls = i < reached || delivered ? "done" : (i === reached ? "cur" : "");
+      var nd = i < reached || delivered ? "✓" : String(i + 1);
+      return '<div class="step ' + cls + '"><span class="nd">' + nd +
+        '</span><span class="lb">' + s.lb + "</span></div>" +
+        (i < steps.length - 1
+          ? '<div class="step-bar' +
+            (i < reached || delivered ? " done" : "") + '"></div>' : "");
+    }).join("");
+    var last = (flow.stages || [])[Math.max(0, (flow.stages || []).length - 1)];
+    return '<div class="panel">' +
+      '<div class="ph" style="margin-bottom:6px"><span class="tick blue"></span>' +
+      '<span class="t">개통 진행 — ' + esc(flow.order_id || o.id) + "</span>" +
+      '<span class="c">' + (flow.racks || o.racks || "—") + "랙 · " +
+      esc(o.blueprint_key || "vr-nvl72") +
+      (o.managed_k8s ? " · Managed K8s" : "") + " · 실시간 3s 갱신</span>" +
+      '<span class="st ' + (delivered ? "green" : "blue") +
+      '" style="margin-left:auto">' + esc(flow.state || "—") + "</span></div>" +
+      '<div class="fsteps">' + nodes + "</div>" +
+      (last
+        ? '<div class="mini" style="margin-top:4px">최근 단계: <b style="color:var(--soft)">' +
+          esc(last.state) + "</b> — " + esc(last.detail || "") + "</div>"
+        : "") + "</div>";
+  }
+  var fulfillTimer = null;
+  function stopFulfillPoll() {
+    if (fulfillTimer) { clearInterval(fulfillTimer); fulfillTimer = null; }
+  }
+  function startFulfillPoll() {
+    if (fulfillTimer || curRoute !== "clusters") return;
+    fulfillTimer = setInterval(function () {
+      if (curRoute !== "clusters") { stopFulfillPoll(); return; }
+      renderFulfillment();
+    }, 3000);
+  }
+  function renderFulfillment() {
+    var wrap = $("#fulfill-wrap");
+    if (!wrap || !NC.api.fulfillOrders) return;
+    loadTenant().then(function (t) {
+      NC.api.fulfillOrders().then(function (os) {
+        os = (os || []).filter(function (o) {
+          var tid = o.tenant_id || o.tenant;
+          return !t || !tid || tid === t.id;
+        });
+        if (!os.length) { wrap.innerHTML = ""; stopFulfillPoll(); return; }
+        Promise.all(os.slice(0, 2).map(function (o) {
+          return NC.api.orderFlow(o.id).then(function (f) {
+            return { o: o, f: f };
+          }).catch(function () { return { o: o, f: null }; });
+        })).then(function (rs) {
+          var html = rs.filter(function (r) { return r.f; })
+            .map(function (r) { return fulfillPanelHtml(r.f, r.o); }).join("");
+          if (html) { wrap.innerHTML = html; startFulfillPoll(); }
+        });
+      }).catch(function () {});
+    });
+  }
+
+  /* ── CP-012 종료 워크플로우 — 요청서 → 백업 게이트(409) →
+        Secure Erase 폴링 → Wipe 증명서 → 정산 마감 안내 ── */
+  var termChk = { extracted: false, migrated: false, verified: false };
+  var termTimer = null;
+  var WIPE_STEPS = ["NVMe crypto-erase", "GPU HBM wipe", "시스템 메모리 소거",
+    "TPM reset", "펌웨어 re-attestation", "BMC 자격증명 로테이션", "검증 리포트"];
+  function stopTermPoll() {
+    if (termTimer) { clearInterval(termTimer); termTimer = null; }
+  }
+  function startTermPoll() {
+    if (termTimer || curRoute !== "clusters") return;
+    termTimer = setInterval(function () {
+      if (curRoute !== "clusters") { stopTermPoll(); return; }
+      renderTermination();
+    }, 2500);
+  }
+  function chkRow(key, label, hint) {
+    return '<label class="chkrow"><input type="checkbox" data-term-chk="' +
+      key + '"' + (termChk[key] ? " checked" : "") + "><span>" + label +
+      '</span><span class="hint">' + hint + "</span></label>";
+  }
+  function termAwaitingHtml(st) {
+    var all = termChk.extracted && termChk.migrated && termChk.verified;
+    return '<div class="ph" style="margin-bottom:8px"><span class="tick red"></span>' +
+      '<span class="t">종료 워크플로우 — 백업 체크리스트</span>' +
+      '<span class="c">' + esc(st.allocation_id || "전체") + " · 사유: " +
+      esc(st.reason || "—") + "</span>" +
+      '<span class="st amber" style="margin-left:auto">awaiting_backup</span></div>' +
+      '<div class="redcall" style="margin-bottom:10px"><span class="ic">⚠</span>' +
+      "<span><b>백업 확인 전 시스템이 종료를 차단합니다</b> — 아래 3개 항목이 " +
+      "모두 확인되어야 [종료 진행]이 활성화되며, 미완료 상태로 요청 시 " +
+      "시스템이 거부(409)합니다.</span></div>" +
+      chkRow("extracted", "데이터 추출 완료", "볼륨 · 오브젝트 전체 추출") +
+      chkRow("migrated", "외부 이관 완료", "사외 스토리지/클라우드 이관") +
+      chkRow("verified", "백업 무결성 검증 완료", "체크섬 · 샘플 복원 확인") +
+      '<div id="term-err" class="redcall" style="display:none;margin-top:10px"></div>' +
+      '<div style="display:flex;gap:8px;margin-top:12px;align-items:center">' +
+      '<button class="btn-danger solid" id="term-confirm-btn"' +
+      (all ? "" : " disabled") +
+      ' style="padding:7px 16px;font-size:12px' +
+      (all ? "" : ";opacity:.4;cursor:default") +
+      '">종료 진행 — Secure Erase 개시</button>' +
+      '<span class="mini" style="margin-top:0">백업 계획: ' +
+      esc(st.backup_plan || "—") + "</span></div>";
+  }
+  function termErasingHtml(st) {
+    var pct = Math.round(st.progress || 0);
+    var phase = st.phase === "drain" ? "① 워크로드 드레인"
+      : st.phase === "release" ? "② 자원 회수 (release)"
+      : "③ Secure Erase " + (st.wipe_step || 0) + "/7단계" +
+        (st.wipe_step ? " — " + (WIPE_STEPS[st.wipe_step - 1] || "") : "");
+    return '<div class="ph" style="margin-bottom:8px"><span class="tick red"></span>' +
+      '<span class="t">종료 진행 중 — Secure Erase</span>' +
+      '<span class="c">' + esc(st.allocation_id || "전체") +
+      " · drain → release → 7단계 소거</span>" +
+      '<span class="st amber" style="margin-left:auto">erasing · ' + pct +
+      "%</span></div>" +
+      '<div style="height:7px;border-radius:4px;background:#233043;overflow:hidden;margin-bottom:8px">' +
+      '<div style="width:' + pct +
+      '%;height:100%;background:var(--red)"></div></div>' +
+      '<div class="stats"><span>현재 <b style="color:var(--amber)">' + phase +
+      "</b></span><span>완료 후 <b>Secure Wipe 증명서</b> 자동 발급</span></div>";
+  }
+  function termWipedHtml(st) {
+    var c = st.wipe_certificate || {};
+    return '<div class="ph" style="margin-bottom:8px"><span class="tick"></span>' +
+      '<span class="t">종료 완료 — Secure Wipe 증명서 발급</span>' +
+      '<span class="c">' + esc(st.allocation_id || "전체") + " · 소거 검증 통과</span>" +
+      '<span class="st green" style="margin-left:auto">' + esc(st.state) +
+      "</span></div>" +
+      '<table class="kv2"><tbody>' +
+      "<tr><td>증명서 ID</td><td class=\"id\">" + esc(c.cert_id || "—") +
+      ' <button class="tbtn" data-copy="' + esc(c.cert_id || "") +
+      '">복사</button></td></tr>' +
+      "<tr><td>SHA-256</td><td class=\"id\" style=\"word-break:break-all\">" +
+      esc(c.sha256 || "—") + "</td></tr>" +
+      "<tr><td>소거 방법</td><td>" + esc(c.method || "—") + "</td></tr>" +
+      "<tr><td>발급 시각</td><td>" + esc(c.issued_at || "—") +
+      ' · <button class="tbtn" data-demo="Wipe 증명서 ' +
+      esc(c.cert_id || "") + ' PDF 다운로드">PDF ↓</button>' +
+      ' · <a class="lnk" href="#/security">보안 · 감사 화면 보관함 →</a></td></tr>' +
+      "</tbody></table>" +
+      '<div class="callout" style="margin-top:10px">정산 마감 — 종료일 기준 ' +
+      "일할 계산된 최종 인보이스가 발행되며, 미사용 크레딧은 마감 정산에 " +
+      "반영됩니다. 증명서는 감사 파이프라인에 불변 보관됩니다.</div>";
+  }
+  function renderTermination() {
+    var wrap = $("#term-wrap");
+    if (!wrap || !NC.api.terminationStatus) return;
+    loadTenant().then(function (t) {
+      if (!t) return;
+      NC.api.terminationStatus(t.id).then(function (st) {
+        if (!st || !st.state || st.state === "closed") {
+          wrap.style.display = "none"; wrap.innerHTML = "";
+          stopTermPoll(); return;
+        }
+        var inner = st.state === "awaiting_backup" ? termAwaitingHtml(st)
+          : st.state === "erasing" ? termErasingHtml(st)
+          : termWipedHtml(st);
+        wrap.innerHTML = '<div class="panel" style="border-color:var(--red-line)">' +
+          inner + "</div>";
+        wrap.style.display = "";
+        if (st.state === "erasing") startTermPoll(); else stopTermPoll();
+        if (st.wipe_certificate) renderWipeCerts();
+      }).catch(function () {});
+    });
+  }
+  function submitTerminationStart() {
+    var aid = ($("#rc-alloc") || {}).value || "";
+    var reason = ($("#rc-reason") || {}).value || "";
+    var backup = (($("#rc-backup") || {}).value || "").trim();
+    NC.closeModal();
+    loadTenant().then(function (t) {
+      var tid = (t && t.id) || "fin-corp";
+      NC.api.terminationStart(tid, { reason: reason, backup_plan: backup,
+        allocation_id: aid || null }).then(function (r) {
+        if (!r) { NC.toast("종료 요청 실패 — 응답 없음", "warn"); return; }
+        if (r.error) { NC.toast("종료 요청 실패 — " + r.error, "warn"); return; }
+        termChk = { extracted: false, migrated: false, verified: false };
+        NC.toast("종료 요청서 접수 — 백업 체크리스트 확인 후 Secure Erase가 " +
+          "진행됩니다 (완료 시 Wipe 증명서 발급)");
+        resetModalInputs("reclaim");
+        NC.nav("clusters");
+        renderTermination();
+      }).catch(function () {
+        NC.toast("종료 요청 실패 — 잠시 후 다시 시도해주세요", "warn");
+      });
+    });
+  }
+  function submitTerminationConfirm() {
+    var btn = $("#term-confirm-btn");
+    if (btn && btn.disabled) return;
+    loadTenant().then(function (t) {
+      var tid = (t && t.id) || "fin-corp";
+      NC.api.terminationBackupConfirm(tid, {
+        extracted: termChk.extracted, migrated: termChk.migrated,
+        verified: termChk.verified,
+      }).then(function (r) {
+        if (!r) { NC.toast("종료 진행 실패 — 응답 없음", "warn"); return; }
+        if (r.error) {                       // 409 — 백업 게이트 차단 표면화
+          var err = $("#term-err");
+          if (err) {
+            err.style.display = "";
+            err.innerHTML = '<span class="ic">⛔</span><span><b>시스템 차단' +
+              (r.status === 409 ? " (409 Conflict)" : "") + "</b> — " +
+              esc(r.error) + "</span>";
+          }
+          NC.toast("종료 차단 — " + r.error, "warn");
+          return;
+        }
+        NC.toast("백업 확인 완료 — Secure Erase 개시 (drain → release → 7단계 소거)");
+        // 백엔드 종료 API 미가동(mock 폴백) + 라이브 연결 시: 실제 자원 회수를
+        // 기존 terminateOrder로 수행해 Control-Plane 상태와 동기화
+        if (r._mock && NC.live && curTenant && NC.api.terminateOrder) {
+          tenantAllocations().then(function (list) {
+            var aid = (list && list[0] && list[0].alloc) || null;
+            if (aid) NC.api.terminateOrder(curTenant.id, aid)
+              .catch(function () {});
+          }).catch(function () {});
+        }
+        renderTermination();
+      }).catch(function () {
+        NC.toast("종료 진행 실패 — 잠시 후 다시 시도해주세요", "warn");
+      });
+    });
+  }
+  function renderWipeCerts() {
+    var panel = $("#wipe-certs-panel"), tb = $("#wipe-certs");
+    if (!panel || !tb || !NC.api.terminationStatus) return;
+    loadTenant().then(function (t) {
+      if (!t) return;
+      NC.api.terminationStatus(t.id).then(function (st) {
+        var c = st && st.wipe_certificate;
+        if (!c) { panel.style.display = "none"; return; }
+        tb.innerHTML = '<tr><td class="id">' + esc(c.cert_id || "—") + "</td>" +
+          '<td style="color:var(--muted)">' + esc(c.method || "—") + "</td>" +
+          '<td class="id" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' +
+          esc(c.sha256 || "") + '">' + esc(c.sha256 || "—") + "</td>" +
+          "<td>" + esc(c.issued_at || "—") + "</td>" +
+          '<td class="num"><button class="tbtn" data-demo="Wipe 증명서 ' +
+          esc(c.cert_id || "") + ' PDF 다운로드">PDF ↓</button></td></tr>';
+        panel.style.display = "";
+      }).catch(function () {});
+    });
+  }
+
+  /* ── CP-011 서비스 상태 화면 — 컴포넌트 보드 · 인시던트 · RCA ── */
+  var COMP_ST = {
+    operational: ["green", "정상"],
+    degraded: ["amber", "성능 저하"],
+    outage: ["red", "장애"],
+  };
+  var rcaCache = [];
+  function renderStatus() {
+    if (NC.api.serviceStatus) NC.api.serviceStatus().then(function (s) {
+      if (!s) return;
+      var comps = s.components || [];
+      var tb = $("#status-components");
+      if (tb) tb.innerHTML = comps.map(function (c) {
+        var st = c.status || c.state;        // mock: status · live: state
+        var m = COMP_ST[st] || ["gray", st];
+        return "<tr><td><b>" + esc(c.name) + "</b></td>" +
+          "<td>" + statusChip(m[0], m[1]) + "</td>" +
+          '<td class="num">' + (c.uptime_90d != null ? c.uptime_90d + "%" : "—") +
+          "</td>" +
+          '<td style="color:var(--muted)">' + esc(c.note || "—") + "</td></tr>";
+      }).join("");
+      var incs = s.incidents || [];
+      var feed = $("#status-incidents");
+      var fmtTs = function (t) {
+        return String(t || "").slice(0, 16).replace("T", " ");
+      };
+      if (feed) feed.innerHTML = incs.length
+        ? incs.slice(0, 6).map(function (i) {
+            return '<div class="fi"><span class="dot ' +
+              (i.state === "resolved" ? "green" : "amber") + '"></span>' +
+              '<div class="tx"><b>' + esc(i.id) + " · " +
+              esc(i.sev || i.severity || "") +
+              " — " + esc(i.title) + "</b>" +
+              '<div class="tm">' + esc(fmtTs(i.started_at)) + " 감지 · 상태 " +
+              esc(i.state || "—") + "</div>" +
+              '<div class="log" style="margin-top:4px;line-height:1.8">' +
+              (i.updates || []).map(function (u) {
+                var ts = Array.isArray(u) ? u[0] : u.ts;   // mock: 배열 · live: 객체
+                var msg = Array.isArray(u) ? u[1] : u.msg;
+                return '<div><span class="tm">' + esc(fmtTs(ts)) + "</span> " +
+                  esc(msg) + "</div>";
+              }).join("") + "</div></div></div>";
+          }).join("")
+        : '<div class="mini" style="margin-top:0">진행 중인 플랫폼 인시던트가 없습니다 — 모든 컴포넌트 정상</div>';
+      var h = s.history_90d || {};
+      var hAvail = h.availability_pct != null ? h.availability_pct
+        : (h.uptime_pct != null ? h.uptime_pct : null);    // live: uptime_pct
+      var a = $("#stp-avail");
+      if (a) {
+        a.innerHTML = (hAvail != null ? hAvail : "—") + "<small>%</small>";
+        a.classList.toggle("green", hAvail != null && hAvail >= 99.9);
+        a.classList.toggle("amber", hAvail != null && hAvail < 99.9);
+      }
+      var openInc = incs.filter(function (i) {
+        return i.state !== "resolved";
+      }).length;
+      var ei = $("#stp-inc");
+      if (ei) {
+        ei.textContent = String(openInc);
+        ei.classList.toggle("amber", openInc > 0);
+        ei.classList.toggle("green", !openInc);
+      }
+      var opCnt = comps.filter(function (c) {
+        return c.status === "operational";
+      }).length;
+      var ec = $("#stp-comp");
+      if (ec) ec.textContent = comps.length ? opCnt + "/" + comps.length : "—";
+      var ecs = $("#stp-comp-sub");
+      if (ecs) ecs.textContent = comps.length === opCnt
+        ? "전 컴포넌트 operational"
+        : "degraded " + (comps.length - opCnt) + "건 포함";
+      var em = $("#stp-maint");
+      if (em) em.textContent = h.maintenance != null ? String(h.maintenance) : "—";
+      var src = $("#status-src");
+      if (src) src.textContent = (NC.live
+        ? "Control-Plane /status · " : "mock 스냅샷 · ") +
+        "컴포넌트 " + comps.length + "종";
+    }).catch(function () {});
+    loadTenant().then(function (t) {
+      if (!NC.api.rcaReports) return;
+      NC.api.rcaReports((t && t.id) || "").then(function (rs) {
+        var tb = $("#status-rca");
+        if (!tb) return;
+        rcaCache = rs || [];
+        tb.innerHTML = rcaCache.length
+          ? rcaCache.map(function (r, i) {
+              return '<tr><td class="id">' + esc(r.id) + "</td>" +
+                "<td>" + esc(r.incident || "—") + "</td>" +
+                "<td><b>" + esc(r.title || "") + "</b></td>" +
+                '<td style="color:var(--muted)">' + esc(r.impact || "—") +
+                "</td>" +
+                "<td>" + esc(r.date || "—") + "</td>" +
+                '<td class="num"><button class="tbtn" data-rca-view="' + i +
+                '">열람</button></td></tr>';
+            }).join("")
+          : '<tr><td colspan="6" style="color:var(--muted2)">발행된 RCA 리포트가 없습니다</td></tr>';
+      }).catch(function () {});
+    });
+  }
+  function viewRca(i) {
+    var r = rcaCache[i];
+    var box = $("#rca-detail");
+    if (!r || !box) return;
+    box.style.display = "";
+    box.innerHTML = "<b style=\"color:var(--soft)\">" + esc(r.id) + " — " +
+      esc(r.title) + "</b><br>근본 원인: " + esc(r.root_cause || "—") +
+      "<br>재발 방지: " + esc(r.actions || "—") +
+      '<br><span style="color:var(--muted2)">영향 ' + esc(r.impact || "—") +
+      " · " + esc(r.incident || "") + " · 발행 " + esc(r.date || "") + "</span>";
+  }
+
+  /* ── BP-006 월별 SLA 리포트 · Service Credit (빌링 화면) ── */
+  function renderSlaPanel() {
+    var box = $("#sla-rep-body");
+    if (!box || !NC.api.slaReport) return;
+    var month = ($("#sla-month") || {}).value || "2026-07";
+    loadTenant().then(function (t) {
+      NC.api.slaReport((t && t.id) || "fin-corp", month).then(function (r) {
+        if (!r) {
+          box.innerHTML = '<div class="mini" style="margin-top:0">' +
+            esc(month) + " 리포트가 없습니다</div>";
+          return;
+        }
+        var ok = !r.violated;
+        var availCard =
+          '<div class="ccard"><div class="crow">' +
+          '<b class="nm">가용성 — ' + esc(r.month || month) + "</b>" +
+          '<span class="st ' + (ok ? "green" : "red") +
+          '" style="margin-left:auto">' +
+          (ok ? "SLA 충족" : "SLA 위반 — 크레딧 발생") + "</span></div>" +
+          '<div class="stats" style="margin-top:8px">' +
+          '<span>실측 <b style="color:var(--' + (ok ? "green-text" : "red") +
+          ')">' + r.availability_pct + "%</b></span>" +
+          "<span>목표 <b>" + (r.target_pct || 99.9) + "%</b></span>" +
+          "<span>다운타임 <b>" +
+          (r.downtime_min != null ? r.downtime_min + "분" : "—") +
+          "</b></span></div>" +
+          '<div style="height:6px;border-radius:3px;background:#233043;margin-top:8px;overflow:hidden">' +
+          '<div style="width:' +
+          Math.max(2, Math.min(100,
+            ((r.availability_pct - 99.5) / 0.5) * 100)) +
+          "%;height:100%;background:var(--" + (ok ? "green" : "red") +
+          ')"></div></div>' +
+          '<div class="mini">눈금 99.5% → 100% · 목표선 ' +
+          (r.target_pct || 99.9) + "%</div></div>";
+        var incRows = (r.incidents || []).map(function (i) {
+          return '<tr><td class="id">' + esc(i.id) + "</td>" +
+            "<td>" + esc(i.desc || "") + "</td>" +
+            '<td class="num">' +
+            (i.downtime_min != null ? i.downtime_min + "분" : "—") + "</td>" +
+            '<td class="num">' +
+            (i.mttr_min != null ? i.mttr_min + "분" : "—") + "</td></tr>";
+        }).join("");
+        var incTbl = '<div><div class="ph" style="margin-bottom:6px">' +
+          '<span class="tick amber"></span>' +
+          '<span class="t" style="font-size:12px">인시던트별 Downtime · MTTR</span></div>' +
+          '<table class="tbl"><thead><tr><th>인시던트</th><th>내용</th>' +
+          '<th class="num">downtime</th><th class="num">MTTR</th></tr></thead>' +
+          "<tbody>" + (incRows ||
+            '<tr><td colspan="4" style="color:var(--muted2)">해당 월 SLA 영향 인시던트 없음</td></tr>') +
+          "</tbody></table></div>";
+        var crRows = (r.credits || []).map(function (c) {
+          return '<tr><td class="id">' + esc(c.id || c.credit_id || "CR") +
+            "</td>" +
+            '<td class="num id" style="color:var(--green-text)">-' +
+            usd(c.amount_usd != null ? c.amount_usd : c.credit_usd) + "</td>" +
+            '<td><span class="st ' +
+            (c.status === "applied" ? "green" : "amber") + '">' +
+            (c.status === "applied" ? "반영 완료" : esc(c.status || "산정 중")) +
+            "</span></td>" +
+            '<td style="color:var(--muted)">' + esc(c.invoice || "—") +
+            "</td></tr>";
+        }).join("");
+        var crTbl = '<div><div class="ph" style="margin-bottom:6px">' +
+          '<span class="tick"></span>' +
+          '<span class="t" style="font-size:12px">Service Credit 내역</span></div>' +
+          '<table class="tbl"><thead><tr><th>크레딧</th><th class="num">산정액</th>' +
+          "<th>상태</th><th>반영 청구서</th></tr></thead><tbody>" +
+          (crRows ||
+            '<tr><td colspan="4" style="color:var(--muted2)">발생 크레딧 없음 — SLA 충족</td></tr>') +
+          "</tbody></table>" +
+          (crRows
+            ? '<div class="mini">크레딧은 비용 분해의 <b>"크레딧 적용"</b> 라인으로 청구서에 반영됩니다</div>'
+            : "") + "</div>";
+        box.innerHTML = availCard + incTbl + crTbl;
+        var src = $("#sla-rep-src");
+        if (src) src.textContent = "가용성 목표 " + (r.target_pct || 99.9) +
+          "% · " + (NC.live ? "Control-Plane sla-report" : "mock 리포트") +
+          (r.credits && r.credits.length
+            ? " · 크레딧 " + r.credits.length + "건" : "");
+      }).catch(function () {});
+    });
+  }
+
+  /* ── 초대 수락 플로우 (라이트) — 상태 표시 · 재발급 (모의) ── */
+  var INVITE_SEED = [
+    { email: "viewer@fin-corp.com", role: "viewer", state: "sent", d: 6 },
+    { email: "park.ms@fin-corp.com", role: "operator", state: "expired", d: 0 },
+    { email: "kim.tw@fin-corp.com", role: "viewer", state: "accepted", d: null },
+  ];
+  function inviteList() {
+    try {
+      var l = JSON.parse(localStorage.getItem("nc-invites") || "null");
+      if (Array.isArray(l)) return l;
+    } catch (e) {}
+    return INVITE_SEED.slice();
+  }
+  function saveInvites(l) {
+    try { localStorage.setItem("nc-invites", JSON.stringify(l.slice(0, 20))); }
+    catch (e) {}
+  }
+  var INV_ST = {
+    sent: ["blue", "발송됨"],
+    accepted: ["green", "수락 · MFA 등록 완료"],
+    expired: ["red", "만료됨"],
+  };
+  function renderInvites() {
+    var tb = $("#invite-rows");
+    if (!tb) return;
+    var l = inviteList();
+    tb.innerHTML = l.length
+      ? l.map(function (v) {
+          var m = INV_ST[v.state] || ["gray", v.state];
+          return "<tr><td><b>" + esc(v.email) + "</b></td>" +
+            '<td style="color:var(--muted)">' + esc(v.role || "viewer") +
+            "</td>" +
+            "<td>" + statusChip(m[0], m[1]) + "</td>" +
+            '<td style="color:var(--muted)">' +
+            (v.state === "sent" ? "D-" + (v.d != null ? v.d : 7)
+              : v.state === "expired" ? "만료" : "—") + "</td>" +
+            '<td class="num">' +
+            (v.state === "accepted" ? "—"
+              : '<button class="tbtn a" data-inv-resend="' + esc(v.email) +
+                '">재발급</button>') + "</td></tr>";
+        }).join("")
+      : '<tr><td colspan="5" style="color:var(--muted2)">대기 중인 초대가 없습니다</td></tr>';
+  }
+  function resendInvite(email) {
+    var l = inviteList();
+    l.forEach(function (v) {
+      if (v.email === email) { v.state = "sent"; v.d = 7; }
+    });
+    saveInvites(l);
+    NC.toast("초대 재발급 (모의) — " + email + " 새 링크 발송 · 7일 유효 " +
+      "(수락 → MFA 등록 → 로그인 순서)");
+    renderInvites();
+  }
+  function submitInvite() {
+    var el = $("#inv-email");
+    var email = el ? el.value.trim() : "";
+    var roleSel = $('[data-modal="invite"] select');
+    var role = (roleSel && roleSel.value) || "viewer";
+    NC.closeModal();
+    var l = inviteList();
+    l.unshift({ email: email, role: role, state: "sent", d: 7 });
+    saveInvites(l);
+    NC.toast("멤버 초대 발송 (모의) — " + email + " (" + role +
+      ") · 수락 후 MFA 등록을 완료해야 로그인할 수 있습니다");
+    resetModalInputs("invite");
+    renderInvites();
+  }
+
+  /* ── 변경 요청 분기 (P2-5) — 계약 범위 내 → 운영 티켓 ── */
+  function submitChangeInContract() {
+    var item = ($("#rs-in-item") || {}).value || "구성 변경";
+    NC.closeModal();
+    if (NC.live && curTenant && NC.api.createTicket) {
+      NC.api.createTicket({
+        tenant_id: curTenant.id, subject: "[변경 요청] " + item,
+        severity: "medium", body: "계약 범위 내 변경 — 운영 검토 후 실행",
+        type: "change", routed_to: "ops", change_scope: "in_contract",
+      }).then(function (t) {
+        if (t && t.id) {
+          NC.toast("변경 요청 " + t.id + " 접수 — 운영팀 검토 후 무중단 실행 " +
+            "(계약 범위 내 · Amendment 불필요)");
+          refreshTickets();
+        } else {
+          NC.toast("변경 요청 접수 (데모) — " + item +
+            " · 운영팀 검토 후 무중단 실행");
+        }
+      }).catch(function () {
+        NC.toast("변경 요청 접수 실패 — 잠시 후 다시 시도해주세요", "warn");
+      });
+    } else {
+      NC.toast("변경 요청 접수 (데모) — " + item +
+        " · 운영팀 검토 후 무중단 실행 (계약 범위 내 · Amendment 불필요)");
+    }
+  }
+  function applyResizeScopeUi() {
+    var v = (document.querySelector('input[name="rs-scope"]:checked') || {})
+      .value || "amend";
+    $$(".scope-opt").forEach(function (el) {
+      el.classList.toggle("on", el.dataset.scope === v);
+    });
+    var ap = $("#rs-amend-panel"), ip = $("#rs-in-panel");
+    if (ap) ap.style.display = v === "amend" ? "" : "none";
+    if (ip) ip.style.display = v === "in" ? "" : "none";
+    var btn = $("#rs-submit");
+    if (btn) btn.textContent = v === "amend"
+      ? "Amendment 견적 요청" : "변경 요청 접수 (운영)";
+  }
+
+  /* ── 티켓 유형 UI — 라우팅 뱃지 · 청구 이의 정책 안내 ── */
+  function applyTicketTypeUi() {
+    var meta = ticketTypeSel();
+    var b = $("#tkt-route");
+    if (b) {
+      b.textContent = meta.routed_to === "biz"
+        ? "사업팀 (Billing) — 검토 후 차기 조정"
+        : meta.type === "change"
+          ? "운영팀 — 검토 후 실행 (SLA 4시간)"
+          : "운영팀 (NOC) — 응답 SLA 적용";
+      b.classList.toggle("biz", meta.routed_to === "biz");
+    }
+    var p = $("#tkt-policy");
+    if (p) p.style.display = meta.type === "billing_dispute" ? "" : "none";
+  }
+  function openBillingDispute() {
+    var sel = $("#tkt-type");
+    if (sel) sel.value = "billing_dispute";
+    applyTicketTypeUi();
+    var subj = $("#tkt-subject");
+    if (subj && !subj.value.trim())
+      subj.value = "INV-2026-06 청구 이의 — 항목 확인 요청";
+    NC.openModal("ticket");
+  }
+
   /* ══ 이벤트 버스 — 크로스 포털 효과 수신 ═════════════════════ */
   NC.bus.on("incident.resolved", function () {
     refreshTickets().then(function () {
@@ -1629,7 +2431,8 @@
      nocp 대응물 없는 액션·폴백: 데모 토스트 유지 — "(PoC 미연동)" 명시. */
   var ACTION_TOAST = {
     create_cluster: "클러스터 주문 요청이 접수되었습니다 (데모) — 운영 승인 게이트로 전달",
-    resize:         "사이즈 조정(32→40랙) 요청이 접수되었습니다 (데모)",
+    resize:         "변경 요청(계약 조건 변경) 접수 (데모) — 사업팀 재견적 → " +
+                    "Amendment 체결 → Fulfillment 재진행",
     reclaim:        "회수 요청이 접수되었습니다 (데모) — Sanitization 후 증명서 발급",
     console_access: "웹 콘솔(PAM) 세션 요청이 접수되었습니다 (데모 · PoC 미연동) — 세션 녹화·TTL 60분",
     reboot:         "노드 재부팅 요청이 접수되었습니다 (데모 · PoC 미연동) — 드레인 후 4–6분 소요",
@@ -1714,7 +2517,8 @@
       } else if (o.state === "rejected" || o.state === "failed") {
         NC.toast("확장 " + o.id + " " + o.state + " — " + orderErr(o), "warn");
       } else {
-        NC.toast("확장 " + o.id + " 상태: " + o.state);
+        NC.toast("확장 " + o.id + " 상태: " + o.state +
+          " — 재견적·Amendment 반영 후 Fulfillment 진행");
         afterOrderChange();
       }
     });
@@ -1757,6 +2561,9 @@
   }
   NC.bus.on("modal.open", function (id) {
     if (id === "reclaim") fillReclaimSelect();
+    if (id === "acceptance") fillAcceptanceModal();
+    if (id === "ticket") applyTicketTypeUi();
+    if (id === "resize") applyResizeScopeUi();
   });
 
   function submitReclaimLive() {
@@ -1818,20 +2625,31 @@
     });
   }
 
+  function ticketTypeSel() {
+    var el = $("#tkt-type");
+    var ty = (el && el.value) || "tech";
+    return { type: ty,
+      routed_to: ty === "billing_dispute" ? "biz" : "ops",
+      change_scope: ty === "change" ? "in_contract" : undefined };
+  }
   function submitTicketLive() {
     var subjEl = $("#tkt-subject"), sevEl = $("#tkt-sev");
     var subject = (subjEl && subjEl.value.trim()) || "고객 콘솔 문의";
     var sevTxt = (sevEl && sevEl.value) || "P2";
     var severity = sevTxt.indexOf("P1") === 0 ? "critical"
                  : sevTxt.indexOf("P3") === 0 ? "medium" : "high";
+    var meta = ticketTypeSel();              // 유형·라우팅 (백엔드 계약 필드)
     NC.closeModal();
     NC.api.createTicket({
       tenant_id: curTenant.id, subject: subject,
       severity: severity, body: "고객 콘솔 접수",
+      type: meta.type, routed_to: meta.routed_to,
+      change_scope: meta.change_scope,
     }).then(function (t) {
       if (t && t.id) {
-        NC.toast("지원 티켓 " + t.id + " 접수 완료 — Control-Plane 실 생성 (" +
-          severity + ")");
+        NC.toast("지원 티켓 " + t.id + " 접수 완료 — " +
+          (TKT_ROUTE_LBL[meta.routed_to] || "운영팀") + " 라우팅 (" +
+          (TKT_TYPE_LBL[meta.type] || meta.type) + " · " + severity + ")");
         resetModalInputs("ticket");          // 모달·퀵폼 입력 초기화
         refreshTickets();
       } else {
@@ -1913,10 +2731,17 @@
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? true
         : guardFail(el, "올바른 이메일 주소를 입력하세요 (예: name@fin-corp.com)");
     },
+    reclaim: function () {                   // 종료 요청서 — 백업 계획 필수
+      var el = $("#rc-backup");
+      return el && el.value.trim() ? true
+        : guardFail(el, "백업 계획을 입력하세요 — 백업 확인 전에는 시스템이 " +
+            "종료를 차단합니다");
+    },
   };
   function resetModalInputs(a) {
     var map = { ticket: ["#tkt-subject", "#sup-q-subject"],
-      volume: ["#vol-path"], apikey: ["#ak-name"], invite: ["#inv-email"] };
+      volume: ["#vol-path"], apikey: ["#ak-name"], invite: ["#inv-email"],
+      reclaim: ["#rc-backup"] };
     (map[a] || []).forEach(function (sel) {
       var el = $(sel);
       if (el) el.value = "";
@@ -1955,6 +2780,8 @@
     "audit-csv": exportAuditCsv,
     "iso-view": viewIsoReport,
     "k8s-install-btn": submitK8sInstall,
+    "bill-dispute": openBillingDispute,
+    "term-confirm-btn": submitTerminationConfirm,
   };
 
   document.addEventListener("click", function (e) {
@@ -1967,11 +2794,17 @@
     /* 클립보드 복사 — data-copy="텍스트" */
     var cp = e.target.closest("[data-copy]");
     if (cp) { copyText(cp.dataset.copy); return; }
-    /* 단일 id 액션 (모두 읽음 · 더 보기 · CSV ×2 · 격리 보기) */
+    /* 단일 id 액션 (모두 읽음 · 더 보기 · CSV ×2 · 격리 보기 · 이의 · 종료) */
     var one = e.target.closest(
       "#alerts-readall,#alerts-more,#bill-csv,#audit-csv,#iso-view," +
-      "#k8s-install-btn");
+      "#k8s-install-btn,#bill-dispute,#term-confirm-btn");
     if (one) { ID_ACTIONS[one.id](); return; }
+    /* RCA 리포트 열람 (서비스 상태 화면) */
+    var rv = e.target.closest("[data-rca-view]");
+    if (rv) { viewRca(parseInt(rv.dataset.rcaView, 10) || 0); return; }
+    /* 초대 재발급 (설정 화면 — 모의) */
+    var ir = e.target.closest("[data-inv-resend]");
+    if (ir) { resendInvite(ir.dataset.invResend); return; }
     /* 모달 오프너 — 동적 타이틀·프리필 (shared/app.js가 오픈 수행) */
     var op = e.target.closest("[data-open]");
     if (op) prepModal(op);                   // return 없음 — 오픈은 공용 셸
@@ -2015,17 +2848,29 @@
       var a = act.dataset.act;
       if (GUARDS[a] && !GUARDS[a]()) return; // 빈 값 가드 — 모달 유지
       var liveReady = NC.live && curTenant;  // 미기동 → 데모 토스트 폴백
+      /* 인수 승인/반려 (CP-004) — mock 폴백 내장 (acceptanceDecision) */
+      if (a === "accept_approve") { submitAcceptApprove(); return; }
+      if (a === "accept_reject") { submitAcceptReject(); return; }
+      /* 종료 요청서 (CP-012) — 회수 흐름을 종료 워크플로우로 확장 */
+      if (a === "reclaim") { submitTerminationStart(); return; }
+      /* 초대 (라이트) — 로컬 초대 상태 추가 (모의) */
+      if (a === "invite") { submitInvite(); return; }
       if (a === "ticket" && liveReady && NC.api.createTicket) {
         submitTicketLive(); return;          // Control-Plane 실 접수
       }
       if (a === "create_cluster" && liveReady && NC.api.createOrder) {
         submitCreateClusterLive(); return;   // 실주문 (POST /orders)
       }
-      if (a === "resize" && liveReady && NC.api.createOrder) {
-        submitResizeLive(); return;          // 확장 실주문 / 축소 안내
-      }
-      if (a === "reclaim" && liveReady && NC.api.terminateOrder) {
-        submitReclaimLive(); return;         // 회수 실주문 (terminate)
+      if (a === "resize") {                  // 변경 분기 (P2-5)
+        var scope = (document.querySelector(
+          'input[name="rs-scope"]:checked') || {}).value || "amend";
+        if (scope === "in") { submitChangeInContract(); return; }
+        if (liveReady && NC.api.createOrder) {
+          submitResizeLive(); return;        // Amendment 확장 실주문
+        }
+        NC.closeModal();
+        NC.toast(ACTION_TOAST.resize);
+        return;
       }
       if (a === "apikey" && liveReady && NC.api.iamToken) {
         submitApikeyLive(); return;          // IAM 토큰 실 발급
@@ -2044,9 +2889,24 @@
 
   // create_cluster 모달 — K8s 옵션 체크 시 "포함" 문구에 CP 3노드 표시
   document.addEventListener("change", function (e) {
-    if (e.target && e.target.id === "cc-k8s") {
+    var t = e.target;
+    if (!t) return;
+    if (t.id === "cc-k8s") {
       var note = $("#cc-k8s-note");
-      if (note) note.style.display = e.target.checked ? "" : "none";
+      if (note) note.style.display = t.checked ? "" : "none";
+    }
+    if (t.id === "tkt-type") applyTicketTypeUi();
+    if (t.name === "rs-scope") applyResizeScopeUi();
+    if (t.id === "sla-month") renderSlaPanel();
+    if (t.dataset && t.dataset.termChk) {    // 종료 백업 체크리스트 게이트
+      termChk[t.dataset.termChk] = !!t.checked;
+      var all = termChk.extracted && termChk.migrated && termChk.verified;
+      var btn = $("#term-confirm-btn");
+      if (btn) {
+        btn.disabled = !all;
+        btn.style.opacity = all ? "" : ".4";
+        btn.style.cursor = all ? "" : "default";
+      }
     }
   });
 
@@ -2060,6 +2920,7 @@
     network: renderNetwork,
     monitoring: renderMonitoring,
     alerts: renderAlerts,
+    status: renderStatus,                    // CP-011 서비스 상태 (신설)
     billing: renderBilling,
     support: renderSupport,
     security: renderSecurity,

@@ -111,6 +111,59 @@
 .san-pdf:disabled{color:var(--muted2);border-color:var(--line);cursor:default}
 /* KPI 파생 */
 .kpi .bar>i.blue{background:var(--blue)}
+/* Fulfillment 진행 스테퍼 (IF-08) — 토큰 기반 · blueprint.css의
+   .step .nd 원형 예외·done/cur 리매핑을 그대로 상속 */
+.fsteps{display:flex;align-items:flex-start;margin:8px 0 2px;overflow-x:auto;padding-bottom:4px}
+.fsteps .step{display:flex;flex-direction:column;align-items:center;min-width:78px;flex:1}
+.fsteps .step .nd{width:22px;height:22px;border-radius:50%;background:var(--card-sub);
+  border:2px solid var(--line);color:var(--muted2);display:grid;place-items:center;
+  font-size:9.5px;font-weight:800;font-family:Menlo,monospace}
+.fsteps .step .lb{margin-top:6px;font-size:9.5px;color:var(--muted2);font-weight:700;
+  text-align:center;line-height:1.3;white-space:nowrap}
+.fsteps .step.done .nd{background:var(--green);border-color:var(--green);color:var(--on-green)}
+.fsteps .step.done .lb{color:var(--green-text)}
+.fsteps .step.cur .nd{background:var(--amber);border-color:var(--amber);color:#241c05}
+.fsteps .step.cur .lb{color:var(--amber)}
+.fsteps .step-bar{flex:1;height:2px;background:var(--line);margin-top:10px;min-width:12px}
+.fsteps .step-bar.done{background:var(--green)}
+/* 종료 워크플로우 체크리스트 · 진행바 */
+.chkrow{display:flex;align-items:center;gap:9px;padding:8px 2px;
+  border-bottom:1px solid var(--line-soft);font-size:11.5px;cursor:pointer;color:var(--soft)}
+.chkrow input{width:auto;flex:none}
+.chkrow .hint{color:var(--muted2);font-size:10.5px;margin-left:auto}
+/* 변경 요청 분기 카드 (resize 모달) */
+.scope-opt{display:block;border:1px solid var(--line);border-radius:8px;
+  padding:10px 12px;cursor:pointer;font-size:11.5px;color:var(--muted);margin:0}
+.scope-opt b{color:var(--strong);font-size:12px}
+.scope-opt.on{border-color:var(--green-line);background:var(--menu-act)}
+.scope-opt input{width:auto;margin-right:6px}
+.scope-opt .d{margin-top:4px;font-size:10.5px;line-height:1.5}
+/* Grafana SSO 임베드 (컨셉) — ops/mk8s.css .gwrap/.gpanel 다크 패턴의 최소
+   복제. 의도적으로 양 디자인 모드에서 다크 유지 (blueprint 무접촉 관례 F) */
+.gwrap{background:#111217;border:1px solid #2C3235;border-radius:8px;padding:10px;color:#D8D9DA}
+.gbar{display:flex;align-items:center;gap:10px;padding:4px 6px 10px;font-size:12px;
+  color:#9FA7B3;flex-wrap:wrap}
+.gbar b{color:#D8D9DA}
+.gbar .gchip{background:#22252B;border:1px solid #2C3235;border-radius:4px;
+  padding:3px 9px;font-size:11px}
+.ggrid{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.gpanel{background:#181B1F;border:1px solid #2C3235;border-radius:4px;overflow:hidden}
+.gpanel .gp-h{padding:7px 10px 2px;font-size:11px;font-weight:600;color:#9FA7B3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gpanel .gp-b{padding:4px 10px 10px}
+.gstat{font-size:22px;font-weight:800;color:#73BF69;line-height:1.1}
+.gstat.warn{color:#FADE2A}.gstat.blue{color:#5794F2}
+.gsub{font-size:10.5px;color:#7B8087;margin:2px 0 4px}
+/* 티켓 유형·라우팅 뱃지 */
+.tkt .ty-bd{font-size:9px;font-weight:800;letter-spacing:.05em;border:1px solid var(--line);
+  border-radius:4px;padding:1px 6px;color:var(--muted)}
+.tkt .rt-bd{font-size:9px;font-weight:800;letter-spacing:.05em;border-radius:4px;padding:1px 6px}
+.tkt .rt-bd.ops{color:var(--blue-text);border:1px solid #1f4a6a;background:#0e2438}
+.tkt .rt-bd.biz{color:#c8a5e8;border:1px solid #3a2a52;background:#1d1430}
+/* 티켓 모달 라우팅 라벨 (대형) — 유형 선택에 따라 ops(청)/biz(보라) 전환 */
+.rt-lg{font-size:11px;font-weight:800;letter-spacing:.02em;border:1px solid #1f4a6a;
+  background:#0e2438;color:var(--blue-text);border-radius:5px;padding:3px 10px}
+.rt-lg.biz{border-color:#3a2a52;background:#1d1430;color:#c8a5e8}
 /* 페이지네이션 바 (pagedTable 헬퍼) — 행이 적으면 자동 숨김 */
 .pgr{display:none;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .pgr.on{display:flex}
@@ -151,6 +204,7 @@
       <div class="sb-grp">가시성</div>
       <a class="mi" data-route="monitoring" href="#/monitoring"><span class="dot"></span>모니터링</a>
       <a class="mi" data-route="alerts" href="#/alerts"><span class="dot"></span>알림 · 이벤트 <span class="bd amber" id="mi-alerts-bd">3</span></a>
+      <a class="mi" data-route="status" href="#/status"><span class="dot"></span>서비스 상태</a>
       <a class="mi" data-route="billing" href="#/billing"><span class="dot"></span>빌링 · 비용</a>
       <div class="sb-grp">지원 · 보안</div>
       <a class="mi" data-route="support" href="#/support"><span class="dot"></span>지원 티켓 <span class="bd amber" id="mi-support-bd">1</span></a>
@@ -181,6 +235,9 @@
       <section data-screen="dashboard">
         <div class="hero"><span class="hi">안녕하세요, 김지현 님</span>
           <span class="sub" id="hero-sub">prod-training 클러스터가 정상 가동 중입니다 · 마지막 갱신 방금 전</span></div>
+
+        <!-- CP-004 인수 검증 대기 액션 카드 — 해당 주문 존재 시 렌더 -->
+        <div data-accept-wrap style="display:none"></div>
 
         <div class="kpi-band" style="grid-template-columns:repeat(auto-fit,minmax(185px,1fr))">
           <div class="kpi"><div class="k">활성 GPU</div><div class="v" id="kpi-gpus">2,304</div><div class="s" id="kpi-gpus-sub">32랙 · 576노드 · VR NVL72</div></div>
@@ -295,7 +352,7 @@
               <div class="tt" style="color:var(--soft)">스토리지 QoS 상향 (40→60GB/s) 적용 완료</div></div>
             </div>
             <div style="display:flex;gap:14px;margin-top:12px;color:var(--muted);font-size:11px">
-              <a class="lnk" href="#/support">지식베이스</a><span style="cursor:pointer" data-demo="상태 페이지 열기">상태 페이지</span><a href="#/api" style="cursor:pointer;color:inherit;text-decoration:none">문서</a></div>
+              <a class="lnk" href="#/support">지식베이스</a><a class="lnk" style="color:inherit" href="#/status">상태 페이지</a><a href="#/api" style="cursor:pointer;color:inherit;text-decoration:none">문서</a></div>
           </div>
 
           <!-- 보안 · 컴플라이언스 -->
@@ -315,6 +372,12 @@
 
       <!-- ════════ 클러스터 ════════ -->
       <section data-screen="clusters">
+        <!-- IF-08 Fulfillment 진행 스테퍼 — 진행 중 주문 존재 시 3s 폴링 렌더 -->
+        <div id="fulfill-wrap"></div>
+        <!-- CP-004 인수 검증 대기 액션 카드 -->
+        <div data-accept-wrap style="display:none"></div>
+        <!-- CP-012 종료 워크플로우 — 백업 체크리스트 → Secure Erase → 증명서 -->
+        <div id="term-wrap" style="display:none"></div>
         <div class="kpi-band">
           <div class="kpi"><div class="k">클러스터</div><div class="v" id="kpi-clusters">2</div><div class="s" id="kpi-clusters-sub">bare-metal 1 · vm 1</div></div>
           <div class="kpi"><div class="k">총 GPU</div><div class="v" id="kpi-cl-gpus">2,336</div><div class="s" id="kpi-cl-gpus-sub">노드 584</div></div>
@@ -520,6 +583,30 @@
             </div>
           </div>
         </div>
+        <!-- Grafana SSO 임베드 (라이트 컨셉) — ops/mk8s .gwrap 다크 임베드 패턴의
+             최소 복제. 양 디자인 모드에서 의도적으로 다크 유지 (임베드 시뮬레이션) -->
+        <div class="panel" style="margin-top:16px;margin-bottom:0">
+          <div class="ph"><span class="tick blue"></span><span class="t">Grafana 대시보드 — SSO 임베드</span>
+            <span class="c">fin-corp org · 콘솔 OIDC 세션 연동 (컨셉)</span>
+            <button class="btn-ghost" style="margin-left:auto" data-demo="Grafana 새 창 열기 (SSO 세션 연동)">Grafana에서 열기 ↗</button></div>
+          <div class="gwrap">
+            <div class="gbar"><b>prod-training / GPU Cluster Overview</b>
+              <span class="gchip">SSO 세션 연동됨</span><span class="gchip">refresh 30s</span>
+              <span class="gchip" style="margin-left:auto">Last 6 hours</span></div>
+            <div class="ggrid">
+              <div class="gpanel"><div class="gp-h">GPU Utilization (avg)</div><div class="gp-b">
+                <div class="gstat">78.2%</div><div class="gsub">DCGM_FI_DEV_GPU_UTIL · 2,304 GPUs</div>
+                <svg width="100%" height="40" viewBox="0 0 220 40" preserveAspectRatio="none"><polyline fill="none" stroke="#73BF69" stroke-width="1.6" points="0,28 20,25 40,27 60,21 80,23 100,17 120,20 140,14 160,16 180,11 200,13 220,9"></polyline><polyline points="0,28 20,25 40,27 60,21 80,23 100,17 120,20 140,14 160,16 180,11 200,13 220,9 220,40 0,40" fill="rgba(115,191,105,.10)"></polyline></svg></div></div>
+              <div class="gpanel"><div class="gp-h">Power Draw (rack sum)</div><div class="gp-b">
+                <div class="gstat blue">4,210<span style="font-size:12px;color:#7B8087"> kW</span></div><div class="gsub">DCGM_FI_DEV_POWER_USAGE · 32 racks</div>
+                <svg width="100%" height="40" viewBox="0 0 220 40" preserveAspectRatio="none"><polyline fill="none" stroke="#5794F2" stroke-width="1.6" points="0,24 20,22 40,25 60,20 80,22 100,18 120,21 140,17 160,19 180,15 200,17 220,14"></polyline></svg></div></div>
+              <div class="gpanel"><div class="gp-h">Max GPU Temp</div><div class="gp-b">
+                <div class="gstat warn">71.4<span style="font-size:12px;color:#7B8087"> °C</span></div><div class="gsub">DCGM_FI_DEV_GPU_TEMP · p100</div>
+                <svg width="100%" height="40" viewBox="0 0 220 40" preserveAspectRatio="none"><polyline fill="none" stroke="#FADE2A" stroke-width="1.6" points="0,22 20,21 40,22 60,19 80,20 100,17 120,19 140,16 160,17 180,14 200,16 220,13"></polyline></svg></div></div>
+            </div>
+          </div>
+          <div class="mini">Grafana OAuth(SSO) 프록시 경유 iframe 임베드 컨셉 — PoC는 read-only 스냅샷 렌더 · 실서비스에서 Grafana org를 테넌트별 자동 매핑</div>
+        </div>
       </section>
 
       <!-- ════════ 알림 · 이벤트 ════════ -->
@@ -557,6 +644,38 @@
         </div>
       </section>
 
+      <!-- ════════ 서비스 상태 (CP-011 — 플랫폼 상태 · 공지 · RCA) ════════ -->
+      <section data-screen="status">
+        <div class="p2strip" style="margin-bottom:16px"><span class="p2tag">플랫폼 상태</span>
+          <span>NeoCloud 플랫폼 전체의 컴포넌트 상태 · 진행 중 인시던트 · RCA 보관함입니다 —
+            내 자원(클러스터·노드) 알림은 <a class="lnk" href="#/alerts">알림 · 이벤트</a>에서 확인하세요.</span></div>
+        <div class="kpi-band">
+          <div class="kpi"><div class="k">90일 플랫폼 가용성</div><div class="v green" id="stp-avail">—</div><div class="s">전 컴포넌트 가중 평균</div></div>
+          <div class="kpi"><div class="k">진행 중 인시던트</div><div class="v" id="stp-inc">—</div><div class="s" id="stp-inc-sub">P0~P2 공개 기준</div></div>
+          <div class="kpi"><div class="k">컴포넌트</div><div class="v" id="stp-comp">—</div><div class="s" id="stp-comp-sub">operational 기준</div></div>
+          <div class="kpi"><div class="k">유지보수 (90d)</div><div class="v" id="stp-maint">—</div><div class="s">사전 공지 완료</div></div>
+        </div>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(460px,1fr));margin-bottom:16px">
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick"></span><span class="t">컴포넌트 상태 보드</span><span class="c" id="status-src">Compute · Fabric · Storage · Network · Portal</span></div>
+            <table class="tbl">
+              <thead><tr><th>컴포넌트</th><th>상태</th><th class="num">90일 가동률</th><th>비고</th></tr></thead>
+              <tbody id="status-components"><tr><td colspan="4" style="color:var(--muted2)">불러오는 중…</td></tr></tbody></table>
+          </div>
+          <div class="panel" style="margin-bottom:0">
+            <div class="ph"><span class="tick amber"></span><span class="t">진행 중 인시던트</span><span class="c">타임라인 업데이트 · 최신순</span></div>
+            <div id="status-incidents" class="feed"><div class="mini" style="margin-top:0">불러오는 중…</div></div>
+          </div>
+        </div>
+        <div class="panel" style="margin-bottom:0">
+          <div class="ph"><span class="tick blue"></span><span class="t">RCA 리포트 보관함</span><span class="c">Major 인시던트 근본 원인 분석 — 열람 가능</span></div>
+          <table class="tbl">
+            <thead><tr><th>리포트</th><th>인시던트</th><th>제목</th><th>영향</th><th>발행일</th><th></th></tr></thead>
+            <tbody id="status-rca"><tr><td colspan="6" style="color:var(--muted2)">불러오는 중…</td></tr></tbody></table>
+          <div id="rca-detail" class="callout" style="margin-top:10px;display:none"></div>
+        </div>
+      </section>
+
       <!-- ════════ 빌링 · 비용 ════════ -->
       <section data-screen="billing">
         <div class="kpi-band">
@@ -587,11 +706,24 @@
             <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
               <span class="chip" style="font-size:11px">결제: 법인계좌 자동이체 <span class="st green">활성</span></span>
               <span class="chip" style="font-size:11px">예산 알림: 70/90/100% <span class="st green">on</span></span>
-              <button class="btn-ghost" id="bill-csv" style="font-size:11px" title="비용 분해 라인 CSV — 라이브 시 billing/usage 실데이터">CSV 내보내기</button></div>
+              <button class="btn-ghost" id="bill-csv" style="font-size:11px" title="비용 분해 라인 CSV — 라이브 시 billing/usage 실데이터">CSV 내보내기</button>
+              <button class="btn-warn" id="bill-dispute" style="font-size:11px;padding:5px 12px" title="청구 이의 — 사업팀 라우팅 티켓으로 접수">청구 이의 제기</button></div>
+            <div class="mini">청구 이의 정책 — 이의 제기 중에도 <b>납기는 유지</b>되며, 인정 시 차기 인보이스에서 조정됩니다. 명백한 금액 오류만 당월 재발행 대상입니다.</div>
             <div id="bill-rates" style="display:none;margin-top:12px">
               <div class="ph" style="margin-bottom:6px"><span class="tick"></span><span class="t" style="font-size:12px">단가 (Control-Plane 실시간)</span><span class="c" id="bill-rates-note"></span></div>
               <table class="kv2"><tbody id="bill-rates-rows"></tbody></table></div>
           </div>
+        </div>
+        <!-- BP-006 월별 SLA 리포트 · Service Credit -->
+        <div class="panel" style="margin-top:16px;margin-bottom:0">
+          <div class="ph"><span class="tick"></span><span class="t">SLA 리포트 · Service Credit</span>
+            <span class="c" id="sla-rep-src">가용성 목표 99.9% · 월별</span>
+            <select id="sla-month" style="margin-left:auto;width:auto;background:var(--card-sub);border:1px solid var(--line);border-radius:7px;color:var(--soft);font-size:11px;padding:5px 8px;font-family:inherit;cursor:pointer">
+              <option value="2026-07" selected>2026-07 (MTD)</option>
+              <option value="2026-06">2026-06</option>
+              <option value="2026-05">2026-05</option></select></div>
+          <div id="sla-rep-body" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+            <div class="mini" style="margin-top:0">불러오는 중…</div></div>
         </div>
       </section>
 
@@ -626,8 +758,9 @@
             </tbody></table>
             <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
               <button class="btn-ghost" data-demo="지식베이스 열기">지식베이스</button>
-              <button class="btn-dim" style="font-size:11.5px;padding:6px 13px" data-demo="상태 페이지 열기">상태 페이지</button>
-              <a class="btn-dim" style="font-size:11.5px;padding:6px 13px" href="#/api">문서 · API 레퍼런스</a></div>
+              <a class="btn-dim" style="font-size:11.5px;padding:6px 13px" href="#/status">서비스 상태</a>
+              <a class="btn-dim" style="font-size:11.5px;padding:6px 13px" href="#/api">문서 · API 레퍼런스</a>
+              <a class="btn-dim" style="font-size:11.5px;padding:6px 13px" href="contact.html" target="_blank" rel="noopener">Contact Us ↗</a></div>
           </div>
         </div>
       </section>
@@ -661,6 +794,14 @@
             <div class="ph"><span class="tick"></span><span class="t">접속 패키지 — 딜리버리</span><span class="c" id="access-pkg-sub">Control-Plane 실시간</span></div>
             <table class="kv2"><tbody id="access-pkg"></tbody></table>
             <div class="callout" style="margin-top:10px">client_secret은 딜리버리 시 1회만 제공 — 이후 Vault에서 90일 주기 자동 회전 (SEC09)</div>
+          </div>
+          <!-- CP-012 종료 워크플로우 산출물 — Secure Wipe 증명서 목록 -->
+          <div class="panel" id="wipe-certs-panel" style="margin-bottom:0;display:none">
+            <div class="ph"><span class="tick"></span><span class="t">Secure Wipe 증명서</span><span class="c">종료 워크플로우 산출물 — 법적 증빙 · 감사 파이프라인 보관</span></div>
+            <table class="tbl">
+              <thead><tr><th>증명서</th><th>소거 방법</th><th>SHA-256</th><th>발급</th><th></th></tr></thead>
+              <tbody id="wipe-certs"></tbody></table>
+            <div class="mini">증명서 해시는 감사 파이프라인에 불변 기록되어 원본 위·변조를 검증할 수 있습니다</div>
           </div>
         </div>
       </section>
@@ -725,6 +866,12 @@
               <tr><td class="id">svc-training</td><td style="color:#c8a5e8;font-weight:700">service account</td><td style="color:var(--muted)">API 키 인증</td></tr>
             </tbody></table>
             <div class="mini">SSO: SAML (fin-corp IdP) 연동 · 역할은 프로젝트 단위로 상속</div>
+            <!-- 초대 수락 플로우 (라이트) — 상태 표시 + 재발급 (모의) -->
+            <div class="callout" style="margin-top:12px">온보딩 순서 — ① Owner(org admin)가 멤버 초대 → ② 초대 수락 &amp; <b style="color:var(--soft)">MFA 등록</b> → ③ SSO 로그인. 초대 링크는 발송 후 <b style="color:var(--soft)">7일</b> 유효하며 만료 시 재발급이 필요합니다.</div>
+            <div class="ph" style="margin:12px 0 6px"><span class="tick blue"></span><span class="t" style="font-size:12px">초대 상태</span><span class="c">발송됨 · 수락 · 만료</span></div>
+            <table class="tbl">
+              <thead><tr><th>이메일</th><th>역할</th><th>상태</th><th>만료</th><th></th></tr></thead>
+              <tbody id="invite-rows"></tbody></table>
           </div>
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">조직 · 프로젝트 · 키</span></div>
@@ -733,6 +880,7 @@
               <tr><td>프로젝트</td><td>llm-pretrain (기본) · inference-lab — <span class="lnk" data-demo="프로젝트 생성">+ 프로젝트</span></td></tr>
               <tr><td>SSH 키</td><td class="id">ed25519 ×2 (mlops · ci) <span class="lnk" style="font-family:-apple-system,'Apple SD Gothic Neo',sans-serif" data-demo="SSH 키 등록">+ 등록</span></td></tr>
               <tr><td>보안 정책</td><td>MFA 필수 · 세션 12h · API 키 로테이션 90일</td></tr>
+              <tr><td>도입 문의</td><td><a class="lnk" href="contact.html" target="_blank" rel="noopener">Contact Us — 비로그인 공개 문의 페이지 ↗</a> <span style="color:var(--muted2);font-size:10.5px">(신규 조직·증설 상담)</span></td></tr>
             </tbody></table>
           </div>
           <div class="panel" id="iam-realm-panel" style="margin-bottom:0;display:none">
@@ -775,30 +923,66 @@
   <div class="mf"><button class="btn-dim" data-close>취소</button><button class="btn" data-act="create_cluster">주문 제출</button></div>
 </div></div>
 
-<div class="modal-ov" data-modal="resize"><div class="modal">
-  <div class="mh"><span class="tick"></span><span class="t">클러스터 사이즈 조정 — prod-training</span><span class="x" data-close>✕</span></div>
+<div class="modal-ov" data-modal="resize"><div class="modal lg">
+  <div class="mh"><span class="tick"></span><span class="t">변경 요청 — prod-training</span><span class="x" data-close>✕</span></div>
   <div class="mb">
-    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
-      <span style="color:var(--muted);font-size:11.5px">현재 <b style="color:var(--strong)">32랙</b></span>
-      <span style="color:var(--muted2)">→</span>
-      <select id="rs-racks" style="width:auto"><option value="8">40랙 (+8 · +576 GPU)</option><option value="16">48랙 (+16 · +1,152 GPU)</option><option value="1">+1랙 (+72 GPU · 소규모 확장)</option><option value="-8">24랙 (−8 · 축소)</option></select></div>
-    <table class="kv"><tbody>
-      <tr><td>배치 (자동)</td><td class="id">안산 su-7 — 동일 사이트·격리 유지</td></tr>
-      <tr><td>요금 영향</td><td>+$5.6M/월 (reserved 3y 조건 승계)</td></tr>
-      <tr><td>다운타임</td><td style="color:var(--green-text);font-weight:700">없음 — 기존 워크로드 무중단 확장</td></tr>
-    </tbody></table>
+    <!-- 변경 규모 분기 — 계약 범위 내 vs 계약 조건 변경 (Amendment) -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <label class="scope-opt on" data-scope="amend"><input type="radio" name="rs-scope" value="amend" checked>
+        <b>계약 조건 변경</b> <span class="st" style="color:#c8a5e8;font-size:9.5px">사업팀</span>
+        <div class="d">GPU 종류 변경 · 랙 증설/축소 — <b style="color:var(--soft)">재견적 → Amendment 체결 → Fulfillment 재진행</b></div></label>
+      <label class="scope-opt" data-scope="in"><input type="radio" name="rs-scope" value="in">
+        <b>계약 범위 내 변경</b> <span class="st blue" style="font-size:9.5px">운영팀</span>
+        <div class="d">Storage QoS · Network · OS 이미지 · GPU 드라이버 — <b style="color:var(--soft)">운영 검토 후 실행</b> (계약 변경 없음)</div></label>
+    </div>
+    <div id="rs-amend-panel">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
+        <span style="color:var(--muted);font-size:11.5px">현재 <b style="color:var(--strong)">32랙</b></span>
+        <span style="color:var(--muted2)">→</span>
+        <select id="rs-racks" style="width:auto"><option value="8">40랙 (+8 · +576 GPU)</option><option value="16">48랙 (+16 · +1,152 GPU)</option><option value="1">+1랙 (+72 GPU · 소규모 확장)</option><option value="-8">24랙 (−8 · 축소)</option></select></div>
+      <table class="kv"><tbody>
+        <tr><td>배치 (자동)</td><td class="id">안산 su-7 — 동일 사이트·격리 유지</td></tr>
+        <tr><td>요금 영향</td><td>+$5.6M/월 (reserved 3y 조건 승계) — <b style="color:var(--amber)">재견적 후 확정</b></td></tr>
+        <tr><td>다운타임</td><td style="color:var(--green-text);font-weight:700">없음 — 기존 워크로드 무중단 확장</td></tr>
+        <tr><td>후속 절차</td><td style="color:var(--muted)">① 사업팀 재견적 → ② Amendment(계약 변경 합의) 체결 → ③ Fulfillment 재진행 (자원 할당→PT→인수)</td></tr>
+      </tbody></table>
+    </div>
+    <div id="rs-in-panel" style="display:none">
+      <label>변경 항목</label>
+      <select id="rs-in-item">
+        <option>Storage QoS 상향 (960 → 1,280 GB/s)</option>
+        <option>Network — 이그레스 대역 상향 (10 → 25Gbps)</option>
+        <option>OS 이미지 교체 (ubuntu-24.04-nvidia → dsx-os-2.4)</option>
+        <option>GPU 드라이버 버전 변경 (롤링 적용)</option></select>
+      <table class="kv" style="margin-top:10px"><tbody>
+        <tr><td>처리 방식</td><td>변경 요청 티켓 접수 → <b style="color:var(--soft)">운영팀 검토 후 실행</b> (SLA 4시간 응답)</td></tr>
+        <tr><td>계약 영향</td><td style="color:var(--green-text)">없음 — 사용량 요금만 반영 (Amendment 불필요)</td></tr>
+        <tr><td>다운타임</td><td style="color:var(--green-text);font-weight:700">없음 — 무중단 적용 (드라이버는 롤링)</td></tr>
+      </tbody></table>
+    </div>
   </div>
-  <div class="mf"><button class="btn-dim" data-close>취소</button><button class="btn" data-act="resize">확장 요청</button></div>
+  <div class="mf"><button class="btn-dim" data-close>취소</button><button class="btn" data-act="resize" id="rs-submit">Amendment 견적 요청</button></div>
 </div></div>
 
-<div class="modal-ov" data-modal="reclaim"><div class="modal sm">
-  <div class="mh"><span class="tick red"></span><span class="t">회수 요청 — prod-training</span><span class="x" data-close>✕</span></div>
+<div class="modal-ov" data-modal="reclaim"><div class="modal">
+  <div class="mh"><span class="tick red"></span><span class="t">종료 요청서 — 클러스터 회수 · 계약 종료</span><span class="x" data-close>✕</span></div>
   <div class="mb">
-    <select id="rc-alloc" style="margin-bottom:10px"><option value="">범위: 전체 32랙 회수</option><option value="">범위: su-6 16랙 부분 회수</option></select>
-    <div class="redcall"><span class="ic">⚠</span>
-      <span>reserved 3y 중도 해지 — 잔여 계약가치의 30% 위약금 발생 · 데이터는 <b>Sanitization 7단계</b> 소거 후 증명서가 발급됩니다 (복구 불가)</span></div>
+    <label>대상 (allocation)</label>
+    <select id="rc-alloc"><option value="">범위: 전체 32랙 회수</option><option value="">범위: su-6 16랙 부분 회수</option></select>
+    <div class="row2" style="margin-top:2px">
+      <div><label>종료 사유</label><select id="rc-reason">
+        <option>프로젝트 종료</option><option>계약 만료 (미갱신)</option>
+        <option>비용 절감 · 축소</option><option>타 플랫폼 이전</option><option>기타</option></select></div>
+      <div><label>희망 종료 절차</label><select id="rc-mode">
+        <option>표준 — 백업 확인 후 Secure Erase</option>
+        <option>긴급 — 백업 포기 각서 제출 (별도 협의)</option></select></div>
+    </div>
+    <label>백업 계획 (필수)</label>
+    <textarea id="rc-backup" rows="2" placeholder="예: ds01 → s3://fin-corp-archive 이관 완료 후 종료 · ckpt 스냅샷 30일 보존"></textarea>
+    <div class="redcall" style="margin-top:10px"><span class="ic">⚠</span>
+      <span>reserved 3y 중도 해지 — 잔여 계약가치의 30% 위약금 발생. 제출 후 절차: <b>① 백업 체크리스트 확인</b>(전 항목 확인 전 시스템이 종료를 차단) → <b>② Secure Erase 7단계</b>(drain→release→소거) → <b>③ Wipe 증명서 발급</b> → 정산 마감. 소거 후 데이터는 복구 불가합니다.</span></div>
   </div>
-  <div class="mf"><button class="btn-dim" data-close>취소</button><button class="btn-danger" data-act="reclaim">회수 요청 제출</button></div>
+  <div class="mf"><button class="btn-dim" data-close>취소</button><button class="btn-danger" data-act="reclaim">종료 요청 제출</button></div>
 </div></div>
 
 <div class="modal-ov" data-modal="console_access"><div class="modal">
@@ -886,11 +1070,21 @@
 <div class="modal-ov" data-modal="ticket"><div class="modal">
   <div class="mh"><span class="tick blue"></span><span class="t">지원 티켓 생성</span><span class="x" data-close>✕</span></div>
   <div class="mb">
+    <div class="row2" style="margin-top:0">
+      <div><label>유형</label><select id="tkt-type">
+        <option value="tech" selected>기술 문의 — 장애 · 성능 · 사용법</option>
+        <option value="change">변경 요청 — 구성 · QoS · 이미지</option>
+        <option value="billing_dispute">청구 이의 — 인보이스 · 크레딧</option></select></div>
+      <div><label>라우팅</label>
+        <div style="display:flex;align-items:center;height:31px">
+          <span id="tkt-route" class="rt-lg">운영팀 (NOC) — 응답 SLA 적용</span></div></div>
+    </div>
     <label>제목</label><input id="tkt-subject" placeholder="예: su-5 rack-07 NCCL 대역폭 저하">
     <div class="row2" style="margin-top:2px">
       <div><label>심각도</label><select id="tkt-sev"><option>P2 — 성능 저하</option><option>P1 — 서비스 중단</option><option>P3 — 일반 문의</option></select></div>
-      <div><label>대상 리소스</label><select><option>prod-training</option><option>dev-inference</option><option>스토리지 / 네트워크</option></select></div>
+      <div><label>대상 리소스</label><select><option>prod-training</option><option>dev-inference</option><option>스토리지 / 네트워크</option><option>인보이스 · 청구</option></select></div>
     </div>
+    <div id="tkt-policy" class="callout warn" style="display:none;margin-top:10px">청구 이의 정책 — 이의 제기 중에도 <b>납기는 유지</b>되며, 인정 금액은 차기 인보이스에서 조정됩니다. 명백한 금액 오류(단가·수량 착오)만 당월 재발행 대상입니다.</div>
     <div class="mini">진단 스냅샷(DCGM·토폴로지)이 자동 첨부됩니다 · 응답 SLA: P2 4시간</div>
   </div>
   <div class="mf"><button class="btn-dim" data-close>취소</button><button class="btn" data-act="ticket">티켓 제출</button></div>
@@ -921,6 +1115,25 @@
     <div class="mini">SSO(SAML) 사용자는 IdP 그룹 매핑이 우선 적용됩니다 · MFA 필수 정책 상속</div>
   </div>
   <div class="mf"><button class="btn-dim" data-close>취소</button><button class="btn" data-act="invite">초대 발송</button></div>
+</div></div>
+
+<!-- CP-004 인수 검증 — PT 리포트 · 승인/반려 -->
+<div class="modal-ov" data-modal="acceptance"><div class="modal lg">
+  <div class="mh"><span class="tick amber"></span><span class="t" id="accept-title">인수 검증 — Performance Test 리포트</span><span class="x" data-close>✕</span></div>
+  <div class="mb">
+    <table class="kv"><tbody id="accept-meta"></tbody></table>
+    <table class="tbl" style="margin-top:10px">
+      <thead><tr><th>검증 항목</th><th class="num">측정값</th><th>기준</th><th>판정</th></tr></thead>
+      <tbody id="accept-checks"></tbody></table>
+    <div id="accept-deemed" class="callout warn" style="margin-top:10px"></div>
+    <label style="margin-top:12px">반려 사유 (반려 시 필수)</label>
+    <textarea id="accept-reason" rows="2" placeholder="예: NCCL all-to-all 재측정 요청 — su-7 rail 경로 확인 필요"></textarea>
+    <div class="redcall" style="margin-top:10px"><span class="ic">⚠</span>
+      <span><b>승인 시 청구가 개시됩니다</b> — 승인 시각이 청구 기준일(Billing Start Date)로 확정되며, 접속 정보(SSH·API·콘솔)가 활성화됩니다. 반려 시 재설정·재테스트 후 재인수를 요청드립니다.</span></div>
+  </div>
+  <div class="mf"><button class="btn-dim" data-close>닫기</button>
+    <button class="btn-danger" data-act="accept_reject">반려 — 재테스트 요청</button>
+    <button class="btn" data-act="accept_approve" id="accept-approve-btn">승인 — 청구 개시</button></div>
 </div></div>
 
 <script src="../shared/app.js"></script><script src="../shared/mock-api.js"></script>

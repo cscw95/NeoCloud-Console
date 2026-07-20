@@ -482,6 +482,17 @@ body[data-design="blueprint"] #mk8s-root .page-h .right{
    ═══════════════════════════════════════════════════════════════════ */
 /* customer */
 body[data-design="blueprint"] .ubar{background:#dde5ef}
+/* customer — 티켓 유형·라우팅 뱃지 (야간 다크 칩의 라이트 대응) */
+body[data-design="blueprint"] .tkt .rt-bd.ops,
+body[data-design="blueprint"] #tkt-route{
+  color:var(--blu)!important;border-color:#b9d4f5!important;
+  background:var(--bluS)!important}
+body[data-design="blueprint"] .tkt .rt-bd.biz{
+  color:var(--purp);border-color:#d5c5ef;background:#efe6fa}
+body[data-design="blueprint"] #tkt-route.biz{
+  color:var(--purp)!important;border-color:#d5c5ef!important;
+  background:#efe6fa!important}
+body[data-design="blueprint"] .tkt .ty-bd{border-color:var(--ln);color:var(--mu)}
 body[data-design="blueprint"] .tbl tr.fault td{background:var(--redS)}
 body[data-design="blueprint"] .tbl tr.fault .id{color:#b02a3a}
 body[data-design="blueprint"] .redcall{color:#b02a3a}

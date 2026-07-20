@@ -1,0 +1,200 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NeoCloud — Contact Us · GPUaaS 도입 문의</title>
+<!-- CP-016 비로그인 공개 문의 페이지 — 콘솔 셸 없이 독립 랜딩.
+     디자인: Blueprint(주간) 라이트 토큰 재사용 (공개 마케팅 페이지 컨셉).
+     접수: POST /api/v1/public/inquiries → 실패 시 오프라인 데모 접수 폴백 -->
+<style>
+:root{
+  --bg:#eef2f8; --grid:rgba(36,88,214,.045); --cd:#ffffff; --cd2:#f7f9fc;
+  --ln:#c3cede; --lnS:#dde5ef; --tx:#141c2e; --mu:#5a6a85; --mu2:#8c9ab2;
+  --acc:#2458d6; --accS:#e3ebfa; --accL:#b9cdf0; --grn:#0e8a5f;
+  --amb:#b45309; --red:#d1242f;
+  --mono:'IBM Plex Mono',Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px;
+  font:14px/1.6 'IBM Plex Sans KR','Apple SD Gothic Neo',-apple-system,sans-serif}
+.wrap{max-width:960px;margin:0 auto;padding:36px 22px 60px}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:34px}
+.brand .lg{width:30px;height:30px;border:1.5px solid var(--acc);color:var(--acc);
+  display:grid;place-items:center;font-family:var(--mono);font-weight:700;font-size:15px}
+.brand b{font-size:16px}
+.brand .s{color:var(--mu2);font-family:var(--mono);font-size:9px;
+  letter-spacing:.13em;text-transform:uppercase}
+.brand a{margin-left:auto;color:var(--acc);font-size:12px;text-decoration:none;font-weight:700}
+.kick{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.13em;
+  color:var(--acc);text-transform:uppercase;margin-bottom:8px}
+h1{font-size:30px;line-height:1.25;letter-spacing:-.02em;margin:0 0 10px;
+  padding-bottom:14px;border-bottom:2px solid var(--tx)}
+.sub{color:var(--mu);font-size:13.5px;max-width:640px;margin-bottom:28px}
+.grid{display:grid;grid-template-columns:1fr 1.15fr;gap:22px;align-items:start}
+@media(max-width:840px){.grid{grid-template-columns:1fr}}
+.card{background:var(--cd);border:1px solid var(--ln);padding:20px 22px}
+.card h2{font-size:14px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.card h2::before{content:"FIG.01";font-family:var(--mono);font-size:9px;font-weight:700;
+  letter-spacing:.08em;color:var(--acc);border:1px solid var(--accL);
+  background:var(--accS);padding:1px 5px}
+.card.form h2::before{content:"FORM.01"}
+.feat{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--lnS);font-size:12.5px}
+.feat:last-child{border-bottom:0}
+.feat .ic{color:var(--acc);font-family:var(--mono);font-weight:700;flex:none}
+.feat b{display:block;font-size:12.5px}
+.feat span{color:var(--mu);font-size:11.5px}
+.specrow{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px;padding-top:12px;
+  border-top:1px solid var(--lnS);font-family:var(--mono);font-size:10.5px;color:var(--mu)}
+.specrow b{color:var(--tx)}
+label{display:block;color:var(--mu);font-size:11.5px;margin:12px 0 4px;font-weight:600}
+input,select,textarea{width:100%;background:var(--cd2);border:1px solid var(--ln);
+  padding:9px 12px;color:var(--tx);font-size:13px;font-family:inherit}
+input:focus,select:focus,textarea:focus{outline:1.5px solid var(--acc);outline-offset:-1px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn{margin-top:18px;background:var(--acc);color:#fff;border:0;padding:11px 22px;
+  font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;width:100%}
+.btn:hover{background:#1f6feb}
+.btn:disabled{opacity:.5;cursor:default}
+.note{color:var(--mu2);font-size:11px;margin-top:10px}
+.done{display:none;text-align:center;padding:34px 10px}
+.done .ok{width:44px;height:44px;border:2px solid var(--grn);color:var(--grn);
+  border-radius:50%;display:grid;place-items:center;font-size:20px;margin:0 auto 14px}
+.done h3{margin:0 0 8px;font-size:17px}
+.done p{color:var(--mu);font-size:12.5px;margin:4px 0}
+.done .iq{font-family:var(--mono);color:var(--acc);font-weight:700}
+.err{display:none;margin-top:12px;border:1px solid #f0b9be;background:#fbe7e9;
+  color:var(--red);font-size:12px;padding:9px 12px}
+footer{margin-top:40px;color:var(--mu2);font-size:11px;font-family:var(--mono);
+  display:flex;gap:14px;flex-wrap:wrap}
+footer a{color:var(--mu);text-decoration:none}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="brand"><span class="lg">N</span>
+    <div><b>NeoCloud</b> <div class="s">GPU as a Service</div></div>
+    <a href="index.html">고객 콘솔 로그인 →</a></div>
+
+  <div class="kick">Contact Us — Enterprise GPU Cloud</div>
+  <h1>VR NVL72 기반 전용 GPU 클러스터,<br>계약부터 개통까지 수 시간</h1>
+  <div class="sub">NeoCloud는 베어메탈 전용 격리(4계층 검증), InfiniBand 레일 최적화 패브릭,
+    VAST 고성능 스토리지를 갖춘 국내 AI 데이터센터 GPUaaS입니다.
+    도입 규모와 워크로드를 남겨주시면 영업 담당자가 배정되어 연락드립니다.</div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>왜 NeoCloud인가</h2>
+      <div class="feat"><span class="ic">01</span><div><b>VR NVL72 랙 스케일 — 랙당 72 GPU</b>
+        <span>NVLink 도메인 무결성 보장 배치 · SU(16랙) 단위 확장 · 전용 IB 파티션(P_Key enforced)</span></div></div>
+      <div class="feat"><span class="ic">02</span><div><b>개통 리드타임 수 시간</b>
+        <span>주문 → 자원 할당 → 패브릭 격리 → 스토리지 → OS → Performance Test → 인수까지 자동 파이프라인</span></div></div>
+      <div class="feat"><span class="ic">03</span><div><b>인수 검증(PT) 후 과금 개시</b>
+        <span>NCCL·fio·Burn-in 리포트를 고객이 승인해야 청구 시작 — 투명한 Billing Start Date</span></div></div>
+      <div class="feat"><span class="ic">04</span><div><b>SLA 99.9% + Service Credit</b>
+        <span>월별 SLA 리포트 공개 · 위반 시 자동 크레딧 · Secure Wipe 증명서로 종료까지 감사 대응</span></div></div>
+      <div class="feat"><span class="ic">05</span><div><b>Managed K8s · 모니터링 포함</b>
+        <span>NKD 기반 K8s 옵션(CP SLA 99.9%) · DCGM/Grafana 대시보드 · 24×7 NOC</span></div></div>
+      <div class="specrow"><span>GPU <b>10,080+</b></span><span>사이트 <b>안산 · 가산</b></span>
+        <span>패브릭 <b>800G ×8/노드</b></span><span>스토리지 <b>VAST NFSoRDMA</b></span></div>
+    </div>
+
+    <div class="card form">
+      <h2>도입 문의</h2>
+      <form id="inq-form">
+        <div class="row2">
+          <div><label>회사명 *</label><input id="f-company" required placeholder="예: 핀코프"></div>
+          <div><label>성함 *</label><input id="f-name" required placeholder="예: 김지현"></div>
+        </div>
+        <div class="row2">
+          <div><label>업무 이메일 *</label><input id="f-email" type="email" required placeholder="name@company.com"></div>
+          <div><label>희망 GPU 규모</label><select id="f-scale">
+            <option>72 GPU (1랙 · PoC)</option>
+            <option>144–576 GPU (2–8랙)</option>
+            <option selected>1,152 GPU (1 SU · 16랙)</option>
+            <option>2,304+ GPU (2 SU 이상)</option>
+            <option>미정 — 상담 필요</option></select></div>
+        </div>
+        <label>문의 내용</label>
+        <textarea id="f-msg" rows="4" placeholder="워크로드(사전학습/추론 등), 희망 시기, 스토리지·네트워크 요구사항을 알려주세요"></textarea>
+        <button class="btn" id="f-submit" type="submit">문의 접수 — 영업 담당자 배정</button>
+        <div class="err" id="f-err"></div>
+        <div class="note">접수 즉시 사업팀 파이프라인에 등록되며, 영업 담당자 배정 후 <b>1영업일 내</b> 연락드립니다. 제출 정보는 상담 목적으로만 사용됩니다.</div>
+      </form>
+      <div class="done" id="inq-done">
+        <div class="ok">✓</div>
+        <h3>문의가 접수되었습니다</h3>
+        <p>접수 번호 <span class="iq" id="inq-id">—</span></p>
+        <p id="inq-note">영업 담당자 배정 후 1영업일 내 연락드립니다.</p>
+        <p style="margin-top:14px"><a href="index.html" style="color:var(--acc);font-weight:700">고객 콘솔 살펴보기 →</a></p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span>© 2026 NeoCloud — AI DC GPUaaS</span>
+    <a href="index.html">Customer Console</a>
+    <a href="index.html#/status">Service Status</a>
+    <span style="margin-left:auto">Ansan · Gasan DC — Republic of Korea</span>
+  </footer>
+</div>
+
+<script>
+/* 공개 문의 접수 — Control-Plane POST /api/v1/public/inquiries.
+   미가동/404 시 오프라인 데모 접수 폴백 (콘솔과 동일한 mock 폴백 원칙) */
+(function () {
+  var BASE = (function () {
+    try { return localStorage.getItem("nc-nocp") || "http://127.0.0.1:8000"; }
+    catch (e) { return "http://127.0.0.1:8000"; }
+  })();
+  var form = document.getElementById("inq-form");
+  var done = document.getElementById("inq-done");
+  var err = document.getElementById("f-err");
+  var btn = document.getElementById("f-submit");
+  function val(id) {
+    var el = document.getElementById(id);
+    return el ? el.value.trim() : "";
+  }
+  function showDone(id, note) {
+    form.style.display = "none";
+    done.style.display = "block";
+    document.getElementById("inq-id").textContent = id;
+    if (note) document.getElementById("inq-note").textContent = note;
+  }
+  function offlineAccept() {                 // mock 폴백 — 데모 접수
+    var id = "INQ-2026-" + String(Math.floor(1000 + Math.random() * 9000));
+    showDone(id, "영업 담당자 배정 후 1영업일 내 연락드립니다. (오프라인 데모 접수 — " +
+      "Control-Plane 연동 시 실 접수)");
+  }
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    err.style.display = "none";
+    var body = { company: val("f-company"), name: val("f-name"),
+      email: val("f-email"), gpu_scale: val("f-scale"),
+      message: val("f-msg") };
+    if (!body.company || !body.name || !body.email) {
+      err.textContent = "회사명 · 성함 · 이메일은 필수 입력입니다";
+      err.style.display = "block";
+      return;
+    }
+    btn.disabled = true;
+    var ctl = new AbortController();
+    var to = setTimeout(function () { ctl.abort(); }, 1500);
+    fetch(BASE + "/api/v1/public/inquiries", {
+      method: "POST", signal: ctl.signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(function (r) {
+      clearTimeout(to);
+      if (!r.ok) throw new Error(String(r.status));
+      return r.json();
+    }).then(function (d) {
+      showDone((d && (d.id || d.inquiry_id)) || "INQ-접수 완료",
+        (d && (d.note || d.assigned)) ||
+        "영업 담당자 배정 후 1영업일 내 연락드립니다.");
+    }).catch(function () {
+      clearTimeout(to);
+      offlineAccept();                       // 미가동·404 — 데모 접수
+    });
+  });
+})();
+</script>
+</body></html>

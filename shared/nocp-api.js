@@ -16,7 +16,11 @@
     const t = setTimeout(() => ctl.abort(), 1500);
     try {
       const r = await fetch(url, Object.assign({ signal: ctl.signal }, opt));
-      if (!r.ok) throw new Error(await r.text().catch(() => r.status));
+      if (!r.ok) {
+        const err = new Error(await r.text().catch(() => String(r.status)));
+        err.status = r.status;               // 409 등 시맨틱 에러 표면화용
+        throw err;
+      }
       dead = false; aliveUntil = Date.now() + 10000;
       return r.json();
     } finally { clearTimeout(t); }
@@ -25,6 +29,11 @@
     method: method || "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body) });
+  const errDetail = e => {                      // FastAPI {detail} → 문자열
+    let m = e && e.message || "요청 실패";
+    try { m = JSON.parse(m).detail || m; } catch (_) {}
+    return typeof m === "string" ? m : JSON.stringify(m);
+  };
   async function live() {                       // 도달성 (10s 캐시)
     if (Date.now() < aliveUntil) return true;
     if (dead) return false;
@@ -381,6 +390,67 @@
     k8sStorage: cid => raw(`${V}/k8s/clusters/${cid}/storage`),
     k8sMetrics: cid => raw(`${V}/k8s/clusters/${cid}/metrics`),
     k8sRbacTemplates: () => raw(V + "/k8s/rbac-templates"),
+
+    /* ── 고객 시나리오 갭 계약 (백엔드 병렬 개발 중 — 404/미가동 시
+          mock-api.js 대응 getter로 자동 폴백. 4xx 시맨틱 에러(409 등)는
+          {error, status}로 반환해 UI가 표면화하고 mock으로 새지 않게 함) ── */
+    orderFlow: id => raw(`${V}/orders/${id}/flow`),
+    async fulfillOrders() {                // 진행 중(미인도) 주문 목록
+      const ACTIVE = ["received", "validated", "reserved", "provisioning",
+        "isolating", "storage_binding", "acceptance", "k8s_installing"];
+      const os = await raw(V + "/orders");
+      return os.filter(o => o.kind === "new" && ACTIVE.includes(o.state));
+    },
+    async acceptanceOrders() {             // 고객 인수 승인 대기 주문 후보
+      // 백엔드는 delivered 주문에도 acceptance-report(status pending)를
+      // 노출한다 — 후보를 넓게 반환하고, 카드 표시는 리포트 status가
+      // pending/rejected/deemed일 때만 (렌더러에서 판정)
+      const os = await raw(V + "/orders");
+      const cand = os.filter(o => o.kind === "new" &&
+        (o.state === "acceptance" || o.pending_stage === "acceptance" ||
+         o.state === "delivered"));
+      cand.sort((a, b) =>
+        (b.state === "acceptance" ? 1 : 0) - (a.state === "acceptance" ? 1 : 0));
+      return cand;
+    },
+    acceptanceReport: id => raw(`${V}/orders/${id}/acceptance-report`),
+    async acceptanceDecision(id, body) {   // {decision: approve|reject, reason?}
+      try { return await jp(`${V}/orders/${id}/acceptance`, body); }
+      catch (e) {
+        if (e.status && e.status !== 404)
+          return { error: errDetail(e), status: e.status };
+        throw e;                           // 404/네트워크 → mock 폴백
+      }
+    },
+    async terminationStart(tid, body) {
+      try {
+        const r = await jp(`${V}/tenants/${tid}/termination`, body);
+        NC.bus.emit("termination.started", r);
+        return r;
+      } catch (e) {
+        if (e.status && e.status !== 404)
+          return { error: errDetail(e), status: e.status };
+        throw e;
+      }
+    },
+    async terminationBackupConfirm(tid, checklist) {
+      try {
+        return await jp(`${V}/tenants/${tid}/termination/backup-confirm`,
+          { checklist });
+      } catch (e) {                        // 미완료 409 — 반드시 표면화
+        if (e.status && e.status !== 404)
+          return { error: errDetail(e), status: e.status };
+        throw e;
+      }
+    },
+    terminationStatus: tid => raw(`${V}/tenants/${tid}/termination`),
+    terminationCert: tid =>
+      raw(`${V}/tenants/${tid}/termination/wipe-certificate`),
+    serviceStatus: () => raw(V + "/status"),
+    rcaReports: tid => raw(`${V}/tenants/${tid}/rca-reports`),
+    slaReport: (tid, month) =>
+      raw(`${V}/tenants/${tid}/sla-report?month=${encodeURIComponent(month)}`),
+    publicInquiry: body => jp(V + "/public/inquiries", body),
 
     /* ── 콘솔 확장 getter (라이브 전용, 실패 시 null) ───────── */
     emuClusters: () => raw(V + "/emu/clusters"),
