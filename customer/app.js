@@ -966,7 +966,9 @@
         '<td class="num" style="color:var(--muted)">—</td>' +
         '<td><button class="tbtn" data-open="console_access">콘솔' +
         "</button></td></tr>";
-    return "<tr" + (n.state === "in_service" ? "" : ' class="fault"') +
+    var host = esc(n.host || "");
+    var fault = n.state !== "in_service";
+    return "<tr" + (fault ? ' class="fault"' : "") +
       '><td class="id">' + esc(n.id) + "</td>" +
       '<td class="id" style="color:var(--muted)">' + esc(n.ip || "—") +
       "</td>" +
@@ -975,7 +977,10 @@
       "<td>" + stateChipHtml(n.state) + "</td>" +
       '<td class="num" style="color:var(--muted)">—</td>' +
       '<td><button class="tbtn" data-open="console_access">콘솔</button>' +
-      ' · <button class="tbtn a" data-open="reboot">재부팅</button>' +
+      ' · <button class="tbtn a" data-open="reboot" data-host="' + host +
+      '">재부팅</button>' +
+      (fault ? ' · <button class="tbtn r" data-open="reboot" data-op="replace"' +
+        ' data-host="' + host + '">HW 교체</button>' : "") +
       "</td></tr>";
   }
 
@@ -1017,7 +1022,7 @@
         if (!ns) return;                     // 폴백 — mock 테이블 유지
         var items = ns.map(function (n) {
           return { kind: "gpu", id: n.tray_id, ip: n.nico_instance_id,
-            bp: n.blueprint_key, state: n.state,
+            bp: n.blueprint_key, state: n.state, host: n.nico_host_id,
             _s: ((n.tray_id || "") + " " + (n.nico_host_id || "") + " " +
                  (n.nico_instance_id || "")).toLowerCase() };
         }).concat(cpus.map(function (c) {
@@ -1154,19 +1159,31 @@
     });
   }
 
-  /* 스토리지 — storageViews() 현재 테넌트 필터 → pagedTable(8행 · 경로 검색) */
+  /* 스토리지 — storageVolumes() (GET /storage/volumes) → pagedTable(8행) */
+  function fmtCap(tb) {
+    tb = +tb || 0;
+    return tb >= 1000 ? (tb / 1000).toFixed(1) + "PB" : Math.round(tb) + "TB";
+  }
+  function parseNum(s) {
+    var m = String(s == null ? "" : s).replace(/,/g, "").match(/[\d.]+/);
+    return m ? +m[0] : 0;
+  }
   function volRowHtml(v) {
-    var cap = v.capacity_tb >= 1000
-      ? (v.capacity_tb / 1000).toFixed(1) + "PB"
-      : Math.round(v.capacity_tb) + "TB";
+    var qos = v.qos || {};
+    var vid = esc(v.volume_id || "");
+    var canChg = can("volume");
     return '<tr><td class="id">' + esc(v.path) + "</td>" +
-      '<td class="num">' + cap + "</td>" +
+      '<td class="num">' + fmtCap(v.quota_tb || v.capacity_tb) + "</td>" +
       '<td class="num" style="color:var(--muted)">' +
-      esc((v.protocols || []).join("/")) + "</td>" +
-      '<td class="num">' + Math.round(v.qos_gbps || 0) + "GB/s · " +
-      Math.round(v.qos_iops_k || 0) + "K IOPS</td>" +
-      '<td><button class="tbtn" data-open="snapshot">스냅샷</button>' +
-      ' · <button class="tbtn a" data-open="qos">QoS 변경</button>' +
+      fmtCap(v.used_tb || 0) + "</td>" +
+      '<td class="num">' + Math.round(qos.bw_gbps || 0) + "GB/s · " +
+      Math.round(qos.iops_k || 0) + "K</td>" +
+      '<td><button class="tbtn" data-open="snapshot" data-vid="' + vid +
+      '">스냅샷</button>' +
+      ' · <button class="tbtn a" data-open="qos" data-vid="' + vid +
+      '">QoS 변경</button>' +
+      (canChg ? ' · <button class="tbtn r" data-vol-del="' + vid +
+        '">삭제</button>' : "") +
       "</td></tr>";
   }
 
@@ -1198,32 +1215,52 @@
 
   function renderStorage() {
     loadTenant().then(function (t) {
-      if (!t || !NC.api.storageViews) return;
-      NC.api.storageViews().then(function (vs) {
+      if (!t || !NC.api.storageVolumes) return;
+      NC.api.storageVolumes().then(function (vs) {
         var tb = $("#storage-volumes");
         if (!vs || !tb) return;              // 폴백 — 정적 유지
-        var mine = (Array.isArray(vs) ? vs : []).filter(function (v) {
-          return v.tenant_ref === t.id;
-        });
+        var mine = Array.isArray(vs) ? vs : [];
         var pgr = ensureStoragePager();
         if (pgr) pgr.set(mine);
         var capTb = mine.reduce(function (a, v) {
-          return a + (v.capacity_tb || 0); }, 0);
+          return a + (v.quota_tb || v.capacity_tb || 0); }, 0);
+        var usedTb = mine.reduce(function (a, v) {
+          return a + (v.used_tb || 0); }, 0);
         var qos = mine.reduce(function (a, v) {
-          return a + (v.qos_gbps || 0); }, 0);
+          return a + ((v.qos && v.qos.bw_gbps) || 0); }, 0);
         var kk = $("#st-kpi-cap-k"), k = $("#st-kpi-cap");
         var bar = $("#st-kpi-cap-bar");
         var q = $("#st-kpi-qos"), qs = $("#st-kpi-qos-sub");
-        if (kk) kk.textContent = "할당 쿼터 (VAST)";
-        if (k) k.innerHTML = capTb >= 1000
-          ? (capTb / 1000).toFixed(1) + "<small> PB</small>"
-          : Math.round(capTb) + "<small> TB</small>";
-        if (bar) bar.style.width = mine.length ? "100%" : "0%";
+        if (kk) kk.textContent = "사용 / 할당 쿼터 (VAST)";
+        if (k) k.innerHTML = fmtCap(usedTb).replace(/(PB|TB)/, "<small> $1</small>") +
+          ' <small style="color:var(--muted2)">/ ' + fmtCap(capTb) + "</small>";
+        if (bar) bar.style.width = capTb
+          ? Math.min(100, Math.round((usedTb / capTb) * 100)) + "%" : "0%";
         if (q) q.innerHTML = Math.round(qos).toLocaleString("en-US") +
           "<small> GB/s</small>";
         if (qs) qs.textContent = "볼륨 " + mine.length + "개 · VAST 실데이터";
       }).catch(function () {});
+      renderSnapshots();
     });
+  }
+
+  /* 스냅샷 목록 — storageSnapshots() (GET /storage/snapshots) */
+  function renderSnapshots() {
+    var tb = $("#snap-rows");
+    if (!tb || !NC.api.storageSnapshots) return;
+    NC.api.storageSnapshots().then(function (ss) {
+      if (!ss) return;                       // 폴백 — 정적 유지
+      var list = Array.isArray(ss) ? ss : [];
+      if (!list.length) return;              // 스냅샷 생성 전 — 정적 데모 유지
+      tb.innerHTML = list.map(function (s) {
+        return '<tr><td class="id">' + esc(s.snapshot_id) + "</td>" +
+          '<td style="color:var(--muted)">' + esc(s.note || "manual") + " · " +
+          fmtCap(s.size_tb || 0) + " · " +
+          esc(String(s.state || "ready")) + "</td>" +
+          '<td class="num"><button class="tbtn" data-demo="스냅샷 ' +
+          esc(s.snapshot_id) + ' 복원">복원</button></td></tr>';
+      }).join("");
+    }).catch(function () {});
   }
 
   /* 빌링 — billingUsage()+billingRates() 실렌더 (없으면 정적 유지).
@@ -1544,7 +1581,7 @@
     });
   }
 
-  function renderApi() { renderApiTokenLog(); }
+  function renderApi() { renderApiTokenLog(); renderApiKeys(); }
 
   /* ══ 클러스터 — emuClusters() 실카드 + 워크로드 프로파일 전환 ═══
      라이브: #cl-live에 패널 렌더·정적(#cl-static) 숨김 · KPI 실집계.
@@ -1852,23 +1889,28 @@
       "</td>" +
       '<td style="color:var(--muted)">' + esc(extra) + "</td></tr>";
   }
+  /* 멤버 표 — GET /members 실데이터 (라이브) · 폴백 시 데모 렌더.
+     세션 사용자("나")를 상단 고정하고, 이하 실 멤버는 역할 select·제거
+     버튼(admin 전용)을 갖는다. */
   function renderMembers() {
     var tb = $("#member-rows");
     if (!tb) return;
     var s = getSession();
-    var dom = s.tenant_name + ".com";
-    var others = DEMO_USERS.filter(function (u) {
-      return u.tenant_id !== s.tenant_id;
-    });
-    tb.innerHTML =
-      memberRow(s.user, "user@" + dom, s.role,
-        s.role === "viewer" ? "MFA ✓ · 읽기 전용" : "MFA ✓ · SSO", true) +
-      memberRow("이승민", "lee.sm@" + dom, "member", "MFA ✓ · SSO") +
-      memberRow("정하윤", "jung.hy@" + dom, "viewer", "MFA ✓") +
-      '<tr><td class="id">svc-' + esc(s.tenant_name) +
-      '</td><td style="color:#c8a5e8;font-weight:700">service account</td>' +
-      '<td style="color:var(--muted)">API 키 인증</td></tr>' +
-      (others.length ? "" : "");
+    var isAdmin = s.role === "admin";
+    if (!NC.api.members) { renderMembersFallback(); return; }
+    NC.api.members().then(function (ms) {
+      if (!ms) { renderMembersFallback(); return; }   // 폴백 — 데모
+      var list = Array.isArray(ms) ? ms : [];
+      var self = memberRow(s.user, "user@" + s.tenant_name + ".com", s.role,
+        s.role === "viewer" ? "MFA ✓ · 읽기 전용 · 나" : "MFA ✓ · SSO · 나",
+        true);
+      tb.innerHTML = self +
+        list.map(function (m) { return memberLiveRow(m, isAdmin); }).join("") +
+        '<tr><td class="id">svc-' + esc(s.tenant_name) +
+        '</td><td style="color:#c8a5e8;font-weight:700">service account</td>' +
+        '<td style="color:var(--muted)">API 키 인증</td></tr>';
+      setTimeout(applyRbacGates, 0);
+    }).catch(function () { renderMembersFallback(); });
   }
 
   function renderSettings() {
@@ -1929,6 +1971,7 @@
   NC.bus.on("route", function (id) {
     curRoute = id;
     if (id !== "clusters") { stopFulfillPoll(); stopTermPoll(); }
+    if (id !== "nodes") closeRebootFlow();   // 노드 화면 이탈 시 폴링 해제
     applyMockScope();                        // 정적 데모(fin-corp) 스크럽
     setTimeout(applyRbacGates, 0);           // 화면 전환 직후 게이트 재적용
   });
@@ -2634,19 +2677,32 @@
       "(수락 → MFA 등록 → 로그인 순서)");
     renderInvites();
   }
+  /* invite — POST /members (state invited). 성공 시 로컬 초대 상태 표에도
+     반영해 온보딩 UX(재발급·만료)를 유지. 라이브 미가동 시 로컬 모의 폴백. */
   function submitInvite() {
     var el = $("#inv-email");
     var email = el ? el.value.trim() : "";
     var roleSel = $('[data-modal="invite"] select');
-    var role = (roleSel && roleSel.value) || "viewer";
+    var roleTxt = (roleSel && roleSel.value) || "viewer";
+    var role = /admin/i.test(roleTxt) ? "admin"
+      : /operator|member/i.test(roleTxt) ? "member" : "viewer";
     NC.closeModal();
-    var l = inviteList();
-    l.unshift({ email: email, role: role, state: "sent", d: 7 });
-    saveInvites(l);
-    NC.toast("멤버 초대 발송 (모의) — " + email + " (" + role +
-      ") · 수락 후 MFA 등록을 완료해야 로그인할 수 있습니다");
-    resetModalInputs("invite");
-    renderInvites();
+    function localReflect(tag) {
+      var l = inviteList();
+      l.unshift({ email: email, role: role, state: "sent", d: 7 });
+      saveInvites(l);
+      resetModalInputs("invite");
+      renderInvites();
+      NC.toast("멤버 초대 — " + email + " (" + role + ")" + tag +
+        " · 수락 후 MFA 등록을 완료해야 로그인할 수 있습니다");
+    }
+    if (!NC.api.memberInvite) { localReflect(" (모의)"); return; }
+    NC.api.memberInvite({ email: email, role: role }).then(function (m) {
+      if (!m) return;                        // 403
+      if (m.error) { NC.toast("초대 실패 — " + m.error, "warn"); return; }
+      localReflect(m._mock ? " (데모)" : " · state " + (m.state || "invited"));
+      renderMembers();
+    });
   }
 
   /* ── 변경 요청 분기 (P2-5) — 계약 범위 내 → 운영 티켓 ── */
@@ -2728,6 +2784,8 @@
   // 세션 전환 (데모 로그인) — 세션 UI·게이트·전 화면 재렌더
   NC.bus.on("session.changed", function () {
     curTenant = null;                        // 테넌트 캐시 무효화
+    closeRebootFlow();                       // 진행 패널·시크릿 노출 해제
+    var so = $("#secret-once"); if (so) so.style.display = "none";
     applySessionUi();
     renderTenantScope();
     refreshTickets();
@@ -2766,6 +2824,341 @@
     refreshTickets();
     renderSysChip();
     NC.route();                              // 현재 화면 onShow 재실행
+  }
+
+  /* ══ 노드 재기동/HW 교체 라이프사이클 스테퍼 (P1) ════════════════
+     POST /nodes/{id}/reboot|replace → 반환 stages로 진행 패널 표시 →
+     GET /nodes/{id}/lifecycle 2.2s 폴링으로 단계 전진. 화면 이탈 시 해제.
+     라이브 미가동/폴백 시 mock-api가 동일 shape로 스테이지를 전진시킨다. */
+  var rebootPoll = null, rebootHost = null, rebootOpId = null;
+  var STAGE_LBL = {
+    power_cycle: "전원 사이클", post: "POST", nico_discovery: "NICo 디스커버리",
+    dhcp_ip: "DHCP IP 할당", boot: "부팅", attestation: "재검증(attestation)",
+    tenant_rejoin: "테넌트 재합류", drain: "워크로드 드레인",
+    hw_swap: "하드웨어 교체 (RMA)", pxe_os_install: "PXE OS 재설치",
+    in_service: "서비스 복귀" };
+  function stopRebootPoll() {
+    if (rebootPoll) { clearInterval(rebootPoll); rebootPoll = null; }
+  }
+  function closeRebootFlow() {
+    stopRebootPoll();
+    var el = $("#reboot-flow");
+    if (el) el.style.display = "none";
+  }
+  function rebootPanelEl() {
+    var el = $("#reboot-flow");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "reboot-flow";
+      el.className = "panel";
+      el.style.cssText = "position:fixed;right:20px;bottom:20px;width:344px;" +
+        "z-index:120;box-shadow:0 14px 46px rgba(0,0,0,.42);max-height:82vh;" +
+        "overflow:auto;margin:0";
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+  function renderRebootPanel(op, done) {
+    var el = rebootPanelEl();
+    var stages = (op && op.stages) || [];
+    var opLbl = (op && op.op) === "replace" ? "하드웨어 교체" : "노드 재기동";
+    var idx = op ? (op.stage_idx || 0) : 0;
+    var total = stages.length || 1;
+    var runningHalf = stages[idx] && stages[idx].status === "running" ? 0.5 : 0;
+    var pct = done ? 100
+      : Math.min(99, Math.round(((idx + runningHalf) / total) * 100));
+    el.innerHTML =
+      '<div class="ph" style="margin-bottom:8px">' +
+      '<span class="dot ' + (done ? "green" : "blue") +
+      '" style="width:8px;height:8px"></span>' +
+      '<span class="t">' + opLbl + " — " + esc(rebootHost || "") + "</span>" +
+      '<button class="x" id="reboot-flow-x" style="margin-left:auto">✕</button>' +
+      "</div>" +
+      '<div class="mini" style="margin:0 0 8px">' +
+      (done ? "완료 — 노드가 서비스로 복귀했습니다 (tenant rejoin)"
+        : "AI Infra trayops 실 라이프사이클 · " + pct + "% 진행") + "</div>" +
+      '<div class="bar" style="margin-bottom:10px"><i class="' +
+      (done ? "green" : "blue") + '" style="width:' + pct + '%"></i></div>' +
+      stages.map(function (s, i) {
+        var st = s.status;
+        var color = st === "done" ? "green" : st === "running" ? "blue" : "gray";
+        return '<div style="display:flex;align-items:center;gap:8px;' +
+          "padding:3px 0;font-size:11.5px;color:var(--" +
+          (st === "pending" ? "muted2" : "strong") + ')">' +
+          '<span class="dot ' + color + '" style="width:7px;height:7px"></span>' +
+          '<span style="' + (st === "running" ? "font-weight:700" : "") + '">' +
+          (i + 1) + ". " + esc(STAGE_LBL[s.name] || s.name) + "</span>" +
+          '<span style="margin-left:auto;color:var(--muted2)">' +
+          (s.duration_s != null ? Math.round(s.duration_s) + "s" : "") +
+          "</span></div>";
+      }).join("");
+    el.style.display = "";
+  }
+  function startRebootFlow(host, opKind) {
+    if (!host) {
+      NC.toast("호스트 ID를 확인할 수 없습니다 — 노드 목록을 새로고침하세요", "warn");
+      return;
+    }
+    stopRebootPoll();
+    rebootHost = host; rebootOpId = null;
+    var fn = opKind === "replace" ? NC.api.nodeReplace : NC.api.nodeReboot;
+    if (!fn) { NC.toast(ACTION_TOAST.reboot); return; }
+    fn(host).then(function (op) {
+      if (op == null) return;                // 403 — surface403가 이미 표면화
+      if (op.error) {                        // 409(진행 중) 등 — mock으로 새지 않음
+        NC.toast((opKind === "replace" ? "HW 교체" : "재부팅") +
+          " 시작 실패 — " + op.error, "warn");
+        return;
+      }
+      rebootOpId = op.op_id || null;
+      renderRebootPanel(op, false);
+      NC.toast((opKind === "replace" ? "HW 교체" : "노드 재부팅") +
+        " 시작 — " + host + " (" + (op.op_id || "") + ")" +
+        (op._mock ? " · 데모" : "") + " · 라이프사이클 진행 중");
+      rebootPoll = setInterval(function () { pollReboot(host); }, 2200);
+    });
+  }
+  function pollReboot(host) {
+    if (curRoute !== "nodes") { closeRebootFlow(); return; }
+    if (!NC.api.nodeLifecycle) { stopRebootPoll(); return; }
+    NC.api.nodeLifecycle(host).then(function (lc) {
+      if (!lc) return;
+      var pick = function (arr) {
+        arr = arr || [];
+        return arr.filter(function (o) {
+          return !rebootOpId || o.op_id === rebootOpId; })[0] || arr[0];
+      };
+      var active = pick(lc.active);
+      if (active) { renderRebootPanel(active, false); return; }
+      stopRebootPoll();                      // active 비었으면 완료
+      var doneOp = pick(lc.ops);
+      if (doneOp) {
+        var st = (doneOp.stages || []).map(function (s) {
+          return { name: s.name, status: "done",
+            duration_s: s.duration_s != null ? s.duration_s
+              : (doneOp.stage_durations || {})[s.name] };
+        });
+        if (!st.length && doneOp.stage_durations)
+          st = Object.keys(doneOp.stage_durations).map(function (n) {
+            return { name: n, status: "done",
+              duration_s: doneOp.stage_durations[n] }; });
+        renderRebootPanel({ op: doneOp.op, stage_idx: st.length - 1,
+          stages: st }, true);
+      }
+      NC.toast("노드 " + host + " 라이프사이클 완료 — 서비스 복귀 (tenant rejoin)");
+      renderNodes();
+    }).catch(function () {});
+  }
+
+  /* ══ 스토리지 액션 (volume/snapshot/qos/delete) — VAST 실연동 ═══ */
+  function submitVolumeLive() {
+    var path = (($("#vol-path") || {}).value || "").trim();
+    var name = path.replace(/^\/+/, "").split("/").filter(Boolean).pop() || "vol";
+    var quota = ($("#vol-quota") || {}).value || "2 PB";
+    var capTb = parseNum(quota) * (/pb/i.test(quota) ? 1000 : 1);
+    var qsel = ($("#vol-qos") || {}).value || "";
+    var parts = qsel.split("·");
+    var bw = parseNum(parts[0]) || 160;
+    var iopsK = /m/i.test(parts[1] || "")
+      ? parseNum(parts[1]) * 1000 : (parseNum(parts[1]) || 800);
+    var proto = ($("#vol-proto") || {}).value || "NFS";
+    NC.closeModal();
+    if (!NC.api.storageCreateVolume) { NC.toast(ACTION_TOAST.volume); return; }
+    NC.api.storageCreateVolume({ name: name, capacity_tb: capTb,
+      protocol: proto, qos_bw_gbps: bw, qos_iops_k: iopsK }).then(function (v) {
+      if (!v) return;                        // 403
+      if (v.error) { NC.toast("볼륨 생성 실패 — " + v.error, "warn"); return; }
+      NC.toast("볼륨 생성 — " + (v.path || name) + " · " +
+        fmtCap(v.capacity_tb) + " · " +
+        Math.round((v.qos && v.qos.bw_gbps) || bw) + "GB/s" +
+        (v._mock ? " (데모)" : ""));
+      resetModalInputs("volume");
+      renderStorage();
+    });
+  }
+  function submitSnapshotLive() {
+    var name = (($("#snap-name") || {}).value || "").trim();
+    var vid = snapCtx && snapCtx.vid;
+    NC.closeModal();
+    if (!vid || !NC.api.storageCreateSnapshot) {
+      NC.toast(ACTION_TOAST.snapshot); return;
+    }
+    NC.api.storageCreateSnapshot({ volume_id: vid, note: name }).then(function (s) {
+      if (!s) return;
+      if (s.error) { NC.toast("스냅샷 생성 실패 — " + s.error, "warn"); return; }
+      NC.toast("스냅샷 생성 — " + (s.snapshot_id || "") + " · " +
+        ((snapCtx && snapCtx.path) || "") + " (" + fmtCap(s.size_tb || 0) + ")" +
+        (s._mock ? " (데모)" : ""));
+      renderStorage();
+    });
+  }
+  function submitQosLive() {
+    var vid = qosCtx && qosCtx.vid;
+    var bw = parseNum(($("#qos-target") || {}).value) || 1280;
+    var iopsK = Math.round(bw * 0.32);
+    NC.closeModal();
+    if (!vid || !NC.api.storageSetQos) { NC.toast(ACTION_TOAST.qos); return; }
+    NC.api.storageSetQos(vid, { bw_gbps: bw, iops_k: iopsK }).then(function (v) {
+      if (!v) return;
+      if (v.error) { NC.toast("QoS 변경 실패 — " + v.error, "warn"); return; }
+      NC.toast("QoS 변경 — " + ((qosCtx && qosCtx.path) || "") + " → " +
+        Math.round((v.qos && v.qos.bw_gbps) || bw) + "GB/s · " +
+        Math.round((v.qos && v.qos.iops_k) || iopsK) + "K IOPS" +
+        (v._mock ? " (데모)" : ""));
+      renderStorage();
+    });
+  }
+  function deleteVolume(vid) {
+    if (!vid) return;
+    if (!window.confirm("볼륨 삭제 — " + vid +
+        " 을(를) 삭제하시겠습니까? (스냅샷 미보유 시 복구 불가)")) return;
+    if (!NC.api.storageDeleteVolume) {
+      NC.toast("볼륨 삭제는 Control-Plane 연동 시 사용할 수 있습니다", "warn");
+      return;
+    }
+    NC.api.storageDeleteVolume(vid).then(function (r) {
+      if (!r) return;
+      if (r.error) { NC.toast("볼륨 삭제 실패 — " + r.error, "warn"); return; }
+      NC.toast("볼륨 삭제 완료 — " + vid + (r._mock ? " (데모)" : ""));
+      renderStorage();
+    });
+  }
+
+  /* ══ IAM — API 키 (GET/POST/DELETE /api-keys) ══════════════════ */
+  var API_SCOPE_LBL = { read: "읽기 전용", admin: "전체 권한",
+    deploy: "배포 권한", write: "쓰기" };
+  function renderApiKeys() {
+    var tb = $("#api-key-rows");
+    if (!tb || !NC.api.apiKeys) return;
+    NC.api.apiKeys().then(function (ks) {
+      if (!ks) return;                       // 폴백 — 정적 유지
+      var list = Array.isArray(ks) ? ks : [];
+      var canRevoke = can("apikey");
+      tb.innerHTML = list.length
+        ? list.map(function (k) {
+            return '<tr><td class="id">' + esc(k.prefix || k.key_id) + "</td>" +
+              '<td style="color:var(--muted)">' + esc(k.name || "") + " · " +
+              esc(API_SCOPE_LBL[k.scope] || k.scope || "") + "</td>" +
+              '<td style="color:var(--muted)">' +
+              (k.last_used
+                ? esc(String(k.last_used).slice(5, 16).replace("T", " "))
+                : "미사용") + "</td>" +
+              '<td class="num">' + (canRevoke
+                ? '<button class="tbtn r" data-key-revoke="' + esc(k.key_id) +
+                  '">회수</button>'
+                : '<span class="st ' +
+                  (k.state === "active" ? "green" : "amber") + '">' +
+                  esc(k.state || "") + "</span>") + "</td></tr>";
+          }).join("")
+        : '<tr><td colspan="4" style="color:var(--muted2)">발급된 API 키가 ' +
+          '없습니다 — "+ 키 발급"으로 생성하세요</td></tr>';
+      setTimeout(applyRbacGates, 0);
+    }).catch(function () {});
+  }
+  function showSecretOnce(k) {
+    var el = $("#secret-once");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "secret-once"; el.className = "panel";
+      el.style.cssText = "position:fixed;left:50%;top:76px;" +
+        "transform:translateX(-50%);width:min(560px,92vw);z-index:130;" +
+        "box-shadow:0 18px 54px rgba(0,0,0,.5);margin:0";
+      document.body.appendChild(el);
+    }
+    el.innerHTML =
+      '<div class="ph" style="margin-bottom:8px"><span class="tick amber"></span>' +
+      '<span class="t">API 키 발급 완료 — 시크릿 1회 노출</span>' +
+      '<button class="x" id="secret-once-x" style="margin-left:auto">✕</button>' +
+      "</div>" +
+      '<div class="mini" style="margin:0 0 8px">' + esc(k.name || "") +
+      " · scope " + esc(API_SCOPE_LBL[k.scope] || k.scope || "") + " · " +
+      esc(k.key_id || "") + "</div>" +
+      '<div class="code" style="user-select:all;word-break:break-all">' +
+      esc(k.secret || "") + "</div>" +
+      '<div class="redcall" style="margin-top:10px"><span class="ic">⚠</span>' +
+      "<span>이 시크릿은 <b>지금 1회만</b> 표시됩니다 — 복사 후 재열람할 수 " +
+      "없습니다. 분실 시 회수 후 재발급하세요.</span></div>" +
+      '<div class="mf" style="margin-top:10px">' +
+      '<button class="btn" data-copy="' + esc(k.secret || "") +
+      '">시크릿 복사</button></div>';
+    el.style.display = "";
+  }
+  function revokeApiKey(kid) {
+    if (!kid) return;
+    if (!window.confirm("API 키 회수 — " + kid +
+        " 을(를) 즉시 폐기하시겠습니까? (복구 불가)")) return;
+    if (!NC.api.apiKeyRevoke) return;
+    NC.api.apiKeyRevoke(kid).then(function (r) {
+      if (!r) return;
+      if (r.error) { NC.toast("키 회수 실패 — " + r.error, "warn"); return; }
+      NC.toast("API 키 회수 완료 — " + kid + (r._mock ? " (데모)" : ""));
+      renderApiKeys();
+    });
+  }
+
+  /* ══ IAM — 멤버 (GET/POST/PATCH/DELETE /members) ═══════════════ */
+  var MEMBER_ROLES = [["admin", "org admin"], ["member", "operator"],
+    ["viewer", "viewer"]];
+  function memberLiveRow(m, isAdmin) {
+    var roleCell = isAdmin
+      ? '<select data-mem-role="' + esc(m.member_id) + '" data-mem-email="' +
+        esc(m.email) + '" style="font-size:11px;padding:2px 6px">' +
+        MEMBER_ROLES.map(function (r) {
+          return '<option value="' + r[0] + '"' +
+            (m.role === r[0] ? " selected" : "") + ">" + r[1] + "</option>";
+        }).join("") + "</select>"
+      : '<span style="color:var(--muted)">' + esc(m.role) + "</span>";
+    var stLbl = m.state === "invited"
+      ? '<span class="st amber">초대됨 · MFA 미등록</span>'
+      : (m.mfa ? "MFA ✓" : "MFA 미등록");
+    var del = isAdmin ? ' · <button class="tbtn r" data-mem-del="' +
+      esc(m.member_id) + '" data-mem-email="' + esc(m.email) +
+      '">제거</button>' : "";
+    return "<tr><td><b>" + esc(m.email) + "</b></td><td>" + roleCell + "</td>" +
+      '<td style="color:var(--muted)">' + stLbl + del + "</td></tr>";
+  }
+  function renderMembersFallback() {
+    var tb = $("#member-rows");
+    if (!tb) return;
+    var s = getSession();
+    var dom = s.tenant_name + ".com";
+    tb.innerHTML =
+      memberRow(s.user, "user@" + dom, s.role,
+        s.role === "viewer" ? "MFA ✓ · 읽기 전용" : "MFA ✓ · SSO", true) +
+      memberRow("이승민", "lee.sm@" + dom, "member", "MFA ✓ · SSO") +
+      memberRow("정하윤", "jung.hy@" + dom, "viewer", "MFA ✓") +
+      '<tr><td class="id">svc-' + esc(s.tenant_name) +
+      '</td><td style="color:#c8a5e8;font-weight:700">service account</td>' +
+      '<td style="color:var(--muted)">API 키 인증</td></tr>';
+  }
+  function updateMemberRole(mid, email, role) {
+    if (!NC.api.memberUpdate) {
+      NC.toast("역할 변경은 Control-Plane 연동 시 사용할 수 있습니다", "warn");
+      return;
+    }
+    NC.api.memberUpdate(mid, { email: email, role: role }).then(function (m) {
+      if (!m) { renderMembers(); return; }   // 403
+      if (m.error) {
+        NC.toast("역할 변경 실패 — " + m.error, "warn"); renderMembers(); return;
+      }
+      NC.toast("멤버 역할 변경 — " + email + " → " + role +
+        (m._mock ? " (데모)" : ""));
+      renderMembers();
+    });
+  }
+  function removeMember(mid, email) {
+    if (!window.confirm("멤버 제거 — " + email +
+        " 을(를) 이 테넌트에서 제거하시겠습니까?")) return;
+    if (!NC.api.memberRemove) {
+      NC.toast("멤버 제거는 Control-Plane 연동 시 사용할 수 있습니다", "warn");
+      return;
+    }
+    NC.api.memberRemove(mid).then(function (r) {
+      if (!r) return;
+      if (r.error) { NC.toast("멤버 제거 실패 — " + r.error, "warn"); return; }
+      NC.toast("멤버 제거 완료 — " + email + (r._mock ? " (데모)" : ""));
+      renderMembers();
+    });
   }
 
   /* create_cluster — 모달 입력값 → createOrder 실주문 */
@@ -2911,30 +3304,29 @@
       return tryIamToken(cands);
     });
   }
+  /* apikey — POST /api-keys → secret 1회 노출(showSecretOnce) → 목록 갱신.
+     라이브 미가동 시 mock apiKeyCreate가 동일 shape(secret 포함)로 폴백. */
   function submitApikeyLive() {
     var name = (($("#ak-name") || {}).value || "").trim();
+    var scopeTxt = ($("#ak-scope") || {}).value || "읽기 전용";
+    var scope = /전체/.test(scopeTxt) ? "admin"
+      : /배포/.test(scopeTxt) ? "deploy" : "read";
     NC.closeModal();
-    NC.api.accessPackages(curTenant.id).then(function (pkgs) {
-      var cands = (pkgs || []).map(function (p) {
-        return p.pkg && p.pkg.api && p.pkg.api.client_id;
-      }).filter(Boolean).reverse();          // 최신 주문의 client 우선
-      return tryIamToken(cands);
-    }).then(function (r) {
-      if (!r) { NC.toast(ACTION_TOAST.apikey); return; }  // 폴백 — 데모
-      var t = r.tok;
-      var masked = t.access_token.slice(0, 4) + "…" +
-        t.access_token.slice(-6);
+    if (!NC.api.apiKeyCreate) { NC.toast(ACTION_TOAST.apikey); return; }
+    NC.api.apiKeyCreate({ name: name, scope: scope }).then(function (k) {
+      if (!k) return;                        // 403
+      if (k.error) { NC.toast("키 발급 실패 — " + k.error, "warn"); return; }
+      showSecretOnce(k);                     // 시크릿 1회 노출 (복사)
       pushTokenLog({
         at: new Date().toISOString().slice(5, 16).replace("T", " "),
-        client: r.cid, name: name, token: masked, scope: t.scope || "",
-      });
-      NC.toast("IAM 토큰 발급 완료 — " + r.cid + " · " + masked + " (유효 " +
-        Math.round((t.expires_in || 3600) / 60) + "분) · 전체 값은 지금 " +
-        "1회만 복사하세요");
+        client: k.key_id, name: name,
+        token: k.prefix || "nc_sk", scope: scope });
+      NC.toast("API 키 발급 완료 — " + (k.key_id || "") + " (" +
+        (API_SCOPE_LBL[scope] || scope) + ")" + (k._mock ? " · 데모" : "") +
+        " · 시크릿은 지금 1회만 복사하세요");
       resetModalInputs("apikey");
+      renderApiKeys();
       renderApiTokenLog();
-    }).catch(function () {
-      NC.toast(ACTION_TOAST.apikey);          // 폴백 — 데모
     });
   }
 
@@ -2974,15 +3366,27 @@
   }
 
   /* ══ 모달 오프너 보강 — 행 컨텍스트 타이틀·퀵폼 프리필 ═══════ */
+  var rebootCtx = null, snapCtx = null, qosCtx = null;
   function prepModal(op) {
     var id = op.dataset.open;
     var tr = op.closest("tr");
     var cell = tr ? tr.querySelector(".id") : null;
     var rowId = cell ? cell.textContent.trim() : "";
     if (id === "reboot") {
+      var isReplace = op.dataset.op === "replace";
+      rebootCtx = { host: op.dataset.host || "", op: isReplace ? "replace"
+        : "reboot", tray: rowId };
       var rt = $("#reboot-title");
-      if (rt) rt.textContent = "노드 재부팅 — " + (rowId || "nh-su-5-r00-t00");
+      if (rt) rt.textContent = (isReplace ? "하드웨어 교체 — " : "노드 재부팅 — ") +
+        (rebootCtx.host || rowId || "nh-su-5-r00-t00");
+      var rmode = document.querySelector('[data-modal="reboot"] .mb .mini');
+      if (rmode) rmode.textContent = isReplace
+        ? "드레인 → RMA 교체 → 재프로비저닝 · 예상 10–15분 · 워크로드는 다른 노드로 재스케줄됩니다"
+        : "예상 소요 4–6분 · 실행 중 워크로드는 다른 노드로 재스케줄됩니다";
+      var rbtn = document.querySelector('[data-modal="reboot"] [data-act="reboot"]');
+      if (rbtn) rbtn.textContent = isReplace ? "HW 교체 실행" : "재부팅 실행";
     } else if (id === "snapshot") {
+      snapCtx = { vid: op.dataset.vid || "", path: rowId };
       var path = rowId || "/vast/fin-corp/ds01";
       var stt = $("#snap-title");
       if (stt) stt.textContent = "스냅샷 생성 — " + path;
@@ -2993,6 +3397,7 @@
         nm.value = "snap-" + seg + "-" + mmdd + "-manual";
       }
     } else if (id === "qos") {
+      qosCtx = { vid: op.dataset.vid || "", path: rowId };
       var qt = $("#qos-title");
       if (qt) qt.textContent = "QoS 변경 요청 — " +
         (rowId || "/vast/fin-corp/ds01");
@@ -3118,6 +3523,19 @@
     /* 초대 재발급 (설정 화면 — 모의) */
     var ir = e.target.closest("[data-inv-resend]");
     if (ir) { resendInvite(ir.dataset.invResend); return; }
+    /* 라이프사이클 진행 패널 · 시크릿 1회 노출 패널 닫기 */
+    if (e.target.closest("#reboot-flow-x")) { closeRebootFlow(); return; }
+    var sox = e.target.closest("#secret-once-x");
+    if (sox) { var so = $("#secret-once"); if (so) so.style.display = "none"; return; }
+    /* 스토리지 볼륨 삭제 (DELETE /storage/volumes/{vid}) */
+    var vd = e.target.closest("[data-vol-del]");
+    if (vd) { deleteVolume(vd.dataset.volDel); return; }
+    /* API 키 회수 (DELETE /api-keys/{kid}) */
+    var kr = e.target.closest("[data-key-revoke]");
+    if (kr) { revokeApiKey(kr.dataset.keyRevoke); return; }
+    /* 멤버 제거 (DELETE /members/{mid}) */
+    var md = e.target.closest("[data-mem-del]");
+    if (md) { removeMember(md.dataset.memDel, md.dataset.memEmail); return; }
     /* 모달 오프너 — 동적 타이틀·프리필 (shared/app.js가 오픈 수행) */
     var op = e.target.closest("[data-open]");
     if (op) prepModal(op);                   // return 없음 — 오픈은 공용 셸
@@ -3167,8 +3585,22 @@
       if (a === "accept_reject") { submitAcceptReject(); return; }
       /* 종료 요청서 (CP-012) — 회수 흐름을 종료 워크플로우로 확장 */
       if (a === "reclaim") { submitTerminationStart(); return; }
-      /* 초대 (라이트) — 로컬 초대 상태 추가 (모의) */
+      /* 초대 — POST /members (라이브) · 폴백 로컬 모의 */
       if (a === "invite") { submitInvite(); return; }
+      /* 노드 재부팅 / HW 교체 — 라이프사이클 스테퍼 (live 우선 · mock 폴백) */
+      if (a === "reboot") {
+        var rHost = rebootCtx && rebootCtx.host;
+        var rOp = (rebootCtx && rebootCtx.op) || "reboot";
+        NC.closeModal();
+        startRebootFlow(rHost, rOp);
+        return;
+      }
+      /* 스토리지 — volume(POST) · snapshot(POST) · qos(PATCH) */
+      if (a === "volume") { submitVolumeLive(); return; }
+      if (a === "snapshot") { submitSnapshotLive(); return; }
+      if (a === "qos") { submitQosLive(); return; }
+      /* API 키 — POST /api-keys (secret 1회 노출) · mock 폴백 */
+      if (a === "apikey") { submitApikeyLive(); return; }
       if (a === "ticket" && liveReady && NC.api.createTicket) {
         submitTicketLive(); return;          // Control-Plane 실 접수
       }
@@ -3185,9 +3617,6 @@
         NC.closeModal();
         NC.toast(ACTION_TOAST.resize);
         return;
-      }
-      if (a === "apikey" && liveReady && NC.api.iamToken) {
-        submitApikeyLive(); return;          // IAM 토큰 실 발급
       }
       NC.closeModal();
       NC.toast(ACTION_TOAST[a] || "요청이 접수되었습니다 (데모)");
@@ -3210,6 +3639,8 @@
       if (note) note.style.display = t.checked ? "" : "none";
     }
     if (t.id === "tkt-type") applyTicketTypeUi();
+    if (t.dataset && t.dataset.memRole)      // 멤버 역할 변경 (PATCH /members)
+      updateMemberRole(t.dataset.memRole, t.dataset.memEmail, t.value);
     if (t.name === "rs-scope") applyResizeScopeUi();
     if (t.id === "sla-month") renderSlaPanel();
     if (t.dataset && t.dataset.termChk) {    // 종료 백업 체크리스트 게이트

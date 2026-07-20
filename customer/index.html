@@ -520,7 +520,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
           </div>
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">스냅샷 · 데이터 전송</span></div>
-            <table class="tbl"><tbody>
+            <table class="tbl"><tbody id="snap-rows">
               <tr><td class="id">snap-ds01-0709-0300</td><td style="color:var(--muted)">자동 · 8.9PB</td><td class="num"><button class="tbtn" data-demo="스냅샷 snap-ds01-0709-0300 복원">복원</button></td></tr>
               <tr><td class="id">snap-ckpt-0709-0300</td><td style="color:var(--muted)">자동 · 2.3PB</td><td class="num"><button class="tbtn" data-demo="스냅샷 snap-ckpt-0709-0300 복원">복원</button></td></tr>
             </tbody></table>
@@ -838,7 +838,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">API 키</span>
               <button class="btn" style="margin-left:auto;padding:5px 12px;font-size:11.5px" data-open="apikey">+ 키 발급</button></div>
-            <table class="tbl"><tbody>
+            <table class="tbl"><tbody id="api-key-rows">
               <tr><td class="id">nc_****9f2a</td><td style="color:var(--muted)">svc-training · 전체 권한</td><td style="color:var(--muted)">2분 전 사용</td><td class="num"><button class="tbtn a" data-demo="API 키 nc_****9f2a 로테이션 예약">로테이션 D-12</button></td></tr>
               <tr><td class="id">nc_****41cc</td><td style="color:var(--muted)">monitoring · 읽기 전용</td><td style="color:var(--muted)">14초 전</td><td class="num"><button class="tbtn" data-demo="API 키 nc_****41cc 관리">관리</button></td></tr>
               <tr><td class="id">nc_****d208</td><td style="color:var(--muted)">ci-pipeline · 배포 권한</td><td style="color:var(--muted)">3일 전</td><td class="num"><button class="tbtn r" data-demo="API 키 nc_****d208 폐기">폐기</button></td></tr>
@@ -1038,9 +1038,9 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
   <div class="mb">
     <div class="row2">
       <div><label>경로</label><input id="vol-path" placeholder="/vast/fin-corp/____" style="font-family:Menlo,monospace"></div>
-      <div><label>쿼터</label><select><option>2 PB</option><option>4 PB</option><option>8 PB</option></select></div>
-      <div><label>QoS</label><select><option>160 GB/s · 800K IOPS</option><option>320 GB/s · 1.6M IOPS</option></select></div>
-      <div><label>프로토콜</label><select><option>NFSoRDMA</option><option>NFS</option><option>S3</option></select></div>
+      <div><label>쿼터</label><select id="vol-quota"><option>2 PB</option><option>4 PB</option><option>8 PB</option></select></div>
+      <div><label>QoS</label><select id="vol-qos"><option>160 GB/s · 800K IOPS</option><option>320 GB/s · 1.6M IOPS</option></select></div>
+      <div><label>프로토콜</label><select id="vol-proto"><option>NFSoRDMA</option><option>NFS</option><option>S3</option></select></div>
     </div>
     <div class="mini">월 +$31K · 즉시 프로비저닝 · 스냅샷 정책 (일일·14d) 기본 적용</div>
   </div>
@@ -1053,7 +1053,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
       <span style="color:var(--muted);font-size:11.5px">현재 <b style="color:var(--strong)">960 GB/s</b></span>
       <span style="color:var(--muted2)">→</span>
-      <select style="width:auto"><option>1,280 GB/s</option><option>1,600 GB/s</option></select></div>
+      <select id="qos-target" style="width:auto"><option>1,280 GB/s</option><option>1,600 GB/s</option></select></div>
     <div class="mini" style="margin-top:0">요금 +$62K/월 · 운영팀 검토 후 무중단 적용 (평균 처리 4시간) — 티켓이 자동 생성됩니다</div>
   </div>
   <div class="mf"><button class="btn-dim" data-close>취소</button><button class="btn" data-act="qos">변경 요청</button></div>

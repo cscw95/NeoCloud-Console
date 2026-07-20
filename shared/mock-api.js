@@ -211,6 +211,97 @@
   const delay = v => new Promise(r => setTimeout(() => r(v), 120));
   const clone = o => JSON.parse(JSON.stringify(o));
 
+  /* ══ 신규 고객면 액션 mock 저장소 (세션 인지 · 테넌트별 격리) ══
+     nocp(:8000) 미가동 시에도 노드 라이프사이클·스토리지·IAM 액션이 전 화면
+     동작하도록 in-memory 시드/변형. 세션(NC.session) 기준으로 테넌트별 분리해
+     실연동과 동일한 격리를 재현한다. */
+  function _sess() {
+    try { return (NC.session && NC.session()) || null; } catch (e) { return null; }
+  }
+  function _tid() { var s = _sess(); return (s && s.tenant_id) || "tnt-fin-corp"; }
+  function _tname() {
+    var s = _sess(); return (s && (s.tenant_name || s.tenant_id)) || "fin-corp";
+  }
+  function _viewer() { var s = _sess(); return !!(s && s.role === "viewer"); }
+  function _deny() {                            // viewer 변경 차단 (live 403 재현)
+    return delay({ error: "read-only role", status: 403, _mock: true });
+  }
+  var _store = {};
+  function _st() {
+    var t = _tid();
+    if (!_store[t]) {
+      var nm = _tname();
+      _store[t] = {
+        seq: 0,
+        vols: [
+          { volume_id: "vol-m01", tenant_id: t, path: "/" + t + "/dataset",
+            cluster: "vast-ansan", protocols: ["NFS", "S3"],
+            capacity_tb: 1440, used_tb: 676.8, quota_tb: 1440,
+            qos: { bw_gbps: 3600, iops_k: 1152 }, state: "active" },
+          { volume_id: "vol-m02", tenant_id: t, path: "/" + t + "/ckpt",
+            cluster: "vast-ansan", protocols: ["NFS"],
+            capacity_tb: 480, used_tb: 210, quota_tb: 480,
+            qos: { bw_gbps: 960, iops_k: 320 }, state: "active" },
+        ],
+        snaps: [], keys: [],
+        members: [
+          { member_id: "mbr-m01", tenant_id: t, email: "lee.sm@" + nm + ".com",
+            role: "member", state: "active", mfa: true },
+          { member_id: "mbr-m02", tenant_id: t, email: "jung.hy@" + nm + ".com",
+            role: "viewer", state: "active", mfa: true },
+        ],
+        ops: {},
+      };
+    }
+    return _store[t];
+  }
+  function _seq(pfx) {
+    var s = _st(); s.seq += 1;
+    return pfx + "-" + String(s.seq).padStart(4, "0");
+  }
+  var _REBOOT_STAGES = ["power_cycle", "post", "nico_discovery", "dhcp_ip",
+    "boot", "attestation", "tenant_rejoin"];
+  var _REPLACE_STAGES = ["drain", "hw_swap", "post", "nico_discovery",
+    "dhcp_ip", "pxe_os_install", "attestation", "tenant_rejoin", "in_service"];
+  function _opStages(names, idx) {
+    return names.map(function (n, i) {
+      return { name: n,
+        status: i < idx ? "done" : i === idx ? "running" : "pending",
+        duration_s: i < idx ? 30 + Math.round(i * 3.7) : null };
+    });
+  }
+  function _pub(o) {                            // 내부(_) 필드 제거 후 노출
+    var c = {}; Object.keys(o).forEach(function (k) {
+      if (k.charAt(0) !== "_") c[k] = o[k];
+    });
+    return clone(c);
+  }
+  function _mockOp(hostId, op) {
+    var s = _st();
+    var names = op === "replace" ? _REPLACE_STAGES : _REBOOT_STAGES;
+    var tray = String(hostId).replace(/^nh-/, "");
+    var o = { op_id: _seq("top"), node_id: hostId, tray_id: tray, op: op,
+      tenant_id: _tid(), stage: names[0], stage_idx: 0,
+      stages: _opStages(names, 0), succeeded: false, _names: names, _idx: 0 };
+    s.ops[hostId] = o;
+    return delay(_pub(o));
+  }
+  function _mockLifecycle(hostId) {
+    var s = _st(), o = s.ops[hostId];
+    var tray = String(hostId).replace(/^nh-/, "");
+    if (!o) return delay({ node_id: hostId, tray_id: tray, active: [], ops: [] });
+    if (o._idx < o._names.length) o._idx += 1;   // 폴링마다 한 스테이지 전진
+    o.stage_idx = Math.min(o._idx, o._names.length - 1);
+    o.stage = o._names[o.stage_idx];
+    o.stages = _opStages(o._names, o._idx);
+    if (o._idx >= o._names.length) {             // 완료 → active 비움
+      o.succeeded = true;
+      delete s.ops[hostId];
+      return delay({ node_id: hostId, tray_id: tray, active: [], ops: [_pub(o)] });
+    }
+    return delay({ node_id: hostId, tray_id: tray, active: [_pub(o)], ops: [] });
+  }
+
   /* ── 조회 API ─────────────────────────────────────────── */
   NC.api = {
     scale:        () => delay(clone(DB.scale)),
@@ -392,6 +483,109 @@
     slaReport(tid, month) {
       const m = month || "2026-07";
       return delay(DB.sla[m] ? clone(DB.sla[m]) : null);
+    },
+
+    /* ══ 신규 고객면 액션 (노드 라이프사이클 · 스토리지 · IAM) ══
+       nocp 미가동 시 nocp-api.js가 이 mock으로 폴백. 세션 테넌트별 격리. */
+    // 노드 라이프사이클
+    nodeReboot(hostId) { if (_viewer()) return _deny(); return _mockOp(hostId, "reboot"); },
+    nodeReplace(hostId) { if (_viewer()) return _deny(); return _mockOp(hostId, "replace"); },
+    nodeLifecycle(hostId) { return _mockLifecycle(hostId); },
+    // 스토리지 (VAST)
+    storageVolumes() { return delay(clone(_st().vols)); },
+    storageCreateVolume(body) {
+      if (_viewer()) return _deny();
+      body = body || {};
+      var t = _tid();
+      var name = String(body.name || "vol").replace(/^\/+/, "").split("/").pop();
+      var v = { volume_id: _seq("vol"), tenant_id: t,
+        path: "/" + t + "/" + name, cluster: "vast-ansan",
+        protocols: [body.protocol || "NFS"],
+        capacity_tb: +body.capacity_tb || 0, used_tb: 0,
+        quota_tb: +body.capacity_tb || 0,
+        qos: { bw_gbps: +body.qos_bw_gbps || 0, iops_k: +body.qos_iops_k || 0 },
+        state: "active", _mock: true };
+      _st().vols.push(v);
+      return delay(clone(v));
+    },
+    storageDeleteVolume(vid) {
+      if (_viewer()) return _deny();
+      var s = _st();
+      s.vols = s.vols.filter(function (v) { return v.volume_id !== vid; });
+      return delay({ ok: true, _mock: true });
+    },
+    storageSetQos(vid, body) {
+      if (_viewer()) return _deny();
+      var v = _st().vols.filter(function (x) { return x.volume_id === vid; })[0];
+      if (!v) return delay({ error: "볼륨을 찾을 수 없습니다", status: 404, _mock: true });
+      body = body || {};
+      v.qos = { bw_gbps: +body.bw_gbps || v.qos.bw_gbps,
+        iops_k: +body.iops_k || v.qos.iops_k };
+      return delay(clone(v));
+    },
+    storageSnapshots() { return delay(clone(_st().snaps)); },
+    storageCreateSnapshot(body) {
+      if (_viewer()) return _deny();
+      body = body || {};
+      var vol = _st().vols.filter(function (x) {
+        return x.volume_id === body.volume_id; })[0];
+      var snap = { snapshot_id: _seq("snap"), tenant_id: _tid(),
+        volume_id: body.volume_id, path: vol ? vol.path : "",
+        size_tb: vol ? vol.used_tb : 0, note: body.note || "",
+        state: "ready", created_at: new Date().toISOString(), _mock: true };
+      _st().snaps.unshift(snap);
+      return delay(clone(snap));
+    },
+    // IAM — API 키 (secret은 발급 응답에만)
+    apiKeys() {
+      return delay(_st().keys.map(function (k) {
+        var c = clone(k); delete c.secret; return c;
+      }));
+    },
+    apiKeyCreate(body) {
+      if (_viewer()) return _deny();
+      body = body || {};
+      var t = _tid(), nm = _tname();
+      var suffix = Math.random().toString(16).slice(2, 10);
+      var k = { key_id: _seq("key"), tenant_id: t, name: body.name || "key",
+        scope: body.scope || "read",
+        prefix: "nc_sk_" + nm + "…",
+        secret: "nc_sk_" + nm + "_" + suffix + Math.random().toString(16).slice(2, 10),
+        state: "active", last_used: null,
+        created_at: new Date().toISOString(), _mock: true };
+      _st().keys.push(k);
+      return delay(clone(k));                   // secret 포함 (1회 노출)
+    },
+    apiKeyRevoke(kid) {
+      if (_viewer()) return _deny();
+      var s = _st();
+      s.keys = s.keys.filter(function (k) { return k.key_id !== kid; });
+      return delay({ ok: true, _mock: true });
+    },
+    // IAM — 멤버
+    members() { return delay(clone(_st().members)); },
+    memberInvite(body) {
+      if (_viewer()) return _deny();
+      body = body || {};
+      var m = { member_id: _seq("mbr"), tenant_id: _tid(),
+        email: body.email || "", role: body.role || "viewer",
+        state: "invited", mfa: false,
+        invited_at: new Date().toISOString(), _mock: true };
+      _st().members.push(m);
+      return delay(clone(m));
+    },
+    memberUpdate(mid, body) {
+      if (_viewer()) return _deny();
+      var m = _st().members.filter(function (x) { return x.member_id === mid; })[0];
+      if (!m) return delay({ error: "멤버를 찾을 수 없습니다", status: 404, _mock: true });
+      if (body && body.role) m.role = body.role;
+      return delay(clone(m));
+    },
+    memberRemove(mid) {
+      if (_viewer()) return _deny();
+      var s = _st();
+      s.members = s.members.filter(function (x) { return x.member_id !== mid; });
+      return delay({ ok: true, _mock: true });
     },
 
     /* CP-016 공개 문의 (contact) — 오프라인 데모 접수 */

@@ -100,8 +100,41 @@
   const errDetail = e => {                      // FastAPI {detail} → 문자열
     let m = e && e.message || "요청 실패";
     try { m = JSON.parse(m).detail || m; } catch (_) {}
+    if (typeof m === "string") {                // 중첩 detail(AI Infra 409 등) 재파싱
+      const nested = m.match(/\{.*\}/);
+      if (nested) try { m = JSON.parse(nested[0]).detail || m; } catch (_) {}
+    }
     return typeof m === "string" ? m : JSON.stringify(m);
   };
+  // DELETE — 204 무본문 허용 (raw()의 r.json()이 빈 본문에서 throw하는 것 회피)
+  async function delReq(u) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 1500);
+    const s = ncSession();
+    const headers = s
+      ? { "X-Tenant-Id": s.tenant_id, "X-Tenant-Role": s.role } : {};
+    try {
+      const r = await fetch(u, { method: "DELETE", headers, signal: ctl.signal });
+      if (!r.ok) {
+        const err = new Error(await r.text().catch(() => String(r.status)));
+        err.status = r.status; throw err;
+      }
+      dead = false; aliveUntil = Date.now() + 10000;
+      return { ok: true, status: r.status };
+    } finally { clearTimeout(t); }
+  }
+  /* 변경성 액션 공통 래퍼 — 403은 rethrow(wrapped가 surface403) · 그 외 4xx는
+     {error,status} 반환(mock으로 새지 않고 UI 표면화) · 404/네트워크는 rethrow
+     하여 getter 단위 mock 폴백을 허용한다. */
+  async function act(fn) {
+    try { return await fn(); }
+    catch (e) {
+      if (e && e.status === 403) throw e;
+      if (e && e.status && e.status !== 404)
+        return { error: errDetail(e), status: e.status };
+      throw e;
+    }
+  }
   async function live() {                       // 도달성 (10s 캐시)
     if (Date.now() < aliveUntil) return true;
     if (dead) return false;
@@ -532,6 +565,33 @@
     sitesInventory: () => raw(V + "/inventory/sites"),
     orders: () => raw(V + "/orders"),
     billingUsage: () => raw(V + "/billing/usage"),
+
+    /* ── 신규 고객면 액션 (노드 라이프사이클 · 스토리지 · IAM) ─────
+       전부 X-Tenant 헤더로 격리 · viewer 변경 403. 목록 getter는 mock 폴백,
+       변경 액션은 act()로 감싸 4xx(409 등)를 {error,status}로 표면화한다. */
+    // 노드 라이프사이클 (AI Infra trayops)
+    nodeReboot: (hostId, mode) =>
+      act(() => jp(`${V}/nodes/${hostId}/reboot`, mode ? { mode } : {})),
+    nodeReplace: hostId => act(() => jp(`${V}/nodes/${hostId}/replace`, {})),
+    nodeLifecycle: hostId => raw(`${V}/nodes/${hostId}/lifecycle`),
+    // 스토리지 (VAST)
+    storageVolumes: () => raw(V + "/storage/volumes"),
+    storageCreateVolume: body => act(() => jp(V + "/storage/volumes", body)),
+    storageDeleteVolume: vid => act(() => delReq(`${V}/storage/volumes/${vid}`)),
+    storageSetQos: (vid, body) =>
+      act(() => jp(`${V}/storage/volumes/${vid}/qos`, body, "PATCH")),
+    storageSnapshots: () => raw(V + "/storage/snapshots"),
+    storageCreateSnapshot: body =>
+      act(() => jp(V + "/storage/snapshots", body)),
+    // IAM (API 키 · 멤버)
+    apiKeys: () => raw(V + "/api-keys"),
+    apiKeyCreate: body => act(() => jp(V + "/api-keys", body)),
+    apiKeyRevoke: kid => act(() => delReq(`${V}/api-keys/${kid}`)),
+    members: () => raw(V + "/members"),
+    memberInvite: body => act(() => jp(V + "/members", body)),
+    memberUpdate: (mid, body) =>
+      act(() => jp(`${V}/members/${mid}`, body, "PATCH")),
+    memberRemove: mid => act(() => delReq(`${V}/members/${mid}`)),
   };
 
   /* ── NC.api 교체: 라이브 시도 → getter 단위 mock 폴백 ──────
@@ -583,6 +643,10 @@
       k8sClusters: l => arr(l).filter(c => sessionOwns(c.tenant_id)),
       k8sInstalls: l => arr(l).filter(o => sessionOwns(o.tenant_id)),
       storageViews: l => arr(l).filter(v => sessionOwns(v.tenant_ref)),
+      storageVolumes: l => arr(l).filter(v => sessionOwns(v.tenant_id)),
+      storageSnapshots: l => arr(l).filter(v => sessionOwns(v.tenant_id)),
+      apiKeys: l => arr(l).filter(k => sessionOwns(k.tenant_id)),
+      members: l => arr(l).filter(m => sessionOwns(m.tenant_id)),
       segments: l => arr(l).filter(s => sessionOwns(s.tenant_ref)),
       audit: l => arr(l).filter(a => !a.tenant_ref || sessionOwns(a.tenant_ref)),
       billingUsage: u => (u && u.lines
