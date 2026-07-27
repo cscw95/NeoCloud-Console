@@ -197,4 +197,16 @@ footer a{color:var(--mu);text-decoration:none}
   });
 })();
 </script>
+<!-- language toggle (standalone public page — self-hosted toggle) -->
+<style>
+  .tb-right{position:fixed;top:14px;right:18px;display:flex;z-index:50}
+  .lang-toggle{display:flex;border:1px solid #c3cede;font-family:'IBM Plex Mono',Menlo,monospace}
+  .lang-toggle span{padding:4px 8px;font-size:10px;cursor:pointer;color:#5a6a85;user-select:none}
+  .lang-toggle span+span{border-left:1px solid #c3cede}
+  .lang-toggle span.on{background:#2458d6;color:#fff;font-weight:700}
+</style>
+<span class="tb-right"></span>
+<script src="../shared/i18n-dict.js"></script>
+<script src="../shared/i18n-customer.js"></script>
+<script src="../shared/i18n.js"></script>
 </body></html>
