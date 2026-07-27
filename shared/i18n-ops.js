@@ -1186,3 +1186,26 @@ window.NC_I18N.patterns = [
   [/^현재 필터 결과 — ([\d,]+)건 \(라이브 · 실 CSV 생성\)$/, "current filter results — $1 (live · real CSV export)"],
   [/^현재 필터 결과 — ([\d,]+)건$/, "current filter results — $1"],
 ].concat(window.NC_I18N.patterns);
+
+/* site-scope-filtered KPI band (Gasan/Ansan) — templated with site name/counts */
+Object.assign(window.NC_I18N.dict, {
+  "SU→사이트 매핑 필터": "SU→Site mapping filter",
+  "사이트 전력 캡 (MaxQ)": "Site power cap (MaxQ)",
+  "테넌트 2개": "2 tenants",
+  "해당 사이트 이상 없음": "no anomalies at this site",
+});
+window.NC_I18N.patterns = [
+  [/^STT 가산 · (\d+) racks$/, "STT Gasan · $1 racks"],
+  [/^IGIS 안산 · (\d+) racks$/, "IGIS Ansan · $1 racks"],
+  [/^계약 가능 (\d+)랙 · 격리 잠김 (\d+)$/, "$1 racks sellable · $2 isolation-locked"],
+  [/^노드 \(가산\)$/, "Nodes (Gasan)"],
+  [/^노드 \(안산\)$/, "Nodes (Ansan)"],
+  [/^열린 인시던트 \(가산\)$/, "Open incidents (Gasan)"],
+  [/^열린 인시던트 \(안산\)$/, "Open incidents (Ansan)"],
+  [/^알림 \(24h · 가산\)$/, "Alerts (24h · Gasan)"],
+  [/^알림 \(24h · 안산\)$/, "Alerts (24h · Ansan)"],
+  [/^랙 상태 맵 — (\d+)랙 · 가산$/, "Rack status map — $1 racks · Gasan"],
+  [/^랙 상태 맵 — (\d+)랙 · 안산$/, "Rack status map — $1 racks · Ansan"],
+  [/^비정상\s+racks$/, "abnormal racks"],
+  [/^할당 ([\d,]+) · 판매 가능 ([\d,]+)$/, "allocated $1 · sellable $2"],
+].concat(window.NC_I18N.patterns);
