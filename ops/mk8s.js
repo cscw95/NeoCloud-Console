@@ -1237,7 +1237,7 @@ const App={
         <div class="avatar">DP</div>
       </div>
       <nav class="sidebar" id="sidebar"></nav>
-      <main class="main" id="main"></main>`;
+      <div class="main" id="main"></div>`;
     document.getElementById('roleswitch').addEventListener('click',e=>{
       const b=e.target.closest('button[data-r]'); if(!b) return;
       this.state.role=b.dataset.r;

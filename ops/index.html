@@ -246,10 +246,11 @@ section[data-screen="mk8s"]{margin:0}
 <script src="../shared/i18n-dict.js"></script>
 <script src="../shared/i18n-ops.js"></script>
 <script src="../shared/i18n.js"></script><!-- 주간/야간 디자인 모드 — 첫 페인트 전 적용 -->
+<a class="skip-link" href="#nc-main">본문으로 건너뛰기</a>
 <div class="app">
 
   <!-- ══ 사이드바 ══ -->
-  <aside class="sb">
+  <aside class="sb" id="nc-sidebar" aria-label="메뉴">
     <div class="sb-brand">
       <span class="lg">N</span>
       <div>
@@ -335,7 +336,7 @@ section[data-screen="mk8s"]{margin:0}
   <!-- ══ 본문 ══ -->
   <div class="main">
     <div class="topbar">
-      <span class="crumb" style="font-size:12.5px"><span style="color:var(--muted2);font-size:11.5px;font-weight:400">Ops</span><span class="sep">/</span><span class="cur">관제 Overview</span></span>
+      <h1 class="crumb" style="font-size:12.5px"><span style="color:var(--muted2);font-size:11.5px;font-weight:400">Ops</span><span class="sep">/</span><span class="cur">관제 Overview</span></h1>
       <span class="search"><span class="mono">⌕</span> 호스트 · 랙 · 인시던트 검색 <span class="mono" style="border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:9.5px">⌘K</span></span>
       <div class="tb-right">
         <span class="mono tabnum" id="tb-clock" style="color:var(--muted);font-size:11px">—</span>
@@ -364,7 +365,7 @@ section[data-screen="mk8s"]{margin:0}
       </span>
     </div>
 
-    <div class="content">
+    <main class="content" id="nc-main" tabindex="-1">
 
       <!-- ════════ ① 관제 Overview ════════ -->
       <section data-screen="overview">
@@ -1306,7 +1307,7 @@ section[data-screen="mk8s"]{margin:0}
           </table></div>
         </div>
       </section>
-    </div>
+    </main>
   </div>
 </div>
 

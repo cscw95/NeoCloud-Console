@@ -12,6 +12,15 @@
  */
 window.NC_I18N = window.NC_I18N || {};
 window.NC_I18N.dict = Object.assign(window.NC_I18N.dict || {}, {
+  // ── a11y shell (skip link · drawer · toggles · status) ──
+  "본문으로 건너뛰기": "Skip to content",
+  "메뉴": "Menu",
+  "메뉴 열기/닫기": "Open or close menu",
+  "화면 테마": "Theme",
+  "주간 모드": "Day mode",
+  "야간 모드": "Night mode",
+  "언어": "Language",
+  "닫기": "Close",
   // ── common shell (sidebar / topbar / footer) ──
   "관제 Overview": "Operations Overview",
   "자산 인벤토리 (CMDB)": "Asset Inventory (CMDB)",

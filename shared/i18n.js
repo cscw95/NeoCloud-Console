@@ -135,8 +135,11 @@
   function syncToggle(l) {
     var t = document.getElementById("lang-toggle");
     if (!t) return;
-    t.querySelector('[data-lang="ko"]').classList.toggle("on", l === "ko");
-    t.querySelector('[data-lang="en"]').classList.toggle("on", l === "en");
+    ["ko", "en"].forEach(function (k) {
+      var b = t.querySelector('[data-lang="' + k + '"]');
+      b.classList.toggle("on", l === k);
+      b.setAttribute("aria-pressed", l === k ? "true" : "false");
+    });
   }
 
   function mount() {
@@ -146,10 +149,13 @@
     var t = document.createElement("span");
     t.id = "lang-toggle";
     t.className = "lang-toggle";
-    t.innerHTML = '<span data-lang="ko" title="한국어">KO</span>' +
-                  '<span data-lang="en" title="English">EN</span>';
+    t.setAttribute("role", "group");
+    t.setAttribute("aria-label", "언어");
+    t.innerHTML = '<button type="button" data-lang="ko" title="한국어" lang="ko">KO</button>' +
+                  '<button type="button" data-lang="en" title="English" lang="en">EN</button>';
     t.addEventListener("click", function (e) {
-      var l = e.target && e.target.getAttribute("data-lang");
+      var b = e.target && e.target.closest && e.target.closest("[data-lang]");
+      var l = b && b.getAttribute("data-lang");
       if (l) setLang(l);
     });
     host.insertBefore(t, host.firstChild);

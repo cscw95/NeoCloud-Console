@@ -15,8 +15,11 @@
     document.body.dataset.design = m;
     var t = document.getElementById("design-toggle");
     if (t) {
-      t.querySelector('[data-dm="blueprint"]').classList.toggle("on", m === "blueprint");
-      t.querySelector('[data-dm="legacy"]').classList.toggle("on", m === "legacy");
+      ["blueprint", "legacy"].forEach(function (k) {
+        var b = t.querySelector('[data-dm="' + k + '"]');
+        b.classList.toggle("on", m === k);
+        b.setAttribute("aria-pressed", m === k ? "true" : "false");
+      });
     }
   }
 
@@ -36,11 +39,15 @@
     var t = document.createElement("span");
     t.id = "design-toggle";
     t.className = "design-toggle";
+    t.setAttribute("role", "group");
+    t.setAttribute("aria-label", "화면 테마");
+    // 네이티브 <button> — Tab 포커스 · Enter/Space 활성 (WCAG 2.1.1)
     t.innerHTML =
-      '<span data-dm="blueprint" title="주간 모드 — Blueprint 디자인">☀</span>' +
-      '<span data-dm="legacy" title="야간 모드 — 기존 디자인">☾</span>';
+      '<button type="button" data-dm="blueprint" title="주간 모드 — Blueprint 디자인" aria-label="주간 모드">☀</button>' +
+      '<button type="button" data-dm="legacy" title="야간 모드 — 기존 디자인" aria-label="야간 모드">☾</button>';
     t.addEventListener("click", function (e) {
-      var m = e.target && e.target.getAttribute("data-dm");
+      var b = e.target && e.target.closest && e.target.closest("[data-dm]");
+      var m = b && b.getAttribute("data-dm");
       if (m) set(m);
     });
     host.insertBefore(t, host.firstChild);

@@ -478,29 +478,30 @@ body[data-design="blueprint"] [style*="color:#c8a5e8"]{color:var(--purp)!importa
 body[data-design="blueprint"] [style*="color:#241c05"]{color:#fff!important}
 
 /* ═══ 디자인 모드 스위치 (양 모드 공통 — 신규 엘리먼트) ═══ */
-.design-toggle{display:flex;flex:none;border:1px solid var(--line,#223142);
+.design-toggle{display:flex;flex:none;border:1px solid var(--line);
   font-family:Menlo,monospace}
-.design-toggle span{padding:4px 9px;font-size:10.5px;cursor:pointer;
-  color:var(--muted,#8aa0b4);background:transparent;user-select:none;
+.design-toggle>[data-dm],.lang-toggle>[data-lang]{border:0;margin:0;font-family:inherit;border-radius:0}
+.design-toggle>[data-dm]{padding:4px 9px;font-size:10.5px;cursor:pointer;
+  color:var(--muted);background:transparent;user-select:none;
   line-height:1.4}
-.design-toggle span+span{border-left:1px solid var(--line,#223142)}
-.design-toggle span.on{background:var(--green,#76b900);
-  color:var(--on-green,#08210a);font-weight:700}
+.design-toggle>[data-dm]+button{border-left:1px solid var(--line)}
+.design-toggle>[data-dm].on{background:var(--green);
+  color:var(--on-green);font-weight:700}
 body[data-design="blueprint"] .design-toggle{border-color:var(--ln)}
-body[data-design="blueprint"] .design-toggle span{color:var(--mu)}
-body[data-design="blueprint"] .design-toggle span+span{border-left-color:var(--ln)}
-body[data-design="blueprint"] .design-toggle span.on{
+body[data-design="blueprint"] .design-toggle>[data-dm]{color:var(--mu)}
+body[data-design="blueprint"] .design-toggle>[data-dm]+button{border-left-color:var(--ln)}
+body[data-design="blueprint"] .design-toggle>[data-dm].on{
   background:var(--acc);color:#fff}
 
 /* ═══ 언어 토글 (KO|EN) — design-toggle와 동일 룩 ═══ */
-.lang-toggle{display:flex;flex:none;border:1px solid var(--line,#223142);
+.lang-toggle{display:flex;flex:none;border:1px solid var(--line);
   font-family:Menlo,monospace;margin-right:2px}
-.lang-toggle span{padding:4px 7px;font-size:10px;cursor:pointer;
-  color:var(--muted,#8aa0b4);background:transparent;user-select:none;line-height:1.4;
+.lang-toggle>[data-lang]{padding:4px 7px;font-size:10px;cursor:pointer;
+  color:var(--muted);background:transparent;user-select:none;line-height:1.4;
   letter-spacing:.04em}
-.lang-toggle span+span{border-left:1px solid var(--line,#223142)}
-.lang-toggle span.on{background:var(--green,#76b900);color:var(--on-green,#08210a);font-weight:700}
+.lang-toggle>[data-lang]+button{border-left:1px solid var(--line)}
+.lang-toggle>[data-lang].on{background:var(--green);color:var(--on-green);font-weight:700}
 body[data-design="blueprint"] .lang-toggle{border-color:var(--ln)}
-body[data-design="blueprint"] .lang-toggle span{color:var(--mu)}
-body[data-design="blueprint"] .lang-toggle span+span{border-left-color:var(--ln)}
-body[data-design="blueprint"] .lang-toggle span.on{background:var(--acc);color:#fff}
+body[data-design="blueprint"] .lang-toggle>[data-lang]{color:var(--mu)}
+body[data-design="blueprint"] .lang-toggle>[data-lang]+button{border-left-color:var(--ln)}
+body[data-design="blueprint"] .lang-toggle>[data-lang].on{background:var(--acc);color:#fff}

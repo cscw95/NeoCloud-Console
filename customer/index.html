@@ -204,10 +204,11 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
 <script src="../shared/i18n-dict.js"></script>
 <script src="../shared/i18n-customer.js"></script>
 <script src="../shared/i18n.js"></script><!-- 주간/야간 디자인 모드 -->
+<a class="skip-link" href="#nc-main">본문으로 건너뛰기</a>
 <div class="app">
 
   <!-- ══ 사이드바 ══ -->
-  <aside class="sb">
+  <aside class="sb" id="nc-sidebar" aria-label="메뉴">
     <div class="sb-brand"><span class="lg">N</span>
       <div><div class="t">NeoCloud <span style="color:var(--green)">Console</span></div>
       <div class="s">CUSTOMER PORTAL</div></div></div>
@@ -249,7 +250,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
   <div class="main">
     <!-- ══ 톱바 ══ -->
     <div class="topbar">
-      <span class="crumb">NeoCloud <span class="sep">/</span> <span class="cur"></span></span>
+      <h1 class="crumb">NeoCloud <span class="sep">/</span> <span class="cur"></span></h1>
       <span class="search"><span style="font-family:Menlo,monospace;flex:none">⌕</span><span class="q">리소스 · 문서 검색</span><span class="kbd">⌘K</span></span>
       <span class="tb-right">
         <span class="tb-chip" id="session-chip" data-open="demo_login" title="현재 세션 — 테넌트 · 역할 (클릭 시 데모 로그인 전환)" style="cursor:pointer"><span class="dot" style="background:var(--blue)"></span><span id="session-chip-tx" style="font-weight:700">세션</span></span>
@@ -259,7 +260,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
       </span>
     </div>
 
-    <div class="content">
+    <main class="content" id="nc-main" tabindex="-1">
 
       <!-- ════════ 대시보드 ════════ -->
       <section data-screen="dashboard">
@@ -924,7 +925,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
         </div>
       </section>
 
-    </div>
+    </main>
   </div>
 </div>
 

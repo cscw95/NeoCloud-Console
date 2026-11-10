@@ -113,10 +113,11 @@
 <script src="../shared/i18n-dict.js"></script>
 <script src="../shared/i18n-biz.js"></script>
 <script src="../shared/i18n.js"></script><!-- 주간/야간 디자인 모드 -->
+<a class="skip-link" href="#nc-main">본문으로 건너뛰기</a>
 <div class="app">
 
   <!-- ══ 사이드바 ══ -->
-  <aside class="sb">
+  <aside class="sb" id="nc-sidebar" aria-label="메뉴">
     <div class="sb-brand">
       <span class="lg">N</span>
       <div>
@@ -149,7 +150,7 @@
   <!-- ══ 본문 ══ -->
   <div class="main">
     <div class="topbar">
-      <span class="crumb">Biz<span class="sep">/</span><span class="cur">임원 대시보드</span></span>
+      <h1 class="crumb">Biz<span class="sep">/</span><span class="cur">임원 대시보드</span></h1>
       <span class="pd">
         <button class="p act" type="button">월간</button>
         <button class="p" type="button">분기</button>
@@ -162,7 +163,7 @@
       </span>
     </div>
 
-    <div class="content">
+    <main class="content" id="nc-main" tabindex="-1">
 
       <!-- ═══ 임원 대시보드 ═══ -->
       <section data-screen="dashboard">
@@ -624,7 +625,7 @@
         </div>
       </section>
 
-    </div>
+    </main>
   </div>
 </div>
 
