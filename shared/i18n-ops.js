@@ -1519,3 +1519,5 @@ Object.assign(window.NC_I18N.dict, {
   "등록 랙": "Registered racks",
   "적용 계획": "Rollout plan"
 });
+/* 데모 센터 (ops/demo.js) — 화면 본문은 러너의 _ko/_en 문자열을 직접 쓴다 */
+window.NC_I18N.dict = Object.assign(window.NC_I18N.dict, { "데모 센터": "Demo Center" });
