@@ -403,7 +403,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
 
       <!-- ════════ 클러스터 ════════ -->
       <!-- DSX OS — 상품 선택(BMaaS / NVKE) · NVKE 마법사 · kubeconfig · 업그레이드 · 사용량 (customer/nvke.js) -->
-      <section data-screen="nvke"><div id="nvke-root"></div></section>
+      <section data-screen="nvke"><div id="nvke-root"></div><div id="nvke-topo-root"></div></section>
       <section data-screen="clusters">
         <!-- IF-08 Fulfillment 진행 스테퍼 — 진행 중 주문 존재 시 3s 폴링 렌더 -->
         <div id="fulfill-wrap"></div>
@@ -1185,6 +1185,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
 <script src="../shared/nocp-api.js"></script>
 <script src="../shared/dsx-api.js"></script>
 <script src="nvke.js"></script>
+<script src="../shared/nvke-topology.js"></script>
 <script>/* ⌘K 팔레트 엔티티 → 고객 콘솔 라우트 매핑 (palette.js 로드 전 정의 필수 —
    기본값 order:"provisioning"·host:"assets"는 이 콘솔에 없는 라우트) */
 window.NC_PALETTE_ROUTES = { tenant: "dashboard", order: "clusters",
