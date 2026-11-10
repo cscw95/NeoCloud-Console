@@ -139,3 +139,68 @@ test("component CSS uses only tokens (no hex colours) and every Korean UI litera
     assert.equal(ko, pairs.length, f + ": unpaired Korean literal");
   }
 });
+
+/* ── 정보 구조 (V2-DESIGN-BRIEF §1): 메뉴 재편 · NEW 배지 · 홈 하이라이트 ── */
+import vm from "node:vm";
+function dictFor(file) {
+  const ctx = { window: {} }; ctx.window.window = ctx.window; vm.createContext(ctx);
+  for (const f of ["shared/i18n-dict.js", file, "shared/i18n-design.js"]) vm.runInContext(read(f).replace(/^window\./gm, "window."), ctx);
+  return ctx.window.NC_I18N.dict;
+}
+const navOf = s => s.slice(s.indexOf("<nav"), s.indexOf("</nav>"));
+const koTexts = html => (html.replace(/<!--[\s\S]*?-->/g, "").match(/>([^<>]*[가-힣][^<>]*)</g) || []).map(m => m.slice(1, -1).trim()).filter(Boolean);
+const CONSOLES = [["ops/index.html", "shared/i18n-ops.js", "overview", 9], ["customer/index.html", "shared/i18n-customer.js", "dashboard", 6], ["biz/index.html", "shared/i18n-biz.js", "dashboard", 3]];
+
+test("IA: every menu route kept once, grouped by product (BMaaS / NVKE / Token API / 계정·계약·청구 / 운영)", () => {
+  const want = {
+    "ops/index.html": ["overview", "demo-center", "assets", "capacity", "provisioning", "bringup", "network", "power", "telemetry", "incidents", "performance", "security", "change", "orchestration",
+      "obs-overview", "obs-gpu", "obs-fabtopo", "obs-rack", "obs-dlc", "obs-fabric", "obs-slo", "obs-alerts", "obs-trayops", "dsx-oob", "dsx-power", "dsx-rma", "dsx-metering",
+      "v2-recovery", "v2-token", "v2-billing", "v2-accounts", "dsx-versions", "nvke-capi", "nvke-sched", "p2-grid", "p2-pipeline", "p2-firmware", "p2-attest", "p2-finops", "p2-notices", "p2-metrics"],
+    "customer/index.html": ["dashboard", "clusters", "nvke", "nodes", "images", "storage", "network", "monitoring", "alerts", "status", "sla", "billing", "invoices", "support", "security", "api", "token", "marketplace", "settings", "iam"],
+    "biz/index.html": ["dashboard", "pipeline", "rfq", "contracts", "revenue", "pricing", "planning", "partners", "compliance", "market", "channel"]
+  };
+  for (const [f, routes] of Object.entries(want)) {
+    const nav = navOf(read(f));
+    for (const r of routes) assert.equal(nav.split(`data-route="${r}"`).length - 1, 1, f + " " + r);
+    assert.equal((nav.match(/data-route="/g) || []).length, routes.length, f + " no extra routes");
+    assert.match(nav, /<nav aria-label="주 메뉴">/);
+  }
+  const ops = navOf(read("ops/index.html"));
+  const order = ["BMaaS · 인프라", "Managed K8s (NVKE)", "Token API", "계정 · 계약 · 청구", "운영 — OOB · 전력 · 전력망 · 복구 · bring-up"].map(g => ops.indexOf(g));
+  assert.ok(order.every((v, i) => v > 0 && (i === 0 || v > order[i - 1])), "ops product groups in brief order");
+  assert.ok(ops.indexOf('data-route="v2-token"') > ops.indexOf(">Token API<"));
+  assert.ok(ops.indexOf('id="mk8s-sub"') > ops.indexOf('data-route="nvke-sched"'), "mk8s portal sits in the NVKE group");
+  assert.match(ops, /id="mk8s-mode-btn"/);
+});
+
+test("IA: NEW badges on v2 features only; home highlight cards link to real routes", () => {
+  for (const [f, , home, n] of CONSOLES) {
+    const s = read(f), nav = navOf(s);
+    const news = [...nav.matchAll(/data-route="([^"]+)"[^\n]*bd new/g)].map(m => m[1]);
+    assert.ok(news.length >= 2, f);
+    for (const r of ["overview", "dashboard", "assets", "support", "pipeline"]) assert.ok(!news.includes(r), f + " " + r + " is not v2");
+    const sec = s.slice(s.indexOf(`<section data-screen="${home}">`));
+    const hl = sec.slice(sec.indexOf('<section class="v2hl"'), sec.indexOf("</section>", sec.indexOf('<section class="v2hl"')));
+    assert.ok(sec.indexOf('<section class="v2hl"') < 4000, f + " highlight near top of home");
+    const links = [...hl.matchAll(/class="v2hl-card" href="#\/([^"]+)"/g)].map(m => m[1]);
+    assert.equal(links.length, n, f);
+    for (const r of links) assert.ok(nav.includes(`data-route="${r}"`), f + " card → menu route " + r);
+    assert.match(hl, /aria-labelledby="v2hl-\w+-h"/);
+    assert.ok(s.includes("shared/v2-design.css") && s.indexOf("shared/i18n-design.js") < s.indexOf("shared/i18n.js"), f + " assets/load order");
+  }
+});
+
+test("IA: every Korean string in menus and highlight cards has an EN dictionary entry", () => {
+  for (const [f, dict] of CONSOLES) {
+    const s = read(f), D = dictFor(dict);
+    const hlAt = s.indexOf('<section class="v2hl"');
+    const parts = navOf(s) + s.slice(hlAt, s.indexOf("</section>", hlAt));
+    const attrs = [...parts.matchAll(/(?:title|aria-label)="([^"]*[가-힣][^"]*)"/g)].map(m => m[1]);
+    const miss = [...new Set(koTexts(parts).concat(attrs))].filter(t => !D[t]);
+    assert.deepEqual(miss, [], f);
+  }
+});
+
+test("v2-design.css uses tokens only", () => {
+  assert.doesNotMatch(read("shared/v2-design.css"), /#[0-9a-f]{3,6}\b/i);
+});

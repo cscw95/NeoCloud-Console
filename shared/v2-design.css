@@ -1,0 +1,31 @@
+/* v2 쇼케이스 공통 스타일 (design-core 소유) — 메뉴 NEW 배지 · 홈 v2 하이라이트 카드.
+   semantic 토큰만 사용(shared/tokens.css). 주간/야간 모두 AA. */
+
+/* NEW 배지 — 활성 메뉴(--menu-act = accent-soft) 위에서도 구분되도록 테두리를 둔다 */
+.mi .bd.new{color:var(--accent-text);background:var(--accent-soft);border:1px solid var(--accent-line);
+  font-weight:var(--fw-bold);letter-spacing:.04em;line-height:16px}
+.mi.act .bd.new{background:var(--surface-1)}
+
+/* 홈 v2 하이라이트 */
+.v2hl{margin:0 0 var(--sp-4);border:1px solid var(--accent-line);background:var(--surface-1);border-radius:var(--radius-lg);padding:var(--sp-3) var(--sp-4) var(--sp-4)}
+.v2hl-h{display:flex;align-items:center;gap:var(--sp-2) var(--sp-3);flex-wrap:wrap;margin-bottom:var(--sp-3)}
+.v2hl-h h2{margin:0;font-size:var(--fs-lg);font-weight:var(--fw-bold);color:var(--text-1)}
+.v2hl-h p{margin:0;color:var(--text-2);font-size:var(--fs-sm);flex:1 1 240px}
+.v2hl-tag{font-size:var(--fs-2xs);font-weight:var(--fw-bold);letter-spacing:.06em;padding:1px 8px;border-radius:var(--radius-pill);
+  color:var(--on-accent);background:var(--accent)}
+.v2hl a.v2hl-cta{margin-left:auto;display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 var(--sp-3);border-radius:var(--radius);
+  background:var(--accent);color:var(--on-accent);font-weight:var(--fw-semi);font-size:var(--fs-sm)}
+.v2hl a.v2hl-cta:hover{background:var(--accent-hover);color:var(--on-accent)}
+.v2hl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(220px,100%),1fr));gap:var(--sp-2);list-style:none;margin:0;padding:0}
+.v2hl a.v2hl-card{display:flex;flex-direction:column;gap:4px;height:100%;padding:var(--sp-3);border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--surface-2);color:var(--text-1);transition:border-color var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease)}
+.v2hl a.v2hl-card:hover{border-color:var(--accent);background:var(--surface-hover);color:var(--text-1)}
+.v2hl-top{display:flex;align-items:center;gap:var(--sp-2);justify-content:space-between}
+.v2hl-t{font-weight:var(--fw-bold);font-size:var(--fs-md);color:var(--accent-text)}
+.v2hl-f{font-family:var(--font-mono);font-size:var(--fs-2xs);color:var(--text-3);white-space:nowrap}
+.v2hl-d{color:var(--text-2);font-size:var(--fs-sm);line-height:var(--lh-body);flex:1}
+.v2hl-go{color:var(--accent-text);font-size:var(--fs-xs);font-weight:var(--fw-semi)}
+/* 모바일: 2열 · 설명 숨김(제목·기능 번호만) — 첫 화면이 카드로 다 차지 않게 */
+@media (max-width:560px){.v2hl{padding:var(--sp-3)}.v2hl a.v2hl-cta{margin-left:0;width:100%;justify-content:center}
+  .v2hl-h p{display:none}.v2hl-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.v2hl-d,.v2hl-go{display:none}
+  .v2hl-top{flex-direction:column;align-items:flex-start;gap:2px}.v2hl a.v2hl-card{padding:var(--sp-2)}}
