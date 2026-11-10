@@ -570,3 +570,12 @@ test("i18n: every new console-fix KO string has an EN entry", () => {
     "su-1-rack-00 · 랙 텔레메트리", "캡 32.3MW 기준", "XID 79 감지 — su-1-rack-00-tray-01", "주문 2건 · 월말 예상 $1,200"])
     assert.ok(en(s), "no EN for: " + s);
 });
+
+test("dell: firmware mock uses iDRAC10 baseline = AI-Infra IDRAC_FW, no OpenBMC", () => {
+  const src = read("shared/dsx-api.js");
+  assert.ok(!/OpenBMC/.test(src));
+  const dell = path.join(ROOT, "..", "AI-Infra-Emulator", "app", "dell.py");
+  const fw = existsSync(dell) ? readFileSync(dell, "utf8").match(/^IDRAC_FW = "([^"]+)"/m)[1] : "1.4.2";
+  assert.ok(src.includes(`{ component: "BMC (Dell iDRAC10)", baseline: "${fw}" }`));
+  assert.match(src, /component: "BMC \(Dell iDRAC10\)", current: "[^"]+", baseline: "1\.4\.2", severity: "warning"/);
+});

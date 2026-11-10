@@ -157,7 +157,7 @@
       return x;
     });
     var baseline = [
-      { component: "BMC (OpenBMC)", baseline: "2026.04.2" },
+      { component: "BMC (Dell iDRAC10)", baseline: "1.4.2" },
       { component: "HMC", baseline: "1.8.0" },
       { component: "GPU VBIOS (Rubin)", baseline: "97.10.2C.00.11" },
       { component: "ConnectX-8 FW", baseline: "40.44.1036" },
@@ -166,7 +166,7 @@
       { component: "PowerShelf FW", baseline: "1.12" },
     ];
     var drift = [
-      { machine: "GA-R007-T03", rack: "GA-R007", component: "BMC (OpenBMC)", current: "2026.02.1", baseline: "2026.04.2", severity: "warning" },
+      { machine: "GA-R007-T03", rack: "GA-R007", component: "BMC (Dell iDRAC10)", current: "1.3.0", baseline: "1.4.2", severity: "warning" },
       { machine: "GA-R055-T11", rack: "GA-R055", component: "ConnectX-8 FW", current: "40.43.2050", baseline: "40.44.1036", severity: "warning" },
       { machine: "AN-R019-T01", rack: "AN-R019", component: "GPU VBIOS (Rubin)", current: "97.10.1F.00.04", baseline: "97.10.2C.00.11", severity: "critical" },
     ];
@@ -325,7 +325,7 @@
     function mockSel(machine) {
       var t0 = Date.parse("2026-11-10T00:00:00Z");
       return [
-        { Id: "1", Created: iso(t0 - 7200e3), Severity: "OK", Message: "System boot completed", MessageId: "OpenBMC.0.4.BootSuccess" },
+        { Id: "1", Created: iso(t0 - 7200e3), Severity: "OK", Message: "System is turning on.", MessageId: "IDRAC.2.9.SYS1000" },
         { Id: "2", Created: iso(t0 - 3600e3), Severity: "Warning", Message: "GPU2 thermal margin < 5°C", MessageId: "Platform.1.0.ThermalWarning" },
         { Id: "3", Created: iso(t0 - 900e3), Severity: "Critical", Message: "PSU input lost (" + machine + ")", MessageId: "Platform.1.0.PowerSupplyFailed" },
       ];
