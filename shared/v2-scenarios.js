@@ -44,6 +44,24 @@
           return ok(q.tier, q.tier + " TPM " + n(q.tpm) + " 중 " + n(q.used_tpm) + " 사용", q.tier + " used " + n(q.used_tpm) + " of " + n(q.tpm) + " TPM"); } },
       ] });
 
+    S.push({ id: "token-ops", feature: "F01·F02", ko: "추론 운영 — 배포 → SLO → 쿼터 → batch 감축 주입", en: "Inference ops — deployments → SLO → quotas → batch override injection",
+      note: ["운영자 권한 · 주입", "Operator · injection"],
+      steps: [
+        { id: "deployments", ko: "엔진 배포 GET /api/v1/token/deployments", en: "Engine deployments GET /api/v1/token/deployments", run: async function (c) {
+          var d = (await api.deployments()).data || []; c.model = d[0] && d[0].model;
+          return ok(d.length, d.length + "개 배포, 첫 모델 " + c.model, d.length + " deployments, first " + c.model); } },
+        { id: "slo", ko: "SLO GET /api/v1/token/slo (TTFT p99 ≤2 s, TPOT p99 ≤50 ms)", en: "SLO GET /api/v1/token/slo (TTFT p99 ≤2 s, TPOT p99 ≤50 ms)", run: async function (c) {
+          var s = (await api.slo(c.model, "1h")).data || {};
+          return ok(s.target && s.target.ttft_p99_ms === 2000, "TTFT " + s.ttft_p99_ms + " ms · TPOT " + s.tpot_p99_ms + " ms · 위반 " + (s.breach ? "예" : "아니오"),
+            "TTFT " + s.ttft_p99_ms + " ms · TPOT " + s.tpot_p99_ms + " ms · breach " + !!s.breach); } },
+        { id: "quotas", ko: "테넌트·등급별 쿼터", en: "Quotas per tenant and tier", run: async function (c) {
+          var q = (await api.quotas()).data || []; c.tid = (q[0] || {}).tenant_id || tid();
+          return ok(q.length, q.length + "행", q.length + " rows"); } },
+        { id: "override", ko: "batch 감축 주입 POST …/override (factor 0.3)", en: "Inject batch override POST …/override (factor 0.3)", run: async function (c) {
+          var r = await api.quotaOverride(c.tid, { tier: "batch", factor: 0.3, until: new Date(Date.now() + 3600000).toISOString(), reason: "demo grid curtailment" });
+          return ok(!r.error, r.error ? "HTTP " + r.status + ": " + r.error : c.tid + " batch ×0.3 (1시간)", r.error ? "HTTP " + r.status + ": " + r.error : c.tid + " batch ×0.3 (1 h)"); } },
+      ] });
+
     S.push({ id: "invoice", feature: "F05", ko: "청구서 → 세금계산서 → 결제", en: "Invoice → tax invoice → payment",
       steps: [
         { id: "list", ko: "청구서 목록", en: "List invoices", run: async function (c) {

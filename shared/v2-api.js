@@ -228,7 +228,8 @@
       traceSubs.forEach(function (f) { try { f(t); } catch (e) { /* 구독자 오류 무시 */ } });
     }
     function traceMock(url, method, body, data) {
-      trace({ method: method || "GET", url: url, req_headers: {}, req_body: body, status: "MOCK", res_headers: {},
+      trace({ method: method || "GET", url: /^https?:/.test(url) ? url : base() + url, req_headers: {},
+        req_body: body === undefined || typeof body === "string" ? body : JSON.stringify(body), status: "MOCK", res_headers: {},
         res_body: data === undefined ? "" : JSON.stringify(data, null, 2) });
     }
 
@@ -461,9 +462,12 @@
         return (async function () {
           try {
             var j = await req("/v1/models", "GET", undefined, { headers: h });
+            state.gatewayMissing = false;
             return { live: true, src: "/v1/models", data: arr(j) };
           } catch (e) {
             if (e.status === 401) return { live: true, src: "/v1/models", error: e.message, status: 401, data: clone(M.models) };
+            state.gatewayMissing = true;   // 게이트웨이(F01) 미머지 — chat 의 401(전역 인증 가드)은 mock 으로 본다
+            traceMock("/v1/models", "GET", undefined, { object: "list", data: M.models });
             return { live: false, src: "mock", data: clone(M.models) };
           }
         })();
@@ -482,6 +486,7 @@
           if (!doFetch) throw new Error("no fetch");
           r = await doFetch(base() + "/v1/chat/completions", { method: "POST", headers: h, body: JSON.stringify(payload) });
         } catch (e) { r = null; }
+        if (r && r.status === 401 && state.gatewayMissing) r = null;
         if (r && r.status !== 404 && r.status < 500) {
           var rl = { tokens: r.headers && r.headers.get ? r.headers.get("x-ratelimit-remaining-tokens") : null,
             requests: r.headers && r.headers.get ? r.headers.get("x-ratelimit-remaining-requests") : null };
@@ -530,8 +535,10 @@
         }
         /* mock 스트림 — 백엔드 미머지·미기동 */
         state.lastLive = false;
-        if (!M.models.some(function (m) { return m.id === body.model; }))
+        if (!M.models.some(function (m) { return m.id === body.model; })) {
+          traceMock("/v1/chat/completions", "POST", payload, { error: { message: "The model `" + body.model + "` does not exist.", type: "invalid_request_error", param: "model", code: "model_not_found" } });
           return { live: false, error: "model not found: " + body.model, error_type: "invalid_request_error", status: 404, request_id: rid };
+        }
         var text = CANNED, words = text.split(/(\s+)/), acc = "";
         if (body.max_tokens && body.max_tokens < 40) words = words.slice(0, Math.max(1, body.max_tokens));
         for (var i = 0; i < words.length; i++) {

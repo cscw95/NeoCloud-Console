@@ -219,7 +219,7 @@ test("topology + remediation helpers", async () => {
 test("demo scenarios: every scenario passes end-to-end on the seeded mock; reset restores seed", async () => {
   const a = mk({ mockDelayMs: 0 });
   const list = SC.build(a, {});
-  assert.deepEqual(list.map(s => s.id).sort(), ["auto-recovery", "billing-run", "contract", "invoice", "nvke-topology", "signup", "sla", "token-api"]);
+  assert.deepEqual(list.map(s => s.id).sort(), ["auto-recovery", "billing-run", "contract", "invoice", "nvke-topology", "signup", "sla", "token-api", "token-ops"]);
   for (const sc of list) {
     assert.ok(sc.ko && sc.en && sc.feature, sc.id);
     const ctx = {};

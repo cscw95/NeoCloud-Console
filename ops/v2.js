@@ -91,7 +91,7 @@
     });
     var tenants = Array.from(new Set(quotas.map(function (q) { return q.tenant_id; })));
     var tOpts = tenants.map(function (t) { return "<option>" + esc(t) + "</option>"; }).join("");
-    root.innerHTML = demo("token-api") +
+    root.innerHTML = demo("token-ops") +
       U.panel(L("추론 SLO (TTFT·TPOT p99)", "Inference SLO (TTFT · TPOT p99)"), U.src(slos[0] || r[2]) + " · " + L("기준 TTFT p99 ≤2 s · TPOT p99 ≤50 ms", "target TTFT p99 ≤2 s · TPOT p99 ≤50 ms"),
         U.table([L("모델", "Model"), "#TTFT p99 ms", L("#목표", "#Target"), "#TPOT p99 ms", L("#목표", "#Target"), L("판정", "Verdict")], sloRows, "—")) +
       U.panel(L("엔진 배포 (Dynamo)", "Engine deployments (Dynamo)"), U.src(r[0]),
