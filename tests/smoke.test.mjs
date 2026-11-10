@@ -150,7 +150,7 @@ test("dsx-api: mock NVKE create → running, upgrade → target version, kubecon
 });
 
 /* ── 4. dsx-api live path / contract C ─────────────────────── */
-test("dsx-api: live — calls only PLAN §C /api/v1 paths with X-Operator header", async () => {
+test("dsx-api: live — calls only PLAN §C /api/v1 paths, no hardcoded X-Operator", async () => {
   const f = fakeFetch({
     "GET /api/v1/platform/versions": PLAN_MATRIX,
     "GET /api/v1/catalog": { products: [{ id: "bmaas" }, { id: "managed-k8s" }] },
@@ -194,7 +194,7 @@ test("dsx-api: live — calls only PLAN §C /api/v1 paths with X-Operator header
   assert.equal(D.isLive(), true);
   for (const c of f.calls) {
     assert.match(c.url, /^http:\/\/nocp\/api\/v1\//);
-    assert.equal(c.headers["X-Operator"], "true");
+    assert.equal(c.headers["X-Operator"], undefined);   // no longer hardcoded (security)
     assert.equal(c.headers["X-Tenant-Id"], undefined);
   }
   // normalizers
@@ -252,19 +252,52 @@ function runShim(pathname) {
   vm.runInNewContext(read("shared/nocp-auth.js"), ctx);
   return { ctx, seen };
 }
-test("nocp-auth: ops pages add X-Operator to NOCP calls only", async () => {
+test("nocp-auth: no token → no hardcoded X-Operator; legacy flag opts in", async () => {
   const { ctx, seen } = runShim("/ops/");
+  await ctx.window.fetch("http://127.0.0.1:8000/api/v1/spec");
+  assert.equal(seen[0].h.get("X-Operator"), null);
+  assert.equal(seen[0].h.get("Authorization"), null);
+  ctx.window.NOCP_LEGACY_OPERATOR = true;
   await ctx.window.fetch("http://127.0.0.1:8000/api/v1/spec");
   await ctx.window.fetch("http://127.0.0.1:8000/api/v1/x", { headers: { "X-Tenant-Id": "t" } });
   await ctx.window.fetch("https://example.com/a");
-  assert.equal(seen[0].h.get("X-Operator"), "true");
-  assert.equal(seen[1].h.get("X-Operator"), null);
+  assert.equal(seen[1].h.get("X-Operator"), "true");
   assert.equal(seen[2].h.get("X-Operator"), null);
+  assert.equal(seen[3].h.get("X-Operator"), null);
 });
-test("nocp-auth: customer pages never get operator header", async () => {
+test("nocp-auth: Bearer token from window.NOCP_TOKEN, NOCP base only", async () => {
+  const { ctx, seen } = runShim("/ops/");
+  ctx.window.NOCP_TOKEN = "tok-123";
+  await ctx.window.fetch("http://127.0.0.1:8000/api/v1/spec", { headers: { "X-Operator": "true" } });
+  await ctx.window.fetch("https://example.com/a");
+  assert.equal(seen[0].h.get("Authorization"), "Bearer tok-123");
+  assert.equal(seen[0].h.get("X-Operator"), null);        // token replaces legacy headers
+  assert.equal(seen[1].h.get("Authorization"), null);     // never leaks to other origins
+});
+test("nocp-auth: customer pages never get operator header, but do get Bearer", async () => {
   const { ctx, seen } = runShim("/customer/");
+  ctx.window.NOCP_LEGACY_OPERATOR = true;
   await ctx.window.fetch("http://127.0.0.1:8000/api/v1/spec");
   assert.equal(seen[0].h.get("X-Operator"), null);
+  ctx.window.NOCP_TOKEN = "tenant-tok";
+  await ctx.window.fetch("http://127.0.0.1:8000/api/v1/spec");
+  assert.equal(seen[1].h.get("Authorization"), "Bearer tenant-tok");
+});
+test("dsx-api: token option → Authorization Bearer; SSE uses short-lived events token", async () => {
+  const auth = require(path.join(ROOT, "shared/nocp-auth.js"));
+  assert.equal(auth.HEADERS.AUTH, "Authorization");
+  const f = fakeFetch({ "GET /api/v1/nvke/clusters": [] });
+  const D = dsxMod.create({ base: "http://nocp", fetch: f, token: "op-tok" });
+  await D.nvkeClusters();
+  assert.equal(f.calls[0].headers["Authorization"], "Bearer op-tok");
+  assert.equal(f.calls[0].headers["X-Operator"], undefined);
+  const calls = [];
+  const fx = async (u, init) => { calls.push({ u, init }); return { ok: true, json: async () => ({ token: "ev+1" }) }; };
+  const url = await auth.eventsUrl("http://nocp/api/v1", fx, null, "op-tok");
+  assert.equal(url, "http://nocp/api/v1/events?token=ev%2B1");
+  assert.equal(calls[0].u, "http://nocp/api/v1/events/token");
+  assert.equal(calls[0].init.headers.Authorization, "Bearer op-tok");
+  assert.equal(await auth.eventsUrl("http://nocp/api/v1", fx, null, null), "http://nocp/api/v1/events");
 });
 
 /* ── 6. screen wiring ──────────────────────────────────────── */
@@ -381,4 +414,56 @@ test("customer/nvke.js: product cards, wizard and usage render", async () => {
   const html = els["nvke-root"].innerHTML;
   for (const k of ["data-nvke-prod=\"bmaas\"", "data-nvke-prod=\"managed-k8s\"", "① K8s 버전", "nvke-fin-01", "K8s node-hour"])
     assert.ok(html.includes(k), k);
+});
+
+/* ── security: static server (serve.py) ───────────────────── */
+test("serve.py: refuses traversal, dotfiles, source files and non-console paths", () => {
+  const script = `
+import json, sys
+sys.path.insert(0, ${JSON.stringify(ROOT)})
+import serve
+cases = ["/", "/ops/", "/ops", "/ops/app.js", "/customer/index.html?x=1",
+         "/../serve.py", "/serve.py", "/.git/config", "/ops/%2e%2e/serve.py",
+         "/shared/../.git/HEAD", "/tests/smoke.test.mjs", "/run.sh", "/ops/..%5c..%5cserve.py",
+         "/shared/%00.js", "/docs/"]
+print(json.dumps({c: bool(serve.resolve_request(c)) for c in cases}))`;
+  const out = JSON.parse(execFileSync("python3", ["-I", "-c", script], { encoding: "utf8" }));
+  for (const ok of ["/", "/ops/", "/ops", "/ops/app.js", "/customer/index.html?x=1"]) assert.equal(out[ok], true, ok);
+  for (const [k, v] of Object.entries(out)) if (!["/", "/ops/", "/ops", "/ops/app.js", "/customer/index.html?x=1"].includes(k)) assert.equal(v, false, k);
+  const src = read("serve.py");
+  assert.match(src, /CONSOLE_HOST", "127\.0\.0\.1"/);
+  assert.match(src, /X-Content-Type-Options/);
+  assert.match(src, /def list_directory/);
+});
+
+test("console pages: CSP meta (object-src none, base-uri self) and nocp-auth loaded before API clients", () => {
+  for (const p of ["index.html", "ops/index.html", "customer/index.html", "customer/contact.html", "biz/index.html"]) {
+    const s = read(p);
+    const m = s.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/);
+    assert.ok(m, p + " CSP");
+    assert.match(m[1], /default-src 'self'/);
+    assert.match(m[1], /object-src 'none'/);
+    assert.match(m[1], /base-uri 'self'/);
+  }
+  for (const p of ["ops/index.html", "customer/index.html", "biz/index.html"]) {
+    const s = read(p);
+    assert.ok(s.indexOf("shared/nocp-auth.js") > 0 && s.indexOf("shared/nocp-auth.js") < s.indexOf("shared/nocp-api.js"), p);
+  }
+  for (const f of ["shared/dsx-api.js", "shared/nocp-api.js", "ops/app.js", "biz/app.js", "customer/app.js"]) {
+    assert.doesNotMatch(read(f), /["']X-Operator["']\s*:\s*["']true["']/, f + " must not hardcode X-Operator");
+  }
+});
+
+test("XSS: every esc() helper escapes & < > \" ' (attribute-safe)", () => {
+  for (const f of ["ops/app.js", "customer/app.js", "biz/app.js", "ops/mk8s.js", "ops/dsx.js", "customer/nvke.js", "shared/palette.js"]) {
+    const src = read(f);
+    const i = src.search(/(?:var|const|let|function)\s+esc\b/);
+    assert.ok(i >= 0, f + " has esc");
+    let j = src.indexOf("{", i), depth = 0;
+    if (/^[^{]*=>\s*[^{\s]/.test(src.slice(i, i + 80))) j = src.indexOf(";\n", i) - 1;   // expression arrow
+    else for (; j < src.length; j++) { if (src[j] === "{") depth++; else if (src[j] === "}" && --depth === 0) break; }
+    const ctx = {};
+    vm.runInNewContext(src.slice(i, j + 1).replace(/^(const|let) /, "var ") + ";\nthis.__e = esc;", ctx);
+    assert.equal(ctx.__e(`<img src=x onerror="a('b')">&`), "&lt;img src=x onerror=&quot;a(&#39;b&#39;)&quot;&gt;&amp;", f);
+  }
 });

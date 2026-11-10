@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:* https:; frame-src 'self' https://grafana.neocloud.skt.com; object-src 'none'; base-uri 'self'; form-action 'self'"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NeoCloud 고객 콘솔</title>
 <link rel="stylesheet" href="../shared/tokens.css"><link rel="stylesheet" href="../shared/shell.css">
 <link rel="stylesheet" href="../shared/blueprint.css"><!-- 주간(Blueprint) 디자인 레이어 -->
@@ -1182,6 +1182,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
 </div></div>
 
 <script src="../shared/app.js"></script><script src="../shared/mock-api.js"></script>
+<script src="../shared/nocp-auth.js"></script>
 <script src="../shared/nocp-api.js"></script>
 <script src="../shared/dsx-api.js"></script>
 <script src="nvke.js"></script>

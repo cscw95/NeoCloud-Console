@@ -72,15 +72,18 @@
 
   /* ── 저수준 fetch (1.5s 타임아웃) + 생존 캐시 ─────────────── */
   let aliveUntil = 0, dead = false;
+  /* 헤더 이름·토큰은 shared/nocp-auth.js(NC_AUTH) — Bearer 토큰 우선, 없으면 dev 레거시 테넌트 헤더 */
+  function authHeaders(s) {
+    if (window.NC_AUTH) return window.NC_AUTH.headers(s, window);
+    return { "X-Tenant-Id": s.tenant_id, "X-Tenant-Role": s.role };
+  }
   async function raw(url, opt) {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 1500);
     const s = ncSession();                  // 고객 콘솔 — 세션 헤더 자동 부착
     if (s) {
       opt = Object.assign({}, opt);
-      opt.headers = Object.assign(
-        { "X-Tenant-Id": s.tenant_id, "X-Tenant-Role": s.role },
-        opt.headers || {});
+      opt.headers = Object.assign(authHeaders(s), opt.headers || {});
     }
     try {
       const r = await fetch(url, Object.assign({ signal: ctl.signal }, opt));
@@ -127,8 +130,7 @@
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), 1500);
     const s = ncSession();
-    const headers = s
-      ? { "X-Tenant-Id": s.tenant_id, "X-Tenant-Role": s.role } : {};
+    const headers = s ? authHeaders(s) : {};
     try {
       const r = await fetch(u, { method: "DELETE", headers, signal: ctl.signal });
       if (!r.ok) {

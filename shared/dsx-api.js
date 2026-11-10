@@ -182,11 +182,13 @@
       catch (e) { return "http://127.0.0.1:8000"; }
     }
     var V = function () { return base() + "/api/v1"; };
+    /* 인증 헤더 이름·토큰 조회는 shared/nocp-auth.js(NC_AUTH) 한 곳에서 */
+    var AUTH = g.NC_AUTH || (typeof require === "function" ? require("./nocp-auth.js") : null);
+    function tok() { return opts.token !== undefined ? opts.token : AUTH.token(g); }
     function authHeaders() {
       var s = opts.session ? opts.session()
         : (g.NC && typeof g.NC.session === "function" ? g.NC.session() : null);
-      if (s && s.tenant_id) return { "X-Tenant-Id": s.tenant_id, "X-Tenant-Role": s.role || "viewer" };
-      return { "X-Operator": "true" };
+      return AUTH.headers(s, g, tok());
     }
     var M = buildMock();
     var state = { lastLive: null };
@@ -440,13 +442,21 @@
           });
       },
       /* 이벤트 스트림 — /api/v1/events (SSE, DSX Exchange 재발행). EventSource는 커스텀 헤더를
-         못 붙이므로 query로 operator 표시. 실패 시 null → 호출측이 폴링/mock으로 전환 */
+         못 붙이므로 NC_AUTH.eventsUrl이 events 전용 단기 토큰(?token=)을 붙인다.
+         반환값은 close()를 가진 핸들 → 실패 시 onState("error"), 호출측이 폴링/mock으로 전환 */
       openEvents: function (onEvent, onState) {
         var ES = g.EventSource;
         if (!ES) { if (onState) onState("unsupported"); return null; }
-        var es;
-        try { es = new ES(V() + "/events?operator=true"); }
-        catch (e) { if (onState) onState("error"); return null; }
+        var handle = { es: null, closed: false,
+          close: function () { this.closed = true; if (this.es) this.es.close(); } };
+        AUTH.eventsUrl(V(), doFetch, g, tok()).then(function (url) {
+          if (handle.closed) return;
+          try { handle.es = new ES(url); }
+          catch (e) { if (onState) onState("error"); return; }
+          wire(handle.es);
+        }, function () { if (onState) onState("error"); });
+        return handle;
+        function wire(es) {
         es.onopen = function () { if (onState) onState("open"); };
         es.onerror = function () { if (onState) onState("error"); };
         es.onmessage = function (m) {
@@ -462,7 +472,8 @@
             onEvent(d);
           });
         });
-        return es;
+          return es;
+        }
       },
 
       /* RMA · 펌웨어 */
