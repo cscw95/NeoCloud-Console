@@ -18,7 +18,7 @@
   var PHASES = [["등록", [1, 2]], ["네트워크", [3, 4]], ["전원 · 인벤토리", [5, 6, 7, 8]],
     ["펌웨어 · 증명", [9, 10, 11]], ["검증 · 재고", [12, 13, 14, 15]]];
   var STATUS_KO = { pending: "대기", running: "진행 중", passed: "통과", failed: "실패", blocked: "차단" };
-  var S = { live: null, racks: [], sel: null, run: null, sell: null, demo: [], busy: false };
+  var S = { live: null, racks: [], sel: null, run: null, sell: null, demo: [], busy: false, step: null };
 
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -85,7 +85,13 @@
     }
   }
 
-  /* ── 렌더 ─────────────────────────────────────────────────── */
+  /* ── 렌더 (v2 디자인: 진행 막대 · 실패 콜아웃 · 단계 그룹 타임라인 · 스윔레인 · 원문 뷰어) ── */
+  var LANES = [["nocp", "NeoCloud OS (NOCP)"], ["ai-infra", "AI-Infra · DCIM · Config Manager · RMS"], ["nico", "NICo"]];
+  var OWNER = { 1: "nocp", 2: "nocp", 3: "ai-infra", 4: "ai-infra", 5: "nico", 6: "ai-infra", 7: "ai-infra", 8: "ai-infra",
+    9: "ai-infra", 10: "nico", 11: "nico", 12: "nocp", 13: "nico", 14: "nocp", 15: "nocp" };
+  var FLOW = { passed: "done", failed: "fail", running: "active", blocked: "pending", pending: "pending" };
+  function no2(n) { return ("0" + n).slice(-2); }
+  function stepName(s) { return (STEPS[s.no - 1] || [])[1] || s.key; }
   function badge() {
     return S.live
       ? '<span class="obs-src src-badge live" role="status">● NOCP 라이브</span><span class="bu-path">/api/v1/dcim · /api/v1/bringup</span>'
@@ -96,42 +102,108 @@
       sellable: "green", planned: "blue", installed: "blue", bringup: "amber", validating: "amber" }[s] || "blue";
     return '<span class="st ' + c + '">' + esc(STATUS_KO[s] || s) + "</span>";
   }
+  /* 단계 원본 호출 → NC.msg trace 형식 */
+  function traces(calls) {
+    return (calls || []).map(function (c) {
+      return { method: c.method, url: c.url, status: c.status, req_body: c.request, res_body: c.response };
+    });
+  }
   function raw(calls) {
-    if (!calls || !calls.length) return "";
-    return '<details class="bu-raw"><summary>원본 요청/응답 ' + calls.length + "건</summary>" +
-      calls.map(function (c) {
-        return '<div class="bu-call"><code>' + esc(c.method + " " + c.url) + " → " + esc(c.status) +
-          "</code>" + (c.request != null ? "<pre>" + esc(JSON.stringify(c.request, null, 1)) + "</pre>" : "") +
-          "<pre>" + esc(typeof c.response === "string" ? c.response : JSON.stringify(c.response, null, 1)) +
-          "</pre></div>";
-      }).join("") + "</details>";
+    if (!calls || !calls.length) return '<p class="bu-none">이 단계는 외부 호출 없이 NOCP 안에서 처리됩니다.</p>';
+    return '<div class="bu-rawh">원본 요청/응답 ' + calls.length + "건</div>" +
+      (NC.msg ? NC.msg.list(traces(calls), { limit: 10, newestFirst: false, openFirst: true, layout: "split",
+        ariaLabel: "원본 요청/응답" }) : "");
   }
-  function card(s) {
-    var name = (STEPS[s.no - 1] || [])[1] || s.key;
-    return '<div class="bu-card ' + esc(s.status) + '" role="listitem" aria-label="' +
-      esc(("0" + s.no).slice(-2) + " " + name + " · " + (STATUS_KO[s.status] || s.status)) + '">' +
-      '<div class="bu-no">' + ("0" + s.no).slice(-2) + " " + stc(s.status) + "</div>" +
-      '<div class="bu-name">' + esc(name) + "</div>" +
-      (s.detail ? '<div class="bu-detail">' + esc(s.detail) + "</div>" : "") + raw(s.calls) + "</div>";
+  function failStep(run) { return run && run.failed_step ? (run.steps || [])[run.failed_step - 1] : null; }
+  /* 실패 콜아웃 — 무엇이 · 어디서 · 어떻게 고치는지 (색 + 아이콘 + 문장) */
+  function alertBox(run) {
+    var f = failStep(run);
+    if (!f) {
+      if (run && run.state === "sellable") return '<div class="bu-alert ok" role="status"><span class="bu-ai" aria-hidden="true">✓</span>' +
+        "<div><b>15단계 모두 통과 — 판매 가능 재고에 투입됨</b><p>" + esc(run.rack) + "</p></div></div>";
+      return "";
+    }
+    var mm = run.cable_mismatches || [];
+    if (!mm.length && /mismatch/.test(f.detail || "")) {
+      var m = /(\S+) expected (\S+) got (\S+)/.exec(f.detail);
+      if (m) mm = [{ a: m[1], expected_b: m[2], actual_b: m[3], kind: "miswired" }];
+    }
+    var tbl = mm.length ? '<div class="p2-scroll"><table class="tbl bu-mm"><caption>케이블 불일치</caption><thead><tr>' +
+      '<th scope="col">트레이 포트</th><th scope="col">계획 (cable plan)</th><th scope="col">실제 (LLDP)</th><th scope="col">종류</th></tr></thead><tbody>' +
+      mm.map(function (x) {
+        return '<tr><td class="mono">' + esc(x.a) + '</td><td class="mono">' + esc(x.expected_b) + '</td><td class="mono bu-bad">' +
+          esc(x.actual_b || "—") + "</td><td>" + esc(x.kind) + "</td></tr>";
+      }).join("") + "</tbody></table></div>" : "";
+    return '<div class="bu-alert" role="alert"><span class="bu-ai" aria-hidden="true">✕</span><div class="bu-ab">' +
+      "<b><span>" + no2(f.no) + " " + esc(stepName(f)) + "</span> <span>" + "실패 — 이후 {n}단계 차단".replace("{n}", 15 - f.no) + "</span></b>" +
+      "<p>" + esc(f.detail || "") + "</p>" + tbl +
+      (f.key === "cable_validation" ? '<p class="bu-fixh">조치: 계획대로 재결선한 뒤 재시도하세요. 시연에서는 주입을 해제하고 다시 시작합니다.</p>' +
+        '<button type="button" class="btn" id="bu-fix"' + (S.busy || !S.live ? " disabled" : "") + ">재결선 완료 → 재시도</button>" : "") +
+      "</div></div>";
   }
-  function kanban(run) {
+  function selStep(run) {
+    var steps = (run && run.steps) || [];
+    var pick = steps.filter(function (s) { return String(s.no) === String(S.step); })[0];
+    if (pick) return pick;
+    return failStep(run) || steps.filter(function (s) { return s.status !== "passed"; })[0] || steps[steps.length - 1];
+  }
+  function phases(run) {
     if (!run) return '<div class="bu-empty">랙을 선택하거나 시연을 실행하세요.</div>';
-    var by = {};
+    var by = {}, sel = selStep(run);
     (run.steps || []).forEach(function (s) { by[s.no] = s; });
     return '<div class="bu-kb">' + PHASES.map(function (p) {
-      return '<div class="bu-col"><div class="bu-ch">' + esc(p[0]) + '</div><div role="list">' +
-        p[1].map(function (n) { return by[n] ? card(by[n]) : ""; }).join("") + "</div></div>";
+      var xs = p[1].map(function (n) { return by[n]; }).filter(Boolean);
+      var ok = xs.filter(function (s) { return s.status === "passed"; }).length;
+      var bad = xs.some(function (s) { return s.status === "failed"; });
+      return '<section class="bu-col' + (bad ? " bad" : ok === xs.length ? " ok" : "") + '" aria-label="' + esc(p[0]) + '">' +
+        '<div class="bu-ch"><span>' + esc(p[0]) + '</span><span class="tabnum">' + ok + "/" + xs.length + "</span></div>" +
+        (NC.flow ? NC.flow.timeline(xs.map(function (s) {
+          return { id: String(s.no), label: no2(s.no) + " " + stepName(s), status: FLOW[s.status] || "pending",
+            sub: s.status === "blocked" ? "차단" : s.status === "failed" ? "실패" : null };
+        }), { selectable: true, selected: sel ? String(sel.no) : null, numbered: false, ariaLabel: p[0] }) : "") +
+        "</section>";
     }).join("") + "</div>";
+  }
+  function detail(run) {
+    var s = selStep(run);
+    if (!s) return "";
+    var lane = (LANES.filter(function (l) { return l[0] === (s.owner || OWNER[s.no]); })[0] || [, s.owner || "—"])[1];
+    return '<div class="bu-det" aria-live="polite"><div class="bu-det-h"><span class="bu-no">' + no2(s.no) + "</span><b>" +
+      esc(stepName(s)) + "</b>" + stc(s.status) + '<span class="bu-own">' + "담당 {x}".replace("{x}", esc(lane)) + "</span></div>" +
+      (s.detail ? '<p class="bu-detail">' + esc(s.detail) + "</p>" : "") +
+      (s.started_at ? '<p class="bu-at tabnum">' + esc(String(s.started_at).replace("T", " ").slice(0, 19)) + "</p>" : "") +
+      (s.no === 13 ? '<p><a href="#/p2-attest">헬스 검증 게이트 보기 →</a></p>' : s.no === 11 ? '<p><a href="#/p2-attest">증명 상태 보기 →</a></p>'
+        : s.no === 9 ? '<p><a href="#/p2-firmware">펌웨어 번들 보기 →</a></p>' : "") +
+      raw(s.calls) + "</div>";
+  }
+  function lanes(run) {
+    if (!run || !NC.flow) return "";
+    return NC.flow.swimlane(LANES.map(function (l) { return { id: l[0], label: l[1] }; }),
+      (run.steps || []).map(function (s) {
+        return { id: String(s.no), lane: s.owner || OWNER[s.no], label: no2(s.no), sub: stepName(s).split(" (")[0],
+          status: FLOW[s.status] || "pending" };
+      }), { ariaLabel: "구성요소별 bring-up 흐름", selectable: true, selected: (selStep(run) || {}).no + "" });
   }
   function demoLog() {
     if (!S.demo.length) return "";
-    return '<ol class="bu-demo" aria-live="polite">' + S.demo.map(function (d) {
-      return '<li class="' + (d.ok ? "ok" : "bad") + '"><b>' + (d.ok ? "✓" : "✗") + " " + esc(d.title) +
-        "</b> " + esc(d.detail || "") + '<details class="bu-raw"><summary>원본 요청/응답</summary><pre>' +
-        esc(d.req.method + " " + d.req.path + (d.req.body !== undefined ? "\n" + JSON.stringify(d.req.body, null, 1) : "")) +
-        "</pre><pre>" + esc("HTTP " + d.status + "\n" + JSON.stringify(d.body, null, 1).slice(0, 3000)) +
-        "</pre></details></li>";
-    }).join("") + "</ol>";
+    var tl = NC.flow ? NC.flow.timeline(S.demo.map(function (d, i) {
+      return { id: "d" + i, label: d.title, sub: d.detail, status: d.ok ? "done" : "fail" };
+    }).concat(S.busy ? [{ id: "run", label: "진행 중", status: "active" }] : []), { ariaLabel: "시연 단계", numbered: true }) : "";
+    var msgs = NC.msg ? NC.msg.list(S.demo.map(function (d) {
+      return { method: d.req.method, url: d.req.path, status: d.status, req_body: d.req.body, res_body: d.body };
+    }), { limit: 10, ariaLabel: "시연 원본 요청/응답" }) : "";
+    return '<div class="bu-demo" aria-live="polite">' + (NC.flow ? NC.flow.progress(S.demo.filter(function (d) { return d.ok; }).length,
+      demoSteps().length, { label: "시연 진행", fail: S.demo.some(function (d) { return !d.ok; }) }) : "") +
+      '<div class="bu-two"><div>' + tl + "</div><div>" + msgs + "</div></div></div>";
+  }
+  function tiles(run, sell) {
+    var K = NC.kpi;
+    var items = [["DCIM 랙", S.racks.length, null], ["판매 가능 랙", sell.rack_count || 0, null],
+      ["판매 가능 GPU", sell.gpu_count || 0, "VR NVL72 · 72 GPU/랙"],
+      ["진행", run ? run.progress.passed + "/15" : "—", run ? STATUS_KO[run.state] || run.state : null]];
+    if (!K) return '<div class="kpi-band">' + items.map(function (t) {
+      return '<div class="kpi"><div class="k">' + esc(t[0]) + '</div><div class="v">' + esc(t[1]) + "</div></div>"; }).join("") + "</div>";
+    return K.grid(items.map(function (t) { return K.stat({ label: t[0], value: t[1], sub: t[2] }); }), { min: 160 });
   }
   function render() {
     var root = $("bringup-root");
@@ -141,14 +213,12 @@
       return '<option value="' + esc(r.id) + '"' + (r.id === S.sel ? " selected" : "") + ">" +
         esc(r.id + " · " + r.serial + " · " + r.state) + "</option>";
     }).join("");
+    var f = failStep(run);
     root.innerHTML =
       '<div class="ph-row"><h2 class="bu-h">랙 bring-up 자동화 (15단계)</h2>' + badge() + "</div>" +
-      '<div class="kpi-band">' +
-      '<div class="kpi"><div class="k">DCIM 랙</div><div class="v">' + S.racks.length + "</div></div>" +
-      '<div class="kpi"><div class="k">판매 가능 랙</div><div class="v">' + esc(sell.rack_count || 0) + "</div></div>" +
-      '<div class="kpi"><div class="k">판매 가능 GPU</div><div class="v">' + esc(sell.gpu_count || 0) + "</div></div>" +
-      '<div class="kpi"><div class="k">진행</div><div class="v">' + (run ? esc(run.progress.passed) + "/15" : "—") +
-      '</div><div class="s">' + (run ? stc(run.state) : "") + "</div></div></div>" +
+      '<div class="panel bu-hero"><div class="bu-hero-l">' +
+      (run && NC.flow ? NC.flow.progress(run.progress.passed, 15, { label: run.rack, fail: !!f, big: true }) : "") +
+      alertBox(run) + "</div>" + tiles(run, sell) + "</div>" +
       '<div class="panel"><div class="ph"><span class="tick"></span><span class="t">시연 · 주입</span>' +
       '<span class="c">운영자 권한</span></div><div class="bu-row">' +
       '<label for="bu-rack">랙 선택</label><select id="bu-rack">' + opts + "</select>" +
@@ -156,20 +226,47 @@
       '<button type="button" class="btn-ghost" id="bu-start"' + (S.busy || !S.sel ? " disabled" : "") + ">bring-up 시작</button>" +
       '<button type="button" class="btn-warn" id="bu-miswire"' + (S.busy || !S.sel ? " disabled" : "") + ">케이블 오결선 주입</button>" +
       '<button type="button" class="btn-ghost" id="bu-clear"' + (S.busy || !S.sel ? " disabled" : "") + ">주입 해제</button>" +
+      '<a class="btn-ghost" href="#/demo-center?scenario=f23-rack-bringup">데모 센터</a>' +
       "</div>" + demoLog() + "</div>" +
-      '<div class="panel"><div class="ph"><span class="tick amber"></span><span class="t">bring-up 칸반</span>' +
-      '<span class="c">' + esc(run ? run.rack : "") + "</span></div>" + kanban(run) + "</div>";
+      '<div class="panel"><div class="ph"><span class="tick' + (f ? " red" : " amber") + '"></span><span class="t">15단계 파이프라인</span>' +
+      '<span class="c">' + esc(run ? run.rack : "") + "</span><span class=\"c\">단계를 누르면 원본 요청/응답</span></div>" + '<div class="bu-fit">' + phases(run) + detail(run) + "</div></div>" +
+      (run ? '<div class="panel"><div class="ph"><span class="tick"></span><span class="t">구성요소별 흐름 (스윔레인)</span>' +
+        '<span class="c">NOCP · AI-Infra · NICo</span></div><div class="bu-fit">' + lanes(run) + "</div></div>" : "");
     wire();
   }
 
   function wire() {
     var sel = $("bu-rack");
-    if (sel && sel.addEventListener) sel.addEventListener("change", function () { S.sel = sel.value; show(); });
+    if (sel && sel.addEventListener) sel.addEventListener("change", function () { S.sel = sel.value; S.step = null; show(); });
     var on = function (id, f) { var b = $(id); if (b && b.addEventListener) b.addEventListener("click", f); };
     on("bu-demo", runDemo);
+    on("bu-fix", fixAndRetry);
+    var root = $("bringup-root");
+    if (root && root.addEventListener && !root.__buSel) {
+      root.__buSel = true;
+      root.addEventListener("nc-flow-select", function (e) {
+        S.step = e.detail && e.detail.id; render();
+        var b = root.querySelector && root.querySelector('.bu-kb [data-ft-step="' + S.step + '"]');
+        if (b && b.focus) b.focus();
+      });
+    }
     on("bu-start", function () { action("POST", "/bringup/racks/" + encodeURIComponent(S.sel) + ":start"); });
     on("bu-miswire", function () { action("POST", "/bringup/inject", { kind: "miswire", rack: S.sel }); });
     on("bu-clear", function () { action("POST", "/bringup/inject", { kind: "clear", rack: S.sel }); });
+  }
+
+  /* 실패 콜아웃의 조치 버튼: 주입 해제 → 재시작 (시연 흐름의 5·6단계와 같음) */
+  async function fixAndRetry() {
+    if (!S.live) { toast("NOCP 미연동 — mock 화면에서는 실행할 수 없습니다", "warn"); return; }
+    S.busy = true; render();
+    try {
+      await api("POST", "/bringup/inject", { kind: "clear", rack: S.sel });
+      var r = await api("POST", "/bringup/racks/" + encodeURIComponent(S.sel) + ":start");
+      if (r.data && r.data.steps) S.run = r.data;
+      S.step = null;
+    } catch (e) { toast("NOCP 연결 실패", "err"); }
+    S.busy = false;
+    await show();
   }
 
   async function action(method, path, body) {
@@ -213,7 +310,7 @@
   }
   async function runDemo() {
     if (!S.live) { toast("NOCP 미연동 — mock 화면에서는 실행할 수 없습니다", "warn"); return; }
-    S.busy = true; S.demo = []; S.sel = DEMO_RACK; render();
+    S.busy = true; S.demo = []; S.sel = DEMO_RACK; S.step = null; render();
     var steps = demoSteps();
     for (var i = 0; i < steps.length; i++) {
       var s = steps[i], r;
@@ -234,24 +331,38 @@
 
   var css = document.createElement("style");
   css.textContent =
-    ".bu-h{font-size:15px;margin:0 10px 0 0}.ph-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}" +
-    ".bu-path{color:var(--muted2);font-size:11px;font-family:monospace}" +
+    ".bu-h{font-size:var(--fs-lg,15px);margin:0 10px 0 0}.ph-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}" +
+    ".bu-path{color:var(--text-3);font-size:var(--fs-xs,11px);font-family:var(--font-mono,monospace)}" +
     ".bu-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:4px 0 8px}" +
-    ".bu-row label{font-size:11px;color:var(--muted)}.bu-row select{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:5px 7px;font-size:11.5px}" +
-    ".bu-kb{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:8px;overflow-x:auto}" +
-    ".bu-ch{font-size:11px;color:var(--muted);margin-bottom:6px;text-transform:uppercase}" +
-    ".bu-card{border:1px solid var(--line);border-left:3px solid var(--track);border-radius:6px;padding:7px 8px;margin-bottom:6px;font-size:11.5px;background:var(--card)}" +
-    ".bu-card.passed{border-left-color:var(--green)}.bu-card.failed{border-left-color:var(--red)}.bu-card.blocked{border-left-color:var(--amber)}" +
-    ".bu-no{display:flex;justify-content:space-between;align-items:center;font-family:monospace;color:var(--muted)}" +
-    ".bu-name{margin:3px 0;font-weight:600}.bu-detail{color:var(--muted);word-break:break-word}" +
-    ".bu-raw summary{cursor:pointer;color:var(--muted2);font-size:11px;margin-top:4px}" +
-    ".bu-raw pre{white-space:pre-wrap;word-break:break-all;max-height:180px;overflow:auto;font-size:10.5px;background:var(--track);padding:5px;border-radius:4px}" +
-    ".bu-call code{font-size:10.5px}.bu-empty{color:var(--muted);padding:12px}" +
-    ".bu-demo{font-size:11.5px;margin:6px 0 0 18px;padding:0}.bu-demo li{margin:3px 0}.bu-demo li.ok b{color:var(--green)}.bu-demo li.bad b{color:var(--red)}" +
-    "@media (max-width:900px){.bu-kb{grid-template-columns:1fr}}";
+    ".bu-row label{font-size:var(--fs-xs,11px);color:var(--text-2)}.bu-row select{background:var(--surface-1);color:var(--text-1);border:1px solid var(--border);border-radius:var(--radius-sm,6px);padding:5px 7px;font-size:var(--fs-sm,12px);max-width:100%}" +
+    ".bu-row select:focus-visible,#bringup-root button:focus-visible,#bringup-root a:focus-visible{outline:2px solid var(--focus);outline-offset:2px}" +
+    ".bu-hero{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:var(--sp-4,16px);align-items:start}" +
+    ".bu-hero-l{min-width:0}.bu-fit{display:grid;grid-template-columns:minmax(0,1fr)}.bu-fit .fsl-wrap{position:relative}.bu-fit>*{min-width:0}" +
+    ".bu-alert{display:flex;gap:var(--sp-3,12px);align-items:flex-start;border:1px solid var(--crit-line);background:var(--crit-bg);border-left:4px solid var(--crit);border-radius:var(--radius,8px);padding:var(--sp-3,12px);margin-top:var(--sp-2,8px)}" +
+    ".bu-alert.ok{border-color:var(--ok-line);background:var(--ok-bg);border-left-color:var(--ok)}" +
+    ".bu-ai{flex:0 0 28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:var(--fw-bold,700);background:var(--crit);color:var(--on-crit)}" +
+    ".bu-alert.ok .bu-ai{background:var(--ok-bg);color:var(--ok);box-shadow:inset 0 0 0 2px var(--ok)}" +
+    ".bu-ab{min-width:0;flex:1}.bu-alert b{color:var(--text-1);font-size:var(--fs-md,13px)}.bu-alert p{margin:4px 0;color:var(--text-1);font-size:var(--fs-sm,12px);overflow-wrap:anywhere}" +
+    ".bu-mm{margin:6px 0;font-size:var(--fs-xs,11px)}.bu-mm caption{text-align:left;color:var(--text-2);font-size:var(--fs-xs,11px);padding-bottom:2px}" +
+    ".bu-mm .mono{font-family:var(--font-mono,monospace);overflow-wrap:anywhere}.bu-bad{color:var(--crit);font-weight:var(--fw-bold,700)}" +
+    ".bu-fixh{color:var(--text-2)!important}" +
+    ".bu-kb{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}" +
+    ".bu-col{border:1px solid var(--border);border-top:3px solid var(--border-strong);border-radius:var(--radius,8px);padding:6px;background:var(--surface-1);min-width:0}" +
+    ".bu-col.ok{border-top-color:var(--ok)}.bu-col.bad{border-top-color:var(--crit)}" +
+    ".bu-ch{display:flex;justify-content:space-between;font-size:var(--fs-xs,11px);color:var(--text-2);font-weight:var(--fw-semi,600);margin:0 2px 4px}" +
+    ".bu-det{margin-top:var(--sp-3,12px);border:1px solid var(--border);border-radius:var(--radius,8px);padding:var(--sp-3,12px);background:var(--surface-2)}" +
+    ".bu-det-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.bu-det-h b{font-size:var(--fs-md,13px)}" +
+    ".bu-no{font-family:var(--font-mono,monospace);color:var(--text-2)}.bu-own{margin-left:auto;color:var(--text-2);font-size:var(--fs-xs,11px)}" +
+    ".bu-detail{color:var(--text-1);overflow-wrap:anywhere;font-size:var(--fs-sm,12px)}.bu-at{color:var(--text-3);font-size:var(--fs-xs,11px);margin:2px 0}" +
+    ".bu-rawh{font-size:var(--fs-xs,11px);color:var(--text-2);font-weight:var(--fw-semi,600);margin:8px 0 4px}.bu-none{color:var(--text-2);font-size:var(--fs-sm,12px)}" +
+    ".bu-empty{color:var(--text-2);padding:12px}" +
+    ".bu-demo{margin-top:8px}.bu-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:12px}" +
+    "@media (max-width:1100px){.bu-hero{grid-template-columns:1fr}.bu-kb{grid-template-columns:repeat(2,minmax(0,1fr))}.bu-two{grid-template-columns:1fr}}" +
+    "@media (max-width:560px){.bu-kb{grid-template-columns:1fr}.bu-own{margin-left:0}}";
   document.head.appendChild(css);
 
   NC.bringupScreen = show;
+  NC.bringupSelect = function (no) { S.step = no == null ? null : String(no); render(); };
   NC.bringupMock = { run: mockRun, racks: mockRacks, steps: STEPS };
   if (NC.bus) NC.bus.on("route", function (id) { return id === ROUTE ? show() : null; });
 })();

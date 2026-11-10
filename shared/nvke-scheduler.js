@@ -40,13 +40,33 @@
     ".ks-form label{display:flex;flex-direction:column;gap:2px;color:var(--muted)}" +
     ".ks-form input{width:90px}.ks-form input.w{width:130px}" +
     ".ks-log{font-size:11px;color:var(--muted);max-height:200px;overflow:auto;margin:6px 0 0;padding-left:18px}" +
-    ".ks-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:12px}";
+    ".ks-two{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}" +
+    ".ks-cl .kg-stack,.ks-cl .ks-st{margin:6px 0}" +
+    ".ks-q{display:inline-flex;gap:6px;align-items:center}.ks-qb{display:inline-block;width:64px;height:8px;border-radius:var(--radius-pill);background:var(--track);overflow:hidden}" +
+    ".ks-qb i{display:block;height:100%;background:var(--info)}.ks-qb i.o{background:var(--warn)}" +
+    ".ks-chip{display:inline-block;margin:1px 4px 1px 0;padding:1px 7px;border-radius:var(--radius-pill);border:1px solid var(--info-line);background:var(--info-bg);color:var(--info-text);font-size:var(--fs-2xs);white-space:nowrap}" +
+    ".ks-chip.ok{border-color:var(--ok-line);background:var(--ok-bg);color:var(--ok)}";
   document.head.appendChild(css);
 
   function meter(c) {
     var g = c.gpus || 1;
+    if (NC.kpi) {                                   /* v2 공유 컴포넌트: 누적 막대 + 텍스트 범례 */
+      var used = c.used_gpus || 0, fenced = c.fenced_gpus || 0;
+      return NC.kpi.stack([{ label: L("사용", "used"), value: used, tone: "info" },
+        { label: L("감축 차단", "fenced"), value: fenced, tone: "warn" },
+        { label: L("여유", "free"), value: Math.max(0, (c.gpus || 0) - used - fenced), tone: "ok" }],
+        { label: "GPU", total: c.gpus || 0 });
+    }
     return '<div class="ks-meter" role="img" aria-label="' + esc(L("사용 ", "used ") + c.used_gpus + "/" + c.gpus + " GPU") + '">' +
       '<i class="u" style="width:' + (100 * c.used_gpus / g) + '%"></i><i class="f" style="width:' + (100 * (c.fenced_gpus || 0) / g) + '%"></i></div>';
+  }
+  /* 큐 할당/쿼터 막대 (색 + 숫자 텍스트) */
+  function qbar(q) {
+    var cap = Math.max(q.quota_gpus || 0, q.allocated_gpus || 0, 1), p = Math.round(100 * (q.allocated_gpus || 0) / cap);
+    var over = (q.allocated_gpus || 0) > (q.quota_gpus || 0);
+    return '<span class="ks-q"><span class="ks-qb" role="img" aria-label="' + esc(L("할당 ", "allocated ") + q.allocated_gpus + " / " + L("쿼터 ", "quota ") +
+      q.quota_gpus + " GPU" + (over ? L(" · 쿼터 초과", " · over quota") : "")) + '"><i class="' + (over ? "o" : "") + '" style="width:' + p + '%"></i></span>' +
+      '<span class="tabnum">' + q.allocated_gpus + "</span></span>";
   }
 
   async function render() {
@@ -94,7 +114,7 @@
       L("공정 몫", "Fair share") + "</th><th>" + L("할당", "Allocated") + "</th><th>" + L("실행/대기", "Run/Wait") + "</th></tr></thead><tbody>" +
       qs.map(function (q) {
         return "<tr><td class='id'>" + esc(q.name) + "</td><td>" + q.priority + "</td><td>" + q.quota_gpus + "</td><td>" +
-          (q.limit_gpus < 0 ? "∞" : q.limit_gpus) + "</td><td>" + esc(q.fair_share_gpus) + "</td><td>" + q.allocated_gpus +
+          (q.limit_gpus < 0 ? "∞" : q.limit_gpus) + "</td><td>" + esc(q.fair_share_gpus) + "</td><td>" + qbar(q) +
           "</td><td>" + q.workloads.running + " / " + q.workloads.pending + "</td></tr>";
       }).join("") + "</tbody></table></div>" +
       '<form class="ks-form" data-ks-form="queue" aria-label="' + L("큐 만들기", "Create queue") + '">' +
@@ -109,8 +129,9 @@
       "</th><th>" + L("배치", "Placement") + "</th><th>" + L("사유", "Reason") + "</th><th></th></tr></thead><tbody>" +
       (wl.filter(function (w) { return w.state !== "Completed"; }).map(function (w) {
         var pl = w.placement || {};
-        var where = pl.clique_count ? (pl.cliques || []).map(function (c) { return esc(c.rack) + " (" + c.gpus + ")"; }).join(", ") +
-          (pl.single_clique ? " · " + L("단일 클리크", "single clique") : "") : "—";
+        var where = pl.clique_count ? (pl.cliques || []).map(function (c) {
+          return '<span class="ks-chip">' + esc(c.rack) + " · " + c.gpus + " GPU</span>"; }).join("") +
+          (pl.single_clique ? '<span class="ks-chip ok">✓ ' + L("단일 클리크", "single clique") + "</span>" : "") : "—";
         return "<tr><td class='id'>" + esc(w.name) + '<div style="color:var(--muted);font-size:10.5px">' + esc(w.kind) + " · " + w.pods +
           L(" 파드", " pods") + "</div></td><td>" + esc(w.queue) + "</td><td>" + w.gpus + (w.over_quota ? ' <span class="st blue">' +
           L("쿼터 초과", "over quota") + "</span>" : "") + "</td><td>" + esc(w.priority_class) + (w.preemptible ? "" : ' <span class="st blue">' +

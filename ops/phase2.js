@@ -59,7 +59,7 @@
     s = String(s == null ? "—" : s);
     var c = /fail|error|breach|crit|outage/i.test(s) ? "red"
       : /active|running|bringup|validating|scheduled|degraded|pending/i.test(s) ? "amber"
-      : /ok|ready|done|sellable|resolved|restored|passed|true|operational/i.test(s) ? "green" : "blue";
+      : /ok|ready|done|sellable|resolved|restored|passed|true|operational|complet/i.test(s) ? "green" : "blue";
     return '<span class="st ' + c + '">' + esc(s) + "</span>";
   }
   function table(cols, rows) {
@@ -82,6 +82,17 @@
     ".p2-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}" +
     ".p2-col{border:1px solid var(--line);border-radius:8px;padding:8px;min-height:80px}.p2-col h4{margin:0 0 6px;font-size:11.5px}" +
     ".p2-card{border:1px solid var(--line-soft);border-radius:6px;padding:5px 6px;margin-bottom:5px;font-size:11px}" +
+    ".p2-tiles{margin-bottom:14px}.p2-col.bad{border-color:var(--crit-line);background:var(--crit-bg)}" +
+    ".fw-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}.fw-card{border:1px solid var(--border);border-radius:var(--radius-lg);padding:10px 12px;background:var(--surface-2)}" +
+    ".fw-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}.fw-h b{font-size:var(--fs-md)}.fw-k{font-size:var(--fs-xs);color:var(--text-2);margin-bottom:4px}" +
+    ".mono{font-family:var(--font-mono)}" +
+    ".at-grid{list-style:none;margin:0 0 10px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px}" +
+    ".at-t{display:grid;grid-template-columns:22px 1fr;column-gap:6px;align-items:center;border:1px solid var(--ok-line);background:var(--ok-bg);border-radius:var(--radius);padding:6px 8px;font-size:var(--fs-xs)}" +
+    ".at-t.bad{border-color:var(--crit);background:var(--crit-bg);box-shadow:inset 3px 0 0 var(--crit)}" +
+    ".at-i{grid-row:span 3;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:var(--fw-bold);color:var(--ok);box-shadow:inset 0 0 0 2px var(--ok)}" +
+    ".at-t.bad .at-i{background:var(--crit);color:var(--on-crit);box-shadow:none}" +
+    ".at-n{font-family:var(--font-mono);color:var(--text-1);font-weight:var(--fw-semi)}.at-s{color:var(--text-1)}.at-d{color:var(--text-2)}" +
+    ".at-more summary{cursor:pointer;font-size:var(--fs-sm);color:var(--text-2);margin:4px 0}" +
     ".p2-demo ol{margin:6px 0 0;padding-left:18px;font-size:11.5px}.p2-demo li{margin:3px 0}" +
     ".p2-demo pre{white-space:pre-wrap;word-break:break-all;font-size:10.5px;background:var(--track);padding:6px;border-radius:6px;max-height:160px;overflow:auto}" +
     ".p2-metrics pre{white-space:pre;overflow:auto;max-height:360px;font-size:10.5px;background:var(--track);padding:8px;border-radius:6px}";
@@ -207,58 +218,102 @@
   }
 
   var PIPE = ["planned", "installed", "bringup", "validating", "sellable", "failed"];
+  var PIPE_KO = { planned: "계획", installed: "설치", bringup: "bring-up", validating: "검증", sellable: "판매 가능", failed: "실패" };
+  /* v2 디자인 공통: 공유 컴포넌트(NC.flow · NC.kpi)가 없으면(노드 테스트 등) 기존 KPI 띠로 대체 */
+  function tiles(items) {
+    if (!NC.kpi) return '<div class="kpi-band">' + items.map(function (t) { return kpi(t.label, esc(t.value), t.sub || "", t.cls); }).join("") + "</div>";
+    return '<div class="p2-tiles">' + NC.kpi.grid(items.map(function (t) { return t.gauge ? NC.kpi.gauge(t.gauge) : NC.kpi.stat(t); }), { min: 170 }) + "</div>";
+  }
   async function pipeline() {
     var r = await api("GET", "/api/v1/dcim/racks");
     var live = ok(r);
     var racks = live ? (r.data.results || r.data.racks || []) : MOCK.racks;
+    var by = {};
+    PIPE.forEach(function (p) { by[p] = racks.filter(function (x) { return (x.state || (x.status && x.status.value)) === p; }); });
+    var flow = NC.flow ? NC.flow.timeline(PIPE.map(function (p) {
+      var n = by[p].length;
+      return { id: p, label: PIPE_KO[p], sub: "랙 {n}".replace("{n}", n),
+        status: !n ? "pending" : p === "failed" ? "fail" : p === "sellable" ? "done" : "active" };
+    }), { orientation: "horizontal", numbered: false, ariaLabel: "랙 상태 흐름" }) : "";
     var cols = PIPE.map(function (p) {
-      var xs = racks.filter(function (x) { return (x.state || (x.status && x.status.value)) === p; });
-      return '<div class="p2-col"><h4>' + st(p) + " " + xs.length + "</h4>" + xs.map(function (x) {
-        return '<div class="p2-card"><b>' + esc(x.id) + "</b><br>" + esc(x.serial || "") + " · " + esc(x.site || "") +
+      var xs = by[p];
+      return '<div class="p2-col' + (p === "failed" && xs.length ? " bad" : "") + '"><h4>' + st(p) + " " + xs.length + "</h4>" + xs.map(function (x) {
+        return '<div class="p2-card"><b>' + esc(x.id) + "</b><br>" + esc(x.serial || "") + " · " + esc((x.site && x.site.slug) || x.site || "") +
           ' <a href="#/bringup">15단계 보기</a></div>';
       }).join("") + "</div>";
     }).join("");
     return '<div class="filters" style="margin-bottom:14px">' + badge(live, "/api/v1/dcim/racks") + "</div>" +
-      '<div class="kpi-band">' + kpi("등록 랙", fmt(racks.length), "DCIM") +
-      kpi("판매 가능", fmt(racks.filter(function (x) { return x.state === "sellable"; }).length), "", "green") +
-      kpi("실패", fmt(racks.filter(function (x) { return x.state === "failed"; }).length), "", "red") + "</div>" +
-      panel("bring-up 파이프라인", "planned → installed → bringup → validating → sellable | failed", '<div class="p2-cols">' + cols + "</div>") +
+      tiles([{ label: "등록 랙", value: racks.length, sub: "DCIM" },
+        { label: "판매 가능", value: by.sellable.length, cls: "green" },
+        { label: "실패", value: by.failed.length, cls: "red", sub: by.failed.length ? "04 케이블 검증 등 — 15단계 보기" : null }]) +
+      panel("bring-up 파이프라인", "planned → installed → bringup → validating → sellable | failed",
+        flow + '<div class="p2-cols">' + cols + "</div>") +
       demoBox("p2-pipeline");
   }
 
+  var FW_KO = { bmc: "BMC (iDRAC)", bf: "BlueField DPU", gpu: "GPU", cx: "ConnectX NIC", nvswitch: "NVSwitch" };
   async function firmware() {
     var b = await api("GET", "/api/v1/firmware/bundles");
     var p = await api("GET", "/api/v1/firmware/plans");
     var live = ok(b);
     var bd = live ? b.data : MOCK.bundles, pl = ok(p) ? p.data : (live ? { plans: [] } : MOCK.plans);
+    var order = bd.apply_order || [];
+    var cards = (bd.bundles || []).map(function (x) {
+      var c = x.components || {}, ord = x.apply_order || order;
+      var flow = NC.flow ? NC.flow.timeline(ord.map(function (k) {
+        return { id: k, label: FW_KO[k] || k, sub: c[k] || "—", status: "done" };
+      }), { orientation: "horizontal", ariaLabel: "적용 순서 {v}".replace("{v}", x.version) }) : "";
+      return '<li class="fw-card"><div class="fw-h"><b class="mono">' + esc(x.version) + "</b>" +
+        (x.default ? '<span class="st green">기본 번들</span>' : "") +
+        (x.created_at ? '<span class="p2-path">' + esc(String(x.created_at).slice(0, 16).replace("T", " ")) + "</span>" : "") + "</div>" +
+        '<div class="fw-k">적용 순서 (nvfwupd형 · Redfish SimpleUpdate)</div>' + flow + "</li>";
+    }).join("");
+    var plans = pl.plans || [];
+    var rows = plans.map(function (x) {
+      var hosts = typeof x.hosts === "number" ? x.hosts : (x.hosts || []).length;
+      var targets = x.targets != null ? x.targets : hosts, skipped = x.skipped || 0;
+      var state = x.status || x.state;
+      var bar = NC.flow ? NC.flow.progress(/complet|done/.test(state) ? targets : 0, targets || 1,
+        { label: "대상 {n}대 · 제외 {s}대".replace("{n}", targets).replace("{s}", skipped), tone: /fail/.test(state) ? "fail" : null }) : "";
+      return [esc(x.id), esc(x.rack), '<span class="mono">' + esc(x.bundle) + "</span>", esc(x.window || "—"), bar, st(state)];
+    });
     return '<div class="filters" style="margin-bottom:14px">' + badge(live, "/api/v1/firmware/bundles · plans") + "</div>" +
-      panel("펌웨어 번들 (nvfwupd형)", "BMC → BF → GPU · " + esc((bd.apply_order || []).join(" → ")),
-        table(["버전", "BMC", "BlueField", "GPU", "NVSwitch", "ConnectX"], (bd.bundles || []).map(function (x) {
-          var c = x.components || {};
-          return [esc(x.version), esc(c.bmc), esc(c.bf), esc(c.gpu), esc(c.nvswitch), esc(c.cx)];
-        }))) +
-      panel("적용 계획 (유휴 호스트만)", "", table(["ID", "랙", "번들", "상태"], (pl.plans || []).map(function (x) {
-        return [esc(x.id), esc(x.rack), esc(x.bundle), st(x.state)];
-      }))) + demoBox("p2-firmware");
+      tiles([{ label: "번들", value: (bd.bundles || []).length, sub: order.join(" → ") },
+        { label: "롤아웃 계획", value: plans.length },
+        { label: "완료", value: plans.filter(function (x) { return /complet|done/.test(x.status || x.state); }).length, cls: "green" }]) +
+      panel("펌웨어 번들 (nvfwupd형)", "BMC → BF → GPU · " + esc(order.join(" → ")),
+        '<ul class="fw-list">' + (cards || "<li>—</li>") + "</ul>") +
+      panel("적용 계획 (유휴 호스트만)", "테넌트 사용 중 호스트는 자동 제외",
+        table(["ID", "랙", "번들", "작업 창", "진행", "상태"], rows)) + demoBox("p2-firmware");
   }
 
   async function attest() {
-    var rack = S.rack, rows = [], live = null;
+    var rack = S.rack, rows = [], tiles18 = [], live = null;
     for (var t = 0; t < 18; t++) {
       var host = "nh-" + rack + "-tray-" + (t < 10 ? "0" : "") + t;
       var r = live === false ? null : await api("GET", "/fake-nico/hosts/" + host + "/attestation");
       if (live === null) live = ok(r);                 /* 첫 응답으로 라이브/mock 결정 */
       var a = live && ok(r) ? r.data : { attested: t !== 4, measured_boot: t === 4 ? "failed" : "passed",
-        tpm: { 0: "-", 7: "-" }, source: "mock" };
-      rows.push([esc(host), st(a.attested === false ? "failed" : "passed"), esc(a.measured_boot),
+        tpm: { 0: "-", 7: "-" }, dpu: { state: "VALID" }, source: "mock" };
+      var good = a.attested !== false;
+      rows.push([esc(host), st(good ? "passed" : "failed"), esc(a.measured_boot),
         fmt(Object.keys(a.tpm || a.pcrs || {}).length), esc(a.source)]);
+      tiles18.push('<li class="at-t ' + (good ? "ok" : "bad") + '"><span class="at-i" aria-hidden="true">' + (good ? "✓" : "✕") + "</span>" +
+        '<span class="at-n">tray-' + (t < 10 ? "0" : "") + t + "</span><span class=\"at-s\">" + esc(good ? "증명됨" : "증명 실패") + "</span>" +
+        '<span class="at-d">DPU ' + esc((a.dpu && a.dpu.state) || "—") + "</span></li>");
     }
     var bad = rows.filter(function (r) { return /failed/.test(r[1]); }).length;
+    var pct = rows.length ? Math.round((rows.length - bad) / rows.length * 1000) / 10 : 0;
     return '<div class="filters" style="margin-bottom:14px">' + badge(live, "/fake-nico/hosts/{id}/attestation") +
       '<span class="rt"><label for="p2-rack">랙</label> <input id="p2-rack" value="' + esc(rack) + '" style="width:130px"> ' +
       '<button type="button" class="btn-ghost" id="p2-rack-go">조회</button></span></div>' +
-      '<div class="kpi-band">' + kpi("트레이", fmt(rows.length), "") + kpi("증명 실패", fmt(bad), "", bad ? "red" : "green") + "</div>" +
-      panel("measured boot · TPM · DPU 증명", "NICo measured-boot", table(["호스트", "증명", "measured boot", "PCR", "출처"], rows)) +
+      tiles([{ gauge: { label: "증명 통과율", value: pct, min: 0, max: 100, target: 100, unit: "%", digits: 1, size: 140 } },
+        { label: "트레이", value: rows.length, sub: rack }, { label: "증명 실패", value: bad, cls: bad ? "red" : "green",
+          sub: bad ? "격리 — 판매 재고 제외" : "모두 통과" }]) +
+      panel("measured boot · TPM · DPU 증명", "NICo measured-boot · SPDM · 트레이 18개",
+        '<ul class="at-grid" aria-label="트레이별 증명 상태">' + tiles18.join("") + "</ul>" +
+        '<details class="at-more"><summary>PCR · 출처 상세 표</summary>' +
+        table(["호스트", "증명", "measured boot", "PCR", "출처"], rows) + "</details>") +
       demoBox("p2-attest");
   }
 
