@@ -631,3 +631,120 @@ test("obs-rack heatmap scales to MaxP 227 kW (not the 187 kW MaxQ cap)", () => {
   assert.match(s, /OBS_RACK_MAXP_KW = 227/);
   assert.doesNotMatch(s, /it_power_kw \|\| 0\) \/ 187/);
 });
+
+/* ── 디자인 시스템 · 접근성 (DESIGN-REVIEW.md §6 phase 2) ───────────────── */
+const stripComments = css => css.replace(/\/\*[\s\S]*?\*\//g, "");
+const defined = css => new Set([...stripComments(css).matchAll(/(--[\w-]+)\s*:/g)].map(m => m[1]));
+
+test("design: every console loads tokens.css before shell.css before blueprint.css", () => {
+  for (const p of ["ops/index.html", "customer/index.html", "biz/index.html"]) {
+    const h = read(p);
+    const t = h.indexOf("shared/tokens.css"), s = h.indexOf("shared/shell.css"), b = h.indexOf("shared/blueprint.css");
+    assert.ok(t > 0 && t < s && s < b, p);
+  }
+});
+
+test("design: tokens.css defines both themes, primitives survive comment parsing, no self-referencing token", () => {
+  const css = read("shared/tokens.css");
+  const d = defined(css);
+  for (const k of ["--p-ink-950", "--surface-0", "--text-3", "--ok", "--warn", "--crit", "--info", "--leak",
+                   "--live", "--mock", "--focus", "--chart-1", "--fs-xs", "--sp-4", "--muted2", "--amber"]) assert.ok(d.has(k), k);
+  assert.match(css, /body\[data-design="blueprint"\]\{/);
+  assert.match(css, /body\[data-design="legacy"\]\{/);
+  for (const f of ["shared/tokens.css", "shared/blueprint.css", "shared/shell.css", "ops/mk8s.css"]) {
+    for (const m of stripComments(read(f)).matchAll(/(--[\w-]+)\s*:\s*var\((--[\w-]+)\)/g))
+      assert.notEqual(m[1], m[2], `${f}: ${m[1]} references itself`);
+  }
+});
+
+test("design: day theme AA tokens (no #8c9ab2 tertiary text, amber remapped)", () => {
+  const css = stripComments(read("shared/tokens.css"));
+  const day = css.slice(css.indexOf('body[data-design="blueprint"]{'));
+  assert.doesNotMatch(css + read("shared/blueprint.css").replace(/\/\*[\s\S]*?\*\//g, "").slice(0, 2000), /--mu2:#8c9ab2/);
+  assert.match(css, /--amber:var\(--warn\)/);
+  assert.match(day, /--warn:var\(--p-amber-700\)/);
+});
+
+test("design: every var(--x) used by shell.css and tokens.css is defined in tokens.css", () => {
+  const d = defined(read("shared/tokens.css"));
+  for (const f of ["shared/shell.css", "shared/tokens.css"]) {
+    for (const m of stripComments(read(f)).matchAll(/var\((--[\w-]+)/g)) assert.ok(d.has(m[1]), `${f}: ${m[1]}`);
+  }
+});
+
+test("design: no hex colour literals in shell.css or customer/biz JS; blueprint.css hex ratchet", () => {
+  const hex = s => (stripComments(s).match(/#[0-9a-fA-F]{3,8}\b/g) || []).length;
+  assert.equal(hex(read("shared/shell.css")), 0);
+  assert.equal(hex(read("customer/app.js")), 0);
+  assert.equal(hex(read("biz/app.js")), 0);
+  assert.ok(hex(read("shared/blueprint.css")) <= 91, "blueprint.css hex count must not grow (ratchet down)");
+});
+
+test("design: no external font/CDN @import (CSP style-src 'self')", () => {
+  for (const f of ["shared/tokens.css", "shared/shell.css", "shared/blueprint.css", "ops/mk8s.css",
+                   "ops/index.html", "customer/index.html", "biz/index.html"]) {
+    const s = read(f);
+    assert.doesNotMatch(s, /fonts\.googleapis|@import\s+url\(\s*['"]?https?:/, f);
+  }
+});
+
+test("design: no text under 11px in shared CSS and console markup", () => {
+  for (const f of ["shared/shell.css", "shared/blueprint.css", "ops/mk8s.css", "ops/index.html",
+                   "customer/index.html", "biz/index.html", "ops/app.js", "customer/app.js", "biz/app.js"]) {
+    // 예외: 20px 히트맵 셀 안의 글리프(.obs-hm .hc · .cell.off) — 범례·툴팁이 같은 정보를 11px 이상으로 제공
+    const lines = read(f).split("\n").filter(l => !/^\.obs-hm \.hc\{|^\.cell\.off\{/.test(l));
+    assert.doesNotMatch(lines.join("\n"), /font-size:\s?(?:[0-9]|10)(?:\.\d+)?px/, f);
+  }
+});
+
+test("a11y: global :focus-visible ring, no bare outline:none, reduced-motion guard", () => {
+  const t = read("shared/tokens.css");
+  assert.match(t, /:focus-visible\{[^}]*outline:var\(--focus-w\) solid var\(--focus\)/);
+  assert.match(t, /prefers-reduced-motion:reduce/);
+  assert.doesNotMatch(read("ops/index.html"), /outline:none/);
+});
+
+test("a11y: landmarks — <main id=nc-main>, skip link, h1 breadcrumb, labelled sidebar on all consoles", () => {
+  for (const p of ["ops/index.html", "customer/index.html", "biz/index.html"]) {
+    const h = read(p);
+    assert.match(h, /<main class="content" id="nc-main"/, p);
+    assert.equal((h.match(/<main\b/g) || []).length, 1, p);
+    assert.match(h, /<a class="skip-link" href="#nc-main">/, p);
+    assert.match(h, /<h1 class="crumb"/, p);
+    assert.match(h, /<aside class="sb" id="nc-sidebar" aria-label=/, p);
+  }
+  // mk8s 내부 루트는 <main> 이 아니다 (중첩 main 금지, id="main" 은 mk8s 전용)
+  assert.doesNotMatch(read("ops/mk8s.js"), /<main class="main"/);
+});
+
+test("a11y: theme and language toggles are buttons with aria-pressed", () => {
+  for (const f of ["shared/design-mode.js", "shared/i18n.js"]) {
+    const s = read(f);
+    assert.match(s, /<button type="button" data-(dm|lang)=/, f);
+    assert.match(s, /aria-pressed/, f);
+  }
+});
+
+test("a11y: shared keyboard activation, aria-current, live region, mobile drawer", () => {
+  const s = read("shared/app.js");
+  assert.match(s, /NC\.a11y = function/);
+  assert.match(s, /e\.key !== "Enter" && e\.key !== " "/);
+  for (const sel of [".chip", ".scope-chip", ".hm-cell", ".obs-hm .hc", ".mh .x", "tr.click", "[onclick]"])
+    assert.ok(s.includes(`"${sel}"`), sel);
+  assert.match(s, /aria-current", "page"/);
+  assert.match(s, /aria-live", "polite"/);
+  assert.match(s, /className = "sb-toggle"/);
+  assert.match(s, /aria-expanded/);
+  const css = read("shared/shell.css");
+  assert.match(css, /@media \(max-width:767px\)\{[\s\S]*body\.sb-open \.sb\{/);
+  assert.match(css, /\.grid,[^{]*\{grid-template-columns:1fr!important\}/);
+});
+
+test("design: one badge system — obs-src live/mock alias the shared badge tokens", () => {
+  const css = read("shared/shell.css");
+  assert.match(css, /\.nc-badge\.live,\.src-badge\.live,\.obs-src\.live\{color:var\(--live\)/);
+  assert.match(css, /\.nc-badge\.mock,\.src-badge\.mock,\.obs-src\.mock\{color:var\(--mock\)/);
+  assert.doesNotMatch(read("ops/index.html"), /\.obs-src\.mock\{/);
+  for (const k of ["본문으로 건너뛰기", "메뉴 열기/닫기", "주간 모드", "야간 모드", "화면 테마", "언어"])
+    assert.ok(read("shared/i18n-dict.js").includes(`"${k}"`), k);
+});

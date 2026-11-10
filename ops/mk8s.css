@@ -18,7 +18,7 @@
   --line:var(--border); --line-soft:var(--border-soft);
   --bg:var(--surface-0); --panel:var(--surface-1); --panel-sub:var(--surface-2); --strip:var(--surface-3);
   --sidebar:var(--surface-nav); --topbar:var(--surface-top); --line-sidebar:var(--border-nav);
-  --menu-act:var(--accent-soft); --menu-hover:var(--surface-nav-hover); --dot-off:var(--border-strong); --track:var(--track);
+  --menu-act:var(--accent-soft); --menu-hover:var(--surface-nav-hover); --dot-off:var(--border-strong);
   --u0:#223142; --u1:#173350; --u2:#22507c; --u3:#2f6ea8; --u4:#3d8ad0; --u5:#5aa7e8;
   --hm-ok:#3e6b12; --hm-prov:#28425e; --seg-off:#3a4a5c;
   --glyph-w:#fff; --glyph-d:#241c05;
