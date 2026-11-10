@@ -1217,6 +1217,7 @@ window.NC_I18N.dict = Object.assign(window.NC_I18N.dict, {
   "RMA · 펌웨어": "RMA · firmware",
   "미터링 · 격리": "Metering · isolation",
   "DSX OS 버전 매트릭스": "DSX OS version matrix",
+  "KAI 스케줄러 · 큐": "KAI scheduler · queues",
   "● NOCP 라이브": "● NOCP live",
   "◌ NOCP 미연동 — mock": "◌ NOCP not connected — mock",
   "● AI Infra Twin 라이브 (NOCP 경유)": "● AI Infra Twin live (via NOCP)",

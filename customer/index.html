@@ -403,7 +403,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
 
       <!-- ════════ 클러스터 ════════ -->
       <!-- DSX OS — 상품 선택(BMaaS / NVKE) · NVKE 마법사 · kubeconfig · 업그레이드 · 사용량 (customer/nvke.js) -->
-      <section data-screen="nvke"><div id="nvke-root"></div></section>
+      <section data-screen="nvke"><div id="nvke-root"></div><div id="nvke-sched-root"></div></section>
       <section data-screen="clusters">
         <!-- IF-08 Fulfillment 진행 스테퍼 — 진행 중 주문 존재 시 3s 폴링 렌더 -->
         <div id="fulfill-wrap"></div>
@@ -866,6 +866,8 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
 
       <!-- ════════ 마켓플레이스 (P2) ════════ -->
       <section data-screen="marketplace">
+        <!-- F32 모델 카탈로그·원클릭 배포 (customer/marketplace.js) — live이면 아래 P2 mock 카드는 숨김 -->
+        <div id="mkt-root"></div>
         <div class="p2strip"><span class="p2tag">P2 프리뷰</span>
           <span>AI 프레임워크 · NIM 컨테이너 · 모델 템플릿을 원클릭 배포하는 마켓플레이스 로드맵 화면입니다 — 아래 카탈로그는 mock 데이터 (Control-Plane 미연동 · P2 범위).</span></div>
         <div class="mkt">
@@ -1185,6 +1187,9 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
 <script src="../shared/nocp-api.js"></script>
 <script src="../shared/dsx-api.js"></script>
 <script src="nvke.js"></script>
+<script src="../shared/sched-market-api.js"></script>
+<script src="../shared/nvke-scheduler.js"></script>
+<script src="marketplace.js"></script>
 <script>/* ⌘K 팔레트 엔티티 → 고객 콘솔 라우트 매핑 (palette.js 로드 전 정의 필수 —
    기본값 order:"provisioning"·host:"assets"는 이 콘솔에 없는 라우트) */
 window.NC_PALETTE_ROUTES = { tenant: "dashboard", order: "clusters",
