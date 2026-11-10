@@ -302,6 +302,7 @@ section[data-screen="mk8s"]{margin:0}
       <a class="mi" href="#/dsx-metering" data-route="dsx-metering"><span class="dot"></span>미터링 · 격리</a>
       <a class="mi" href="#/dsx-versions" data-route="dsx-versions"><span class="dot"></span>DSX OS 버전 매트릭스</a>
       <a class="mi" href="#/nvke-capi" data-route="nvke-capi"><span class="dot"></span>NVKE CAPI · 토폴로지</a>
+      <a class="mi" href="#/nvke-sched" data-route="nvke-sched"><span class="dot"></span>KAI 스케줄러 · 큐</a>
       <!-- Phase 2 운영 견고화 · 그리드 — ops/phase2.js -->
       <div class="sb-grp">운영 견고화 · 그리드</div>
       <a class="mi" href="#/p2-grid" data-route="p2-grid"><span class="dot"></span>그리드 이벤트 · 감축</a>
@@ -1045,6 +1046,8 @@ section[data-screen="mk8s"]{margin:0}
       </section>
       <!-- F11 NVKE CAPI·CAPNICo 상태 · 클리크 · IMEX (shared/nvke-topology.js) -->
       <section data-screen="nvke-capi"><div id="nvke-capi-root"></div></section>
+      <!-- F30 KAI 스케줄러 큐·갱·클리크 배치 (shared/nvke-scheduler.js) -->
+      <section data-screen="nvke-sched"><div id="nvke-sched-ops-root"></div></section>
 
       <!-- ════════ ⑬ OBS — 종합 상황판 ════════ -->
       <section data-screen="obs-overview">
@@ -1617,6 +1620,8 @@ section[data-screen="mk8s"]{margin:0}
 <script src="phase2.js"></script>
 <script src="app.js"></script>
 <script src="../shared/nvke-topology.js"></script>
+<script src="../shared/sched-market-api.js"></script>
+<script src="../shared/nvke-scheduler.js"></script>
 <script src="mk8s.js"></script><!-- Managed K8S 목업 (인라인 · iframe 없음 · 내부 라우터) -->
 <script>
 /* ── Managed K8S — portal-mockup 인라인 통합 (iframe 제거) ──
