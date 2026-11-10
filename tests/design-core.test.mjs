@@ -204,3 +204,10 @@ test("IA: every Korean string in menus and highlight cards has an EN dictionary 
 test("v2-design.css uses tokens only", () => {
   assert.doesNotMatch(read("shared/v2-design.css"), /#[0-9a-f]{3,6}\b/i);
 });
+
+test("component gallery page loads the three components with CSP and day/night/KO/EN controls", () => {
+  const s = read("shared/components.html");
+  for (const f of ["flow-timeline.js", "kpi-gauge.js", "msg-viewer.js", "tokens.css", "design-mode.js"]) assert.ok(s.includes(`src="${f}"`) || s.includes(`href="${f}"`), f);
+  assert.match(s, /Content-Security-Policy/); assert.match(s, /id="nc-main"/);
+  assert.match(s, /data-cg-lang="en"/); assert.match(s, /data-cg-theme="legacy"/);
+});

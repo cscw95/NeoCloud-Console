@@ -146,7 +146,7 @@
     ".ft-hit{display:flex;gap:var(--sp-2);align-items:flex-start;width:100%;text-align:left;background:none;border:0;color:inherit;font:inherit;padding:var(--sp-1);border-radius:var(--radius-sm)}" +
     "button.ft-hit{cursor:pointer}button.ft-hit:hover{background:var(--surface-hover)}" +
     ".ft-step.sel>.ft-hit{background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent-line)}" +
-    ".ft-node{flex:0 0 var(--ft-node);height:var(--ft-node);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:calc(var(--ft-fs) - 1px);font-weight:var(--fw-bold);border:2px solid var(--border-strong);color:var(--text-2);background:var(--surface-1);position:relative;z-index:1}" +
+    ".ft-node{flex:0 0 var(--ft-node);width:var(--ft-node);height:var(--ft-node);box-sizing:border-box;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:calc(var(--ft-fs) - 1px);font-weight:var(--fw-bold);border:2px solid var(--border-strong);color:var(--text-2);background:var(--surface-1);position:relative;z-index:1}" +
     ".ft-step.done .ft-node{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}" +
     ".ft-step.active .ft-node{border-color:var(--info);background:var(--info);color:var(--on-info)}" +
     ".ft-step.fail .ft-node{border-color:var(--crit);background:var(--crit-bg);color:var(--crit)}" +
