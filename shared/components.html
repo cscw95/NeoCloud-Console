@@ -1,0 +1,102 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NeoCloud — v2 공유 컴포넌트</title>
+<!-- v2 공유 컴포넌트 갤러리 (design-core) — V2-DESIGN-COMPONENTS.md 의 예시를 그대로 그린다. 영역 작업자 참고용 · 시각 회귀 확인용. -->
+<link rel="stylesheet" href="tokens.css"><link rel="stylesheet" href="shell.css"><link rel="stylesheet" href="v2-design.css"><link rel="stylesheet" href="blueprint.css">
+<style>
+body{background:var(--bg);color:var(--text)}
+.cg{max-width:1200px;margin:0 auto;padding:24px 16px 60px}
+.cg h1{font-size:var(--fs-xl);margin:0 0 4px;color:var(--text-strong)}
+.cg .lead{color:var(--text-2);margin:0 0 16px}
+.cg-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.cg-bar button{font:inherit;font-size:var(--fs-sm);padding:4px 12px;min-height:32px;border:1px solid var(--border-strong);background:var(--surface-1);color:var(--text-1);border-radius:var(--radius);cursor:pointer}
+.cg-bar button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.cg .panel{margin-bottom:16px}
+.cg h2.t{font-size:inherit;margin:0;display:inline}
+.cg-out{color:var(--text-2);font-size:var(--fs-sm);margin-top:8px}
+</style></head>
+<body>
+<script src="design-mode.js"></script>
+<script src="i18n-dict.js"></script><script src="i18n-design.js"></script><script src="i18n.js"></script>
+<main class="cg" id="nc-main">
+  <h1 id="cg-title"></h1><p class="lead" id="cg-lead"></p>
+  <div class="cg-bar" role="group" aria-label="언어 · 테마">
+    <button type="button" data-cg-lang="ko">KO</button><button type="button" data-cg-lang="en">EN</button>
+    <button type="button" data-cg-theme="blueprint">☀</button><button type="button" data-cg-theme="legacy">☾</button>
+  </div>
+  <div id="cg-root"></div>
+</main>
+<script src="flow-timeline.js"></script><script src="kpi-gauge.js"></script><script src="msg-viewer.js"></script>
+<script>
+(function () {
+  var lang = "ko";
+  try { lang = localStorage.getItem("nc-lang") === "en" ? "en" : "ko"; } catch (e) { /* 저장소 없음 */ }
+  function L(ko, en) { return lang === "en" ? en : ko; }
+  function setLang(l) { lang = l; NC.flow._lang = NC.kpi._lang = NC.msg._lang = l; try { localStorage.setItem("nc-lang", l); } catch (e) { /* 무시 */ } draw(); }
+  function panel(t, body) { return '<section class="panel" aria-label="' + t + '"><div class="ph"><span class="tick"></span><h2 class="t">' + t + "</h2></div>" + body + "</section>"; }
+  var trace = { method: "POST", url: "http://127.0.0.1:8000/v1/chat/completions", at: "2026-11-11T09:00:03Z",
+    req_headers: { "Content-Type": "application/json", Authorization: "Bearer sk-nc-demo-0123456789" },
+    req_body: JSON.stringify({ model: "llama-3.1-70b", stream: false, messages: [{ role: "user", content: "안녕하세요 — it's a test" }] }),
+    status: 200, res_headers: { "content-type": "application/json", "x-request-id": "req_8f2c", "x-ratelimit-remaining-tokens": "98210" },
+    res_body: JSON.stringify({ id: "chatcmpl-8f2c", object: "chat.completion", model: "llama-3.1-70b", choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: "안녕하세요!" } }],
+      usage: { prompt_tokens: 18, completion_tokens: 6, total_tokens: 24, prompt_tokens_details: { cached_tokens: 12 } } }) };
+  var t429 = { request: { method: "POST", path: "/v1/chat/completions", headers: { Authorization: "Bearer sk-nc-demo-0123456789" }, body: { model: "llama-3.1-70b" } },
+    response: { status: 429, headers: { "retry-after": "2" }, body: { error: { message: "Rate limit reached", type: "rate_limit_error", code: "rate_limit_exceeded" } }, summary: L("쿼터 초과 → 429 + Retry-After", "Quota exceeded → 429 + Retry-After") } };
+  function draw() {
+    if (window.NC_I18N && NC_I18N.lang) { /* 페이지 고정 문구는 L() 로 직접 그린다 */ }
+    document.documentElement.lang = lang;
+    document.title = L("NeoCloud — v2 공유 컴포넌트", "NeoCloud — v2 shared components");
+    document.getElementById("cg-title").textContent = L("v2 공유 컴포넌트", "v2 shared components");
+    document.getElementById("cg-lead").textContent = L("NC.flow · NC.kpi · NC.msg — V2-DESIGN-COMPONENTS.md 예시", "NC.flow · NC.kpi · NC.msg — examples from V2-DESIGN-COMPONENTS.md");
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cg-lang]"), function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-cg-lang") === lang ? "true" : "false"); });
+    var th = document.body.getAttribute("data-design");
+    Array.prototype.forEach.call(document.querySelectorAll("[data-cg-theme]"), function (b) {
+      b.setAttribute("aria-pressed", b.getAttribute("data-cg-theme") === th ? "true" : "false");
+      b.setAttribute("aria-label", b.getAttribute("data-cg-theme") === "blueprint" ? L("주간", "Day") : L("야간", "Night"));
+    });
+    var steps = [
+      { id: "signup", label: { ko: "가입", en: "Sign up" }, status: "done", at: "2026-11-11T09:00:00" },
+      { id: "contract", label: { ko: "계약", en: "Contract" }, status: "done", sub: { ko: "약정 4랙", en: "4 reserved racks" } },
+      { id: "accept", label: { ko: "인수", en: "Acceptance" }, status: "active", sub: { ko: "인수 검증 중", en: "Acceptance check" }, badge: "F05" },
+      { id: "invoice", label: { ko: "청구서", en: "Invoice" }, status: "pending" },
+      { id: "pay", label: { ko: "결제", en: "Payment" }, status: "pending" }
+    ];
+    var bring = []; for (var i = 1; i <= 15; i++) bring.push({ id: "s" + i, label: (i < 10 ? "0" : "") + i, status: i < 4 ? "done" : i === 4 ? "fail" : "pending" });
+    var html =
+      panel(L("단계 타임라인 — 가로 · 선택 가능", "Step timeline — horizontal · selectable"),
+        NC.flow.timeline(steps, { orientation: "horizontal", progress: true, selectable: true, ariaLabel: { ko: "가입 → 청구서", en: "Sign-up → invoice" } }) +
+        '<p class="cg-out" id="cg-sel" aria-live="polite"></p>') +
+      panel(L("단계 타임라인 — 세로 · 발표 모드", "Step timeline — vertical · presentation"),
+        NC.flow.timeline([{ label: { ko: "XID 79 감지", en: "XID 79 detected" }, status: "done" }, { label: { ko: "cordon · drain", en: "cordon · drain" }, status: "done" },
+          { label: { ko: "트레이 교체", en: "Tray replace" }, status: "active" }, { label: { ko: "SLA 크레딧", en: "SLA credit" }, status: "pending" }], { big: true, progress: true })) +
+      panel(L("랙 bring-up 15단계", "Rack bring-up, 15 steps"), NC.flow.timeline(bring, { orientation: "horizontal", progress: true, numbered: true })) +
+      panel(L("스윔레인 — 장애 → 교체 → 보상", "Swimlane — fault → replace → credit"),
+        NC.flow.swimlane([{ id: "s", label: "NVSentinel" }, { id: "n", label: "NICo" }, { id: "p", label: "NOCP" }, { id: "b", label: { ko: "청구", en: "Billing" } }],
+          [{ lane: "s", label: "XID 79", status: "done", sub: "DCGM" }, { lane: "s", label: "cordon", status: "done" }, { lane: "n", label: { ko: "교체", en: "Replace" }, status: "active" },
+           { lane: "p", label: { ko: "가용성 재계산", en: "Availability" }, status: "pending", col: 2 }, { lane: "b", label: { ko: "SLA 크레딧", en: "SLA credit" }, status: "pending" }], { selectable: true })) +
+      panel(L("핵심 지표", "Key metrics"), NC.kpi.grid([
+        NC.kpi.gauge({ label: { ko: "가용성", en: "Availability" }, value: 99.95, min: 99, max: 100, target: 99.9, unit: "%", digits: 3 }),
+        NC.kpi.gauge({ label: { ko: "KV 히트율", en: "KV hit rate" }, value: 83, target: 80, unit: "%", band: [75, 90] }),
+        NC.kpi.target({ label: "TTFT p99", value: 182, target: 250, max: 400, unit: "ms", lowerBetter: true, sub: { ko: "SLO 250 ms", en: "SLO 250 ms" } }),
+        NC.kpi.target({ label: "TPOT p99", value: 61, target: 50, warn: 60, max: 100, unit: "ms", lowerBetter: true }),
+        NC.kpi.stat({ label: "tokens/s/MW", value: 41250, delta: 3.2, spark: [38e3, 38.6e3, 39e3, 40.2e3, 41250] }),
+        NC.kpi.stat({ label: { ko: "청구 금액 (VAT 포함)", en: "Invoice (incl. VAT)" }, value: "₩12,430,000", sub: { ko: "VAT ₩1,130,000", en: "VAT ₩1,130,000" } }),
+        NC.kpi.target({ label: { ko: "전력 도메인 예산", en: "Power domain budget" }, value: 182, max: 227, unit: "kW", compare: { value: 160, label: { ko: "감축 후", en: "after curtail" } } }),
+        NC.kpi.stack([{ label: "G1 HBM", value: 61 }, { label: "G2 LPDDR5X", value: 22 }, { label: "G3 NVMe", value: 9 }, { label: "miss", value: 8, tone: "crit" }],
+          { label: { ko: "KV 계층 히트율", en: "KV tier hit rate" }, unit: "%", total: 100 })
+      ], { min: 220 })) +
+      panel(L("요청·응답 원문", "Raw request · response"), NC.msg.list([t429, trace], { openFirst: true, layout: "split" }));
+    document.getElementById("cg-root").innerHTML = html;
+  }
+  document.addEventListener("click", function (e) {
+    var l = e.target.closest("[data-cg-lang]"); if (l) return setLang(l.getAttribute("data-cg-lang"));
+    var t = e.target.closest("[data-cg-theme]");
+    if (t) { document.body.setAttribute("data-design", t.getAttribute("data-cg-theme")); draw(); }
+  });
+  document.addEventListener("nc-flow-select", function (e) {
+    var o = document.getElementById("cg-sel"); if (o) o.textContent = L("선택한 단계: ", "Selected step: ") + e.detail.id;
+  });
+  NC.flow._lang = NC.kpi._lang = NC.msg._lang = lang;
+  draw();
+})();
+</script>
+</body></html>
