@@ -849,3 +849,45 @@ Object.assign(window.NC_I18N.dict, {
 window.NC_I18N.patterns = [
   [/^(\d+)랙 · GPU (\d+) · 로그인 테넌트 고정$/, "$1 racks · GPU $2 · login tenant locked"],
 ].concat(window.NC_I18N.patterns);
+
+/* ── DSX OS 고객 화면 (customer/nvke.js) ── */
+window.NC_I18N.dict = Object.assign(window.NC_I18N.dict, {
+  "● NOCP 라이브": "● NOCP live",
+  "◌ NOCP 미연동 — mock": "◌ NOCP not connected — mock",
+  "상품 선택": "Choose a product",
+  "과금 단위:": "Billing unit:",
+  "NICo 기반 베어메탈 GPU 서버 (VR NVL72 tray 단위) — 테넌트 전용 VPC·P_Key·NVLink 격리": "NICo-based bare-metal GPU servers (per VR NVL72 tray) — tenant-dedicated VPC·P_Key·NVLink isolation",
+  "NVKE 0.23.1 — AICR recipe 기반 GPU/Network Operator, NVSentinel 자동 노드 교체": "NVKE 0.23.1 — AICR-recipe GPU/Network Operator, NVSentinel automatic node replacement",
+  "Managed K8s (NVKE) 클러스터 생성": "Create Managed K8s (NVKE) cluster",
+  "NVKE 클러스터": "NVKE clusters",
+  "클러스터": "Cluster",
+  "버전": "Version",
+  "노드 이미지": "Node image",
+  "작업": "Actions",
+  "NVKE 클러스터 없음": "No NVKE clusters",
+  "사용량": "Usage",
+  "업그레이드": "Upgrade",
+  "viewer 역할은 읽기 전용입니다 (read-only role)": "Viewer role is read-only",
+  "① K8s 버전": "① K8s version",
+  "② 노드 이미지": "② Node image",
+  "④ 검토": "④ Review",
+  "K8s 버전": "K8s version",
+  "클러스터 이름": "Cluster name",
+  "워크로드 (AICR recipe)": "Workload (AICR recipe)",
+  "NodePool 이름": "NodePool name",
+  "노드 수": "Node count",
+  "이름": "Name",
+  "← 이전": "← Back",
+  "다음 →": "Next →",
+  "클러스터 생성": "Create cluster",
+  "예: fin-infer": "e.g. fin-infer",
+  "클러스터 이름을 입력하세요": "Enter a cluster name",
+  "kubeconfig 없음": "No kubeconfig",
+});
+window.NC_I18N.patterns = [
+  [/^실패: (.+)$/, "Failed: $1"],
+  [/^NVKE 클러스터 생성 요청 — (.+)$/, "NVKE cluster creation requested — $1"],
+  [/^kubeconfig 다운로드 — (.+)$/, "kubeconfig downloaded — $1"],
+  [/^업그레이드 시작 → (.+)$/, "Upgrade started → $1"],
+  [/^NodePool 추가(.*)$/, "NodePool added$1"],
+].concat(window.NC_I18N.patterns);
