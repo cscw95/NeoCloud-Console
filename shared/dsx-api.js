@@ -25,6 +25,13 @@
   var RMA_STAGES = ["health_event", "cordon_drain", "isolate", "replace",
     "burn_in", "pool_return"];
   var RACK_PEAK_KW = 187;          // VR NVL72 MaxQ 캡 기준 (ops obs-rack과 동일)
+  var RACK_MAXP_KW = 227;          // VR NVL72 MaxP (NCP 참조 설계, NOCP spec.py)
+  /* NOCP ComputeBlock(층) = DPS PowerDomain 1개, OperatingLimit = power_mw × 1000 */
+  var BLOCKS = [
+    { id: "aif-stt-gasan-f1", site: "gasan", name: "STT 가산 1층 · 6MW", power_mw: 6.0, n: 24 },
+    { id: "aif-stt-gasan-f2", site: "gasan", name: "STT 가산 2층 · 3MW", power_mw: 3.0, n: 12 },
+    { id: "aif-igis-ansan-f1", site: "ansan", name: "IGIS 안산 1층 · 12.9MW", power_mw: 12.9, n: 54 },
+    { id: "aif-igis-ansan-f2", site: "ansan", name: "IGIS 안산 2층 · 10.4MW", power_mw: 10.4, n: 50 }];
 
   /* ── 결정적 PRNG (mock이 새로고침마다 바뀌지 않도록) ─────────── */
   function rng(seed) {
@@ -74,13 +81,15 @@
   function iso(ms) { return new Date(ms).toISOString(); }
   function sum(a, f) { return a.reduce(function (s, x) { return s + (+f(x) || 0); }, 0); }
 
-  /* ══ mock 시나리오 (가산 80랙 · 안산 60랙 = 140랙 · 10,080 GPU) ══ */
+  /* ══ mock 시나리오 (가산 36랙 · 안산 104랙 = 140랙 · 10,080 GPU, 4 ComputeBlock) ══ */
   function buildMock() {
     var r = rng(20260510);
-    var sites = [{ id: "gasan", n: 80 }, { id: "ansan", n: 60 }];
     var racks = [];
-    sites.forEach(function (s) {
-      for (var i = 1; i <= s.n; i++) {
+    var seq = { gasan: 0, ansan: 0 };
+    BLOCKS.forEach(function (b) {
+      for (var j = 1; j <= b.n; j++) {
+        var s = { id: b.site };
+        var i = ++seq[b.site];
         var id = (s.id === "gasan" ? "GA" : "AN") + "-R" + pad(i, 3);
         var x = r();
         var bmcDown = x > 0.965 ? 1 + Math.floor(r() * 3) : 0;
@@ -88,10 +97,10 @@
         var leak = r() > 0.985 ? "Critical" : r() > 0.97 ? "Warning" : "OK";
         var pw = +(110 + r() * 70).toFixed(1);
         racks.push({
-          rack: id, site: s.id,
-          group: s.id + "-g" + (1 + Math.floor((i - 1) / 20)),
+          rack: id, site: s.id, block: b.id,
+          group: b.id + "-g" + (1 + Math.floor((j - 1) / 16)),
           bmc_total: 18, bmc_reachable: 18 - bmcDown,
-          psu_total: 36, psu_ok: 36 - psuBad,
+          psu_total: 24, psu_ok: 24 - psuBad,
           leak: leak,
           max_inlet_c: +(24 + r() * 9 + (leak !== "OK" ? 3 : 0)).toFixed(1),
           sel_critical: r() > 0.93 ? 1 + Math.floor(r() * 4) : 0,
@@ -100,20 +109,22 @@
         });
       }
     });
-    function domain(site, limitKw) {
-      var rs = racks.filter(function (k) { return k.site === site; });
+    function domain(b) {
+      var rs = racks.filter(function (k) { return k.block === b.id; });
       var gids = {};
       rs.forEach(function (k) { (gids[k.group] = gids[k.group] || []).push(k); });
       var groups = Object.keys(gids).map(function (g, i) {
         var list = gids[g];
-        return { id: g, name: g.toUpperCase(), domain: "pd-" + site,
+        return { id: g, name: g.toUpperCase(), domain: "pd-" + b.id,
           racks: list.map(function (k) { return k.rack; }),
           priority: i === 0 ? "high" : i === 1 ? "medium" : "low",
           min_kw: list.length * 90, max_kw: list.length * RACK_PEAK_KW,
           used_kw: +sum(list, function (k) { return k.power_kw; }).toFixed(1) };
       });
-      return { id: "pd-" + site, name: site === "gasan" ? "STT 가산 PowerDomain" : "IGIS 안산 PowerDomain",
-        site: site, operating_limit_kw: limitKw, mode: "static", smoothing: false,
+      var budget = b.power_mw * 1000;
+      return { id: "pd-" + b.id, name: b.name, site: b.site, compute_block: b.id,
+        site_budget_kw: budget, budget_ok: true,
+        operating_limit_kw: budget, mode: "static", smoothing: false,
         used_kw: +sum(rs, function (k) { return k.power_kw; }).toFixed(1),
         racks: rs.length, groups: groups };
     }
@@ -170,7 +181,7 @@
     return {
       racks: racks, events: events, tenants: tenants, rmas: rmas,
       baseline: baseline, drift: drift, flex: [], nvke: nvkeClusters,
-      domains: [domain("gasan", 13200), domain("ansan", 9800)],
+      domains: BLOCKS.map(domain),
       seq: 100,
     };
   }
@@ -278,7 +289,7 @@
     }
     function mockTelemetry(domainId) {
       var d = domainId ? mockDomain(domainId) : null;
-      var rs = M.racks.filter(function (k) { return !d || k.site === d.site; });
+      var rs = M.racks.filter(function (k) { return !d || k.block === d.compute_block; });
       return {
         domain: d ? d.id : null,
         operating_limit_kw: d ? d.operating_limit_kw : sum(M.domains, function (x) { return x.operating_limit_kw; }),
@@ -399,19 +410,23 @@
       powerDomain: function (id) {
         return get("/power/domains/" + encodeURIComponent(id), function () { return mockDomain(id); });
       },
-      updateDomain: function (id, patch) {
-        return act("/power/domains/" + encodeURIComponent(id), "PATCH", patch, function () {
+      updateDomain: async function (id, patch) {
+        var r = await act("/power/domains/" + encodeURIComponent(id), "PATCH", patch, function () {
           var d = mockDomain(id);
+          if (patch.operating_limit_kw > d.site_budget_kw)      // NOCP와 같은 블록 예산 규칙
+            return { error: "operating_limit_kw exceeds the compute block budget (" + d.site_budget_kw + " kW)" };
           ["operating_limit_kw", "mode", "smoothing"].forEach(function (k) {
             if (patch[k] !== undefined) d[k] = patch[k];
           });
           return d;
         });
+        if (!r.live && r.data && r.data.error) return { live: false, src: "mock", error: r.data.error };
+        return r;
       },
       powerProfiles: function () {
         return get("/power/profiles", function () {
           return WPPS.map(function (p) {
-            return { id: p, name: p, gpu_cap_w: { "max-p": 2300, "max-q": 1800, training: 2100, inference: 1600, balanced: 1900 }[p] };
+            return { id: p, name: p, gpu_cap_w: { "max-p": 2300, "max-q": 1744, training: 2048, inference: 1512, balanced: 1890 }[p] };
           });
         }, function (j) {
           return arr(j, ["profiles"]).map(function (p) { return typeof p === "string" ? { id: p, name: p } : p; });

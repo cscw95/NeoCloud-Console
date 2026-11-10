@@ -105,10 +105,25 @@ test("dsx-api: mock OOB summary has contract A/C fields for 140 racks", async ()
   assert.equal(rs.length, 140);
   for (const k of ["rack", "bmc_reachable", "bmc_total", "psu_ok", "psu_total", "leak",
     "max_inlet_c", "sel_critical", "power_kw", "cap_kw"]) assert.ok(k in rs[0], k);
-  assert.equal((await D.oobSummary("ansan")).data.length, 60);
+  assert.equal((await D.oobSummary("ansan")).data.length, 104);   // NOCP Phase-1: 36 + 104
+  assert.equal(rs[0].psu_total, 24);                                 // 4 shelves × 6 PSU
   const det = (await D.oobRack(rs[0].rack)).data;
   assert.equal(det.trays.length, 18);
   assert.ok(det.power_shelves.length > 0);
+});
+
+test("dsx-api: mock power domains are per ComputeBlock with the block budget", async () => {
+  const D = dsxMod.create({ base: "http://nocp", fetch: offline });
+  const ds = (await D.powerDomains()).data;
+  assert.deepEqual(ds.map(d => [d.id, d.site_budget_kw, d.racks]), [
+    ["pd-aif-stt-gasan-f1", 6000, 24], ["pd-aif-stt-gasan-f2", 3000, 12],
+    ["pd-aif-igis-ansan-f1", 12900, 54], ["pd-aif-igis-ansan-f2", 10400, 50]]);
+  const over = await D.updateDomain("pd-aif-stt-gasan-f2", { operating_limit_kw: 3001 });
+  assert.ok(over.error && /budget/.test(over.error));
+  const ok = await D.updateDomain("pd-aif-stt-gasan-f2", { operating_limit_kw: 2500 });
+  assert.ok(!ok.error && ok.data.operating_limit_kw === 2500);
+  const t = (await D.powerTelemetry("pd-aif-stt-gasan-f2")).data;
+  assert.equal(t.racks.length, 12);
 });
 
 test("dsx-api: mock simulate — dynamic (DPS) supports ≥ static racks", async () => {

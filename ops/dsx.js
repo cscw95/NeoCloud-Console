@@ -227,6 +227,7 @@
     var results = await Promise.all([D.powerTelemetry(pwr.domain), D.powerProfiles(), D.flexEvents()]);
     var tel = results[0].data || {}, profs = results[1].data || [], flex = results[2].data || [];
     var limit = +d.operating_limit_kw || +tel.operating_limit_kw || 0;
+    var budget = +d.site_budget_kw || 0;     // NOCP ComputeBlock 예산 (PATCH 상한)
     var used = +tel.used_kw || +d.used_kw || 0;
     var groups = (tel.groups && tel.groups.length ? tel.groups : d.groups) || [];
     var racks = tel.racks || [];
@@ -261,7 +262,9 @@
       '<span style="color:var(--muted2);font-size:10.5px">DPS(nvidia.dcpower.v1) PowerDomain · OperatingLimit · WPPS · power smoothing · DSX Flex</span>' +
       '<span class="rt"><select id="dsx-pwr-domain">' + opts + "</select></span></div>" +
       '<div class="kpi-band">' +
-      kpi("OperatingLimit", fmt(limit / 1000, 2) + "<small>MW</small>", esc(d.site || "")) +
+      kpi("OperatingLimit", fmt(limit / 1000, 2) + "<small>MW</small>", esc(d.compute_block || d.site || "")) +
+      kpi("블록 예산", (budget ? fmt(budget / 1000, 2) : "—") + "<small>MW</small>",
+        d.budget_ok === false ? "ComputeBlock power_mw · 초과" : "ComputeBlock power_mw", d.budget_ok === false ? "red" : "") +
       kpi("사용 전력", fmt(used / 1000, 2) + "<small>MW</small>", fmt(limit ? used / limit * 100 : 0, 1) + "% of limit", limit && used / limit > 0.9 ? "red" : "") +
       kpi("헤드룸", fmt(head, 0) + "<small>kW</small>", "limit − used", head < 0 ? "red" : "green") +
       kpi("정책 모드", esc(d.mode || "static"), d.smoothing ? "smoothing ON" : "smoothing OFF", d.mode === "dynamic" ? "green" : "amber") +
@@ -272,7 +275,8 @@
         '<button class="' + (d.mode !== "dynamic" ? "btn" : "btn-ghost") + '" data-pwr-mode="static">static</button>' +
         '<button class="' + (d.mode === "dynamic" ? "btn" : "btn-ghost") + '" data-pwr-mode="dynamic">dynamic (DPS)</button>' +
         '<label style="margin-left:14px"><input type="checkbox" id="dsx-pwr-smooth"' + (d.smoothing ? " checked" : "") + "> power smoothing</label>" +
-        '<label style="margin-left:14px">OperatingLimit (kW)</label><input id="dsx-pwr-limit" type="number" value="' + esc(limit) + '" style="width:100px">' +
+        '<label style="margin-left:14px">OperatingLimit (kW)</label><input id="dsx-pwr-limit" type="number" value="' + esc(limit) + '"' + (budget ? ' max="' + esc(budget) + '"' : "") + ' style="width:100px">' +
+        (budget ? '<span style="color:var(--muted2);font-size:10.5px">블록 예산 ≤ ' + fmt(budget) + " kW</span>" : "") +
         '<button class="btn-ghost" id="dsx-pwr-limit-apply">적용</button></div>') +
       '<div class="grid">' +
       panel("ResourceGroup 헤드룸", "priority · min/max kW",
