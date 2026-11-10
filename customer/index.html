@@ -66,12 +66,12 @@
 .kv2 tr:last-child td{border-bottom:0}
 .kv2 td:first-child{color:var(--muted);width:150px;white-space:nowrap}
 /* util 막대 · 장애 행 */
-.ubar{display:inline-block;width:110px;height:6px;border-radius:3px;background:#233043;
+.ubar{display:inline-block;width:110px;height:6px;border-radius:3px;background:var(--track);
   vertical-align:middle;overflow:hidden}
 .ubar>i{display:block;height:100%;background:var(--green)}
 .ubar>i.amber{background:var(--amber)}
-.tbl tr.fault td{background:#1a1720}
-.tbl tr.fault .id{color:#f0c2cb}
+.tbl tr.fault td{background:var(--surface-incident)}
+.tbl tr.fault .id{color:var(--pink-soft)}
 /* 링크형 테이블 버튼 · 보조 텍스트 */
 .tbtn{background:none;border:0;padding:0;font:inherit;font-size:10.5px;font-weight:700;
   cursor:pointer;color:var(--green)}
@@ -82,7 +82,7 @@
 .bell{position:relative;color:var(--muted);border:1px solid var(--line);border-radius:7px;
   padding:5px 11px;font-size:11.5px;cursor:pointer;white-space:nowrap}
 .bell .n{position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;
-  background:var(--amber);color:#241c05;font-size:9px;font-weight:800;
+  background:var(--amber);color:var(--on-warn);font-size:9px;font-weight:800;
   display:flex;align-items:center;justify-content:center}
 .search{display:flex;align-items:center;gap:8px}
 .search .q{overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -91,12 +91,12 @@
 /* 경고 콜아웃(레드) · P2 스트립 · 마켓 카드 */
 .redcall{display:flex;gap:7px;align-items:flex-start;background:var(--inc-strip);
   border:1px solid var(--red-line);border-radius:7px;padding:8px 12px;font-size:11px;
-  color:#e6b8c0;line-height:1.6}
+  color:var(--pink-soft);line-height:1.6}
 .redcall .ic{color:var(--red);font-weight:800}
 .p2strip{display:flex;gap:8px;align-items:center;margin-bottom:18px;background:var(--strip);
   border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:11.5px;
   color:var(--muted);flex-wrap:wrap}
-.p2tag{color:var(--blue-text);font-weight:800;border:1px solid #1f4a6a;background:#0e2438;
+.p2tag{color:var(--blue-text);font-weight:800;border:1px solid var(--info-line);background:var(--info-bg);
   border-radius:4px;padding:1px 8px;font-size:10px;flex:none}
 .mkt{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
 .mkt .it{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
@@ -122,7 +122,7 @@
   text-align:center;line-height:1.3;white-space:nowrap}
 .fsteps .step.done .nd{background:var(--green);border-color:var(--green);color:var(--on-green)}
 .fsteps .step.done .lb{color:var(--green-text)}
-.fsteps .step.cur .nd{background:var(--amber);border-color:var(--amber);color:#241c05}
+.fsteps .step.cur .nd{background:var(--amber);border-color:var(--amber);color:var(--on-warn)}
 .fsteps .step.cur .lb{color:var(--amber)}
 .fsteps .step-bar{flex:1;height:2px;background:var(--line);margin-top:10px;min-width:12px}
 .fsteps .step-bar.done{background:var(--green)}
@@ -158,12 +158,12 @@
 .tkt .ty-bd{font-size:9px;font-weight:800;letter-spacing:.05em;border:1px solid var(--line);
   border-radius:4px;padding:1px 6px;color:var(--muted)}
 .tkt .rt-bd{font-size:9px;font-weight:800;letter-spacing:.05em;border-radius:4px;padding:1px 6px}
-.tkt .rt-bd.ops{color:var(--blue-text);border:1px solid #1f4a6a;background:#0e2438}
-.tkt .rt-bd.biz{color:#c8a5e8;border:1px solid #3a2a52;background:#1d1430}
+.tkt .rt-bd.ops{color:var(--blue-text);border:1px solid var(--info-line);background:var(--info-bg)}
+.tkt .rt-bd.biz{color:var(--purple-text);border:1px solid var(--fabB-line);background:var(--fabB-bg)}
 /* 티켓 모달 라우팅 라벨 (대형) — 유형 선택에 따라 ops(청)/biz(보라) 전환 */
-.rt-lg{font-size:11px;font-weight:800;letter-spacing:.02em;border:1px solid #1f4a6a;
-  background:#0e2438;color:var(--blue-text);border-radius:5px;padding:3px 10px}
-.rt-lg.biz{border-color:#3a2a52;background:#1d1430;color:#c8a5e8}
+.rt-lg{font-size:11px;font-weight:800;letter-spacing:.02em;border:1px solid var(--info-line);
+  background:var(--info-bg);color:var(--blue-text);border-radius:5px;padding:3px 10px}
+.rt-lg.biz{border-color:var(--fabB-line);background:var(--fabB-bg);color:var(--purple-text)}
 /* RBAC 게이팅 — viewer(전체)·member(admin 전용 작업) 비활성 표시.
    양 디자인 모드 공통: 토큰 변수만 사용 (blueprint/legacy 무관) */
 .rbac-off{opacity:.42!important;cursor:not-allowed!important;
@@ -185,7 +185,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
 .role-bd{font-size:9px;font-weight:800;letter-spacing:.05em;border-radius:4px;
   padding:1px 6px;border:1px solid var(--line);color:var(--muted)}
 .role-bd.admin{color:var(--green-text);border-color:var(--green-line)}
-.role-bd.member{color:var(--blue-text);border-color:#1f4a6a}
+.role-bd.member{color:var(--blue-text);border-color:var(--info-line)}
 .role-bd.viewer{color:var(--amber);border-color:var(--amber-line)}
 /* 페이지네이션 바 (pagedTable 헬퍼) — 행이 적으면 자동 숨김 */
 .pgr{display:none;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
@@ -215,7 +215,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
     <!-- 테넌트 스코프 — 로그인 세션 테넌트로 고정 (전환 불가 · 격리) -->
     <div class="sb-scope"><div class="k">조직 / 프로젝트 <span style="float:right" title="로그인 테넌트로 고정 — 다른 테넌트 데이터는 조회할 수 없습니다">🔒</span></div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
-        <span id="scope-avatar" style="width:18px;height:18px;border-radius:4px;background:#1d3a26;color:var(--green-text);display:grid;place-items:center;font-size:10px;font-weight:800;flex:none">F</span>
+        <span id="scope-avatar" style="width:18px;height:18px;border-radius:4px;background:var(--ok-bg);color:var(--green-text);display:grid;place-items:center;font-size:10px;font-weight:800;flex:none">F</span>
         <div style="min-width:0;flex:1">
           <div id="scope-tenant" title="로그인 테넌트 (고정)" style="color:var(--strong);font-size:11.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">불러오는 중…</div>
         <div id="scope-scale" style="color:var(--muted2);font-size:9.5px;margin-top:2px">로그인 테넌트 고정</div></div></div></div>
@@ -242,7 +242,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
       <a class="mi" data-route="settings" href="#/settings"><span class="dot"></span>설정 — 조직 · 멤버 · 키</a>
     </nav>
     <div class="sb-user" id="user-card" data-open="demo_login" title="데모 로그인 전환 — 사용자·역할 변경 (클릭)" style="cursor:pointer">
-      <span class="av" id="user-av" style="background:#1d3a26;color:var(--green-text)">JH</span>
+      <span class="av" id="user-av" style="background:var(--ok-bg);color:var(--green-text)">JH</span>
       <div style="min-width:0"><div class="nm" id="user-name">김지현</div><div class="rl" id="user-role">org admin · MFA ✓</div></div>
       <span style="margin-left:auto;color:var(--muted2);font-size:10px;flex:none">전환 ▾</span></div>
   </aside>
@@ -316,7 +316,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
               <span>월말 예상 <b>$20.9M</b></span><span>크레딧 <b style="color:var(--green-text)">-$120K</b></span></div>
             <svg width="100%" height="88" viewBox="0 0 560 88" preserveAspectRatio="none">
               <line x1="0" y1="18" x2="560" y2="18" style="stroke:var(--amber);stroke-width:1" stroke-dasharray="4 4"></line>
-              <rect x="8" y="66" width="52" height="22" style="fill:var(--green-line)"></rect><rect x="78" y="58" width="52" height="30" style="fill:var(--green-line)"></rect><rect x="148" y="52" width="52" height="36" style="fill:var(--green-line)"></rect><rect x="218" y="46" width="52" height="42" style="fill:var(--green-line)"></rect><rect x="288" y="40" width="52" height="48" style="fill:var(--green-line)"></rect><rect x="358" y="34" width="52" height="54" style="fill:#3f6a1a"></rect><rect x="428" y="30" width="52" height="58" style="fill:#3f6a1a"></rect><rect x="498" y="26" width="52" height="62" style="fill:var(--green)"></rect>
+              <rect x="8" y="66" width="52" height="22" style="fill:var(--chart-1-soft)"></rect><rect x="78" y="58" width="52" height="30" style="fill:var(--chart-1-soft)"></rect><rect x="148" y="52" width="52" height="36" style="fill:var(--chart-1-soft)"></rect><rect x="218" y="46" width="52" height="42" style="fill:var(--chart-1-soft)"></rect><rect x="288" y="40" width="52" height="48" style="fill:var(--chart-1-soft)"></rect><rect x="358" y="34" width="52" height="54" style="fill:#3f6a1a"></rect><rect x="428" y="30" width="52" height="58" style="fill:#3f6a1a"></rect><rect x="498" y="26" width="52" height="62" style="fill:var(--green)"></rect>
             </svg>
             <div style="display:flex;justify-content:space-between;color:var(--muted2);font-size:10px;font-family:Menlo,monospace"><span>07-01</span><span>예산 라인 $7.5M</span><span>07-08</span></div>
             <table class="tbl" style="margin-top:12px"><tbody id="dash-cost-lines">
@@ -536,7 +536,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
                 <b class="mono" style="font-size:10.5px;color:var(--strong)">xfer-118</b>
                 <span style="font-size:11.5px">s3://fin-corp-datasets → ds01/raw</span>
                 <span style="margin-left:auto;color:var(--blue-text);font-size:10.5px;font-weight:700">68% · 42TB/62TB</span></div>
-              <div style="height:5px;border-radius:3px;background:#233043;margin-top:8px;overflow:hidden"><div style="width:68%;height:100%;background:var(--blue)"></div></div></div>
+              <div style="height:5px;border-radius:3px;background:var(--track);margin-top:8px;overflow:hidden"><div style="width:68%;height:100%;background:var(--blue)"></div></div></div>
           </div>
         </div>
       </section>
@@ -894,7 +894,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
               <tr><td><b>김지현</b> <span style="color:var(--muted2);font-size:10px">kim.jh@fin-corp.com</span></td><td class="st green" style="font-size:11.5px">org admin</td><td style="color:var(--muted)">MFA ✓ · SSO</td></tr>
               <tr><td><b>이승민</b> <span style="color:var(--muted2);font-size:10px">lee.sm@fin-corp.com</span></td><td class="st blue" style="font-size:11.5px">operator</td><td style="color:var(--muted)">MFA ✓ · SSO</td></tr>
               <tr><td><b>정하윤</b> <span style="color:var(--muted2);font-size:10px">jung.hy@fin-corp.com</span></td><td style="color:var(--muted);font-weight:700">viewer</td><td style="color:var(--muted)">MFA ✓</td></tr>
-              <tr><td class="id">svc-training</td><td style="color:#c8a5e8;font-weight:700">service account</td><td style="color:var(--muted)">API 키 인증</td></tr>
+              <tr><td class="id">svc-training</td><td style="color:var(--purple-text);font-weight:700">service account</td><td style="color:var(--muted)">API 키 인증</td></tr>
             </tbody></table>
             <div class="mini">SSO: SAML (fin-corp IdP) 연동 · 역할은 프로젝트 단위로 상속</div>
             <!-- 초대 수락 플로우 (라이트) — 상태 표시 + 재발급 (모의) -->
@@ -960,7 +960,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
     <!-- 변경 규모 분기 — 계약 범위 내 vs 계약 조건 변경 (Amendment) -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
       <label class="scope-opt on" data-scope="amend"><input type="radio" name="rs-scope" value="amend" checked>
-        <b>계약 조건 변경</b> <span class="st" style="color:#c8a5e8;font-size:9.5px">사업팀</span>
+        <b>계약 조건 변경</b> <span class="st" style="color:var(--purple-text);font-size:9.5px">사업팀</span>
         <div class="d">GPU 종류 변경 · 랙 증설/축소 — <b style="color:var(--soft)">재견적 → Amendment 체결 → Fulfillment 재진행</b></div></label>
       <label class="scope-opt" data-scope="in"><input type="radio" name="rs-scope" value="in">
         <b>계약 범위 내 변경</b> <span class="st blue" style="font-size:9.5px">운영팀</span>

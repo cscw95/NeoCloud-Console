@@ -584,7 +584,7 @@
     Object.keys(byDom).forEach(function (d) { if (doms.indexOf(d) < 0) doms.push(d); });
     var mx = Math.max.apply(null, doms.map(function (d) { return byDom[d] || 0; }).concat([1]));
     var domCol = { GPU: "var(--green)", COOLING: "#5ad0c8", FABRIC: "#9fd0ff",
-      STORAGE: "#c8a5e8", REPROV: "var(--amber)" };
+      STORAGE: "var(--purple-text)", REPROV: "var(--amber)" };
     var tot = firing + resolved || 1;
     box.innerHTML =
       '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin-bottom:5px">도메인별 발생</div>' +
@@ -1920,7 +1920,7 @@
   function obsSrc(screen, live, lbl) {
     var el = document.getElementById("obs-src-" + screen);
     if (!el) return;
-    el.className = "obs-src " + (live ? "live" : "mock");
+    el.className = "obs-src src-badge " + (live ? "live" : "mock");
     el.textContent = lbl || (live ? "● AI Infra Twin 라이브 (NOCP 경유)" : "◌ twin 미연동 — mock");
   }
   function obsHealthSt(h) {
@@ -2355,7 +2355,7 @@
   /* ─ obs-gpu 가독성 헬퍼 — util 바 · 온도 색 단계 · 상태 칩 ─ */
   function obsUtilCell(p) {
     if (p == null) return muted("—");
-    var col = p >= 80 ? "var(--green)" : p >= 40 ? "#5a8f0e" : p > 0 ? "var(--amber-dim)" : "var(--track)";
+    var col = p >= 80 ? "var(--green)" : p >= 40 ? "var(--chart-1-soft)" : p > 0 ? "var(--amber-dim)" : "var(--track)";
     return '<span class="ubar"><i><b style="width:' + Math.max(2, Math.min(100, p)) +
       '%;background:' + col + '"></b></i><em>' + esc(p) + "%</em></span>";
   }
@@ -2417,7 +2417,7 @@
             var offMost = (su.gpus || 0) > 0 && offN / su.gpus >= 0.5;
             var bg = offMost ? "#1a212b"
               : !alloc ? "var(--ready)"
-              : avg >= 80 ? "var(--green)" : avg >= 40 ? "#5a8f0e" : avg > 0 ? "#3f6a1a" : "var(--amber-dim)";
+              : avg >= 80 ? "var(--green)" : avg >= 40 ? "var(--chart-1-soft)" : avg > 0 ? "#3f6a1a" : "var(--amber-dim)";
             var worst = (su.faulted || 0) > 0 ? " crit" : (su.throttled || 0) > 0 ? " th" : "";
             var cls = "hc" + worst + (obsGpuFilter.su === su.su_id ? " sel" : "");
             return '<span class="' + cls + '" data-obs-gpusu="' + esc(su.su_id) + '" style="background:' + bg +
@@ -2453,7 +2453,7 @@
           var rk = su.racks[rid];
           var avg = Math.round(rk.u / rk.n);
           var bg = !rk.alloc ? "var(--ready)"
-            : avg >= 80 ? "var(--green)" : avg >= 40 ? "#5a8f0e" : avg > 0 ? "#3f6a1a" : "var(--amber-dim)";
+            : avg >= 80 ? "var(--green)" : avg >= 40 ? "var(--chart-1-soft)" : avg > 0 ? "#3f6a1a" : "var(--amber-dim)";
           var cls = "hc" + (rk.worst === "crit" ? " crit" : rk.worst === "warn" ? " th" : "") +
             (obsGpuFilter.su === suId ? " sel" : "");
           return '<span class="' + cls + '" data-obs-gpusu="' + esc(suId) + '" style="background:' + bg +
@@ -2625,7 +2625,7 @@
   var OBS_RACK_MAXP_KW = 227;      // VR NVL72 MaxP (NOCP spec.py) — 히트맵 스케일 상한 (MaxQ 187)
   function obsHeatColor(ratio) {
     var r = Math.max(0, Math.min(1, ratio || 0));
-    if (r < 0.1) return "#233043";
+    if (r < 0.1) return "var(--track)";
     return "hsl(" + Math.round(120 - 120 * r) + ",42%," + Math.round(24 + r * 14) + "%)";
   }
 
@@ -2888,15 +2888,15 @@
           }).join("") + "</span></div>";
       }).join(""));
       setHtml("obs-rack-leg",
-        '<span><span class="leg" style="background:#233043"></span> idle</span>' +
+        '<span><span class="leg" style="background:var(--track)"></span> idle</span>' +
         '<span><span class="leg" style="background:' + obsHeatColor(95 / OBS_RACK_MAXP_KW) + '"></span> ~95kW</span>' +
         '<span><span class="leg" style="background:' + obsHeatColor(150 / OBS_RACK_MAXP_KW) + '"></span> ~150kW</span>' +
         '<span><span class="leg" style="background:' + obsHeatColor(187 / OBS_RACK_MAXP_KW) + '"></span> 187kW MaxQ</span>' +
         '<span><span class="leg" style="background:' + obsHeatColor(1) + '"></span> 227kW MaxP</span>' +
         '<span><span class="leg" style="background:#1a212b;outline:1px solid #2a3644"></span> OFF</span>' +
-        '<span><span class="leg" style="background:linear-gradient(#233043 50%,#1a212b 50%)"></span> 부분 Off (트레이)</span>' +
-        '<span><span class="leg" style="background:repeating-linear-gradient(45deg,#233043 0 2px,rgba(240,163,176,.5) 2px 4px)"></span> cordon</span>' +
-        '<span><span class="leg" style="background:#233043;box-shadow:inset 0 -2px 0 var(--blue)"></span> cap</span>' +
+        '<span><span class="leg" style="background:linear-gradient(var(--track) 50%,#1a212b 50%)"></span> 부분 Off (트레이)</span>' +
+        '<span><span class="leg" style="background:repeating-linear-gradient(45deg,var(--track) 0 2px,rgba(240,163,176,.5) 2px 4px)"></span> cordon</span>' +
+        '<span><span class="leg" style="background:var(--track);box-shadow:inset 0 -2px 0 var(--blue)"></span> cap</span>' +
         '<span style="color:var(--amber)">□ throttle</span>' +
         '<span style="color:var(--red)">□ fault</span>');
       var det = racks.filter(function (rk) { return rk.rack_id === obsRackSel; })[0];
@@ -3428,7 +3428,7 @@
             '</span><span class="cells">' + h + "</span></div>";
         }).join("") +
         '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:10px;color:var(--muted)">' +
-        '<span><span class="leg" style="background:#1c2f4a"></span> plane-A 리프</span>' +
+        '<span><span class="leg" style="background:var(--info-bg)"></span> plane-A 리프</span>' +
         '<span><span class="leg" style="background:#2a2140"></span> plane-B 리프</span>' +
         '<span style="color:var(--amber)">□ degraded</span>' +
         '<span style="color:var(--red)">□ down</span></div></div>';
@@ -3553,7 +3553,7 @@
           return '<div class="ft-su"><span class="lb">' + su + '</span><span class="cells">' + cells(s.k, su) + "</span></div>";
         }).join("") +
         '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:10px;color:var(--muted)">' +
-        '<span><span class="leg" style="background:#1c2f4a"></span> rail-A 리프 (8/SU)</span>' +
+        '<span><span class="leg" style="background:var(--info-bg)"></span> rail-A 리프 (8/SU)</span>' +
         '<span><span class="leg" style="background:#2a2140"></span> rail-B 리프 (8/SU)</span>' +
         '<span style="color:var(--amber)">□ warn (예측 포함)</span>' +
         '<span style="color:var(--amber)">╌ watch</span>' +
@@ -3873,7 +3873,7 @@
         "HW_SLOWDOWN · SM clock 1,410→980MHz") + arr +
       stg("FABRIC", "#9fd0ff", "집합통신 지연 전파", "NCCL allreduce p99 +9%", "T+299s",
         "leaf 트래픽 재조정 · 링크다운 없음 — straggler 효과") + arr +
-      stg("TENANT", "#c8a5e8", "fin-corp 성능 저하", "MFU -4.1pp · goodput -2.8%", "T+310s",
+      stg("TENANT", "var(--purple-text)", "fin-corp 성능 저하", "MFU -4.1pp · goodput -2.8%", "T+310s",
         "가용성 미차감 — 성능 SLA 협의 대상 기록") + "</div>" +
       '<div class="grid" style="margin-top:14px">' +
       '<div><div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin-bottom:5px">R13 신뢰도 구성 — conf 0.91</div>' +

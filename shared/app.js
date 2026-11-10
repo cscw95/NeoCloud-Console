@@ -89,8 +89,8 @@
     const t = document.createElement("div");
     t.style.cssText = "background:var(--card);border:1px solid " +
       (kind === "warn" ? "var(--amber-line)" : "var(--green-line)") +
-      ";border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text);" +
-      "max-width:340px";
+      ";border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--text);" +
+      "max-width:340px;box-shadow:var(--elev-toast)";
     t.innerHTML = (kind === "warn"
       ? '<b style="color:var(--amber)">⚠</b> '
       : '<b style="color:var(--green-text)">✓</b> ') + msg;
@@ -121,6 +121,24 @@
       if (!el.hasAttribute("role") && tag !== "TR" && tag !== "TD") el.setAttribute("role", "button");
       if (el.matches(".mh .x") && !el.hasAttribute("aria-label")) el.setAttribute("aria-label", "닫기");
     });
+    // 차트 SVG (WCAG 1.1.1): 패널 제목을 이름으로 쓰는 role=img, 작은 아이콘은 장식 처리
+    (root || document).querySelectorAll("svg:not([role]):not([aria-hidden])").forEach(svg => {
+      if (svg.parentElement && svg.parentElement.closest("svg")) return;
+      const box = svg.getBoundingClientRect();
+      if (box.width && box.width <= 24 && box.height <= 24) { svg.setAttribute("aria-hidden", "true"); return; }
+      const panel = svg.closest(".panel,.sub,.card,.kpi,.gpanel");
+      const t = panel && panel.querySelector(".ph .t,.card-h,.gp-h,.k,h2,h3");
+      svg.setAttribute("role", "img");
+      svg.setAttribute("aria-label", ((t && t.textContent.trim()) || "차트").slice(0, 80));
+    });
+    // 라벨 없는 폼 필드 (WCAG 3.3.2): placeholder · title · 첫 옵션 텍스트로 이름 부여
+    (root || document).querySelectorAll("input:not([type=hidden]),select,textarea").forEach(f => {
+      if (f.hasAttribute("aria-label") || f.hasAttribute("aria-labelledby") || f.closest("label") ||
+          (f.id && document.querySelector('label[for="' + f.id + '"]'))) return;
+      let n = f.getAttribute("placeholder") || f.getAttribute("title") || "";
+      if (!n && f.tagName === "SELECT" && f.options.length) n = f.options[0].text.split(/[:：]/)[0];
+      if (n) f.setAttribute("aria-label", n.trim().slice(0, 80));
+    });
   };
   document.addEventListener("keydown", e => {
     if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
@@ -136,6 +154,16 @@
     setTimeout(() => { a11yQueued = false; NC.a11y(); }, 120);
   });
   const a11yStart = () => {
+    // 상태 알림 라이브 영역을 미리 만들어 둔다 (첫 토스트도 낭독되도록 — WCAG 4.1.3)
+    if (!document.getElementById("nc-toast")) {
+      const box = document.createElement("div");
+      box.id = "nc-toast";
+      box.setAttribute("role", "status");
+      box.setAttribute("aria-live", "polite");
+      box.style.cssText = "position:fixed;bottom:22px;right:22px;z-index:99;" +
+        "display:flex;flex-direction:column;gap:8px";
+      document.body.appendChild(box);
+    }
     NC.a11y();
     a11yObs.observe(document.body, { childList: true, subtree: true });
   };

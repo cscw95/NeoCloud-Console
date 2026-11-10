@@ -1929,7 +1929,7 @@
       tb.innerHTML = self +
         list.map(function (m) { return memberLiveRow(m, isAdmin); }).join("") +
         '<tr><td class="id">svc-' + esc(s.tenant_name) +
-        '</td><td style="color:#c8a5e8;font-weight:700">service account</td>' +
+        '</td><td style="color:var(--purple-text);font-weight:700">service account</td>' +
         '<td style="color:var(--muted)">API 키 인증</td></tr>';
       setTimeout(applyRbacGates, 0);
     }).catch(function () { renderMembersFallback(); });
@@ -2312,7 +2312,7 @@
       " · drain → release → 7단계 소거</span>" +
       '<span class="st amber" style="margin-left:auto">erasing · ' + pct +
       "%</span></div>" +
-      '<div style="height:7px;border-radius:4px;background:#233043;overflow:hidden;margin-bottom:8px">' +
+      '<div style="height:7px;border-radius:4px;background:var(--track);overflow:hidden;margin-bottom:8px">' +
       '<div style="width:' + pct +
       '%;height:100%;background:var(--red)"></div></div>' +
       '<div class="stats"><span>현재 <b style="color:var(--amber)">' + phase +
@@ -2607,7 +2607,7 @@
           "<span>다운타임 <b>" +
           (r.downtime_min != null ? esc(r.downtime_min) + "분" : "—") +
           "</b></span></div>" +
-          '<div style="height:6px;border-radius:3px;background:#233043;margin-top:8px;overflow:hidden">' +
+          '<div style="height:6px;border-radius:3px;background:var(--track);margin-top:8px;overflow:hidden">' +
           '<div style="width:' +
           Math.max(2, Math.min(100,
             ((r.availability_pct - 99.5) / 0.5) * 100)) +
@@ -3168,7 +3168,7 @@
       memberRow("이승민", "lee.sm@" + dom, "member", "MFA ✓ · SSO") +
       memberRow("정하윤", "jung.hy@" + dom, "viewer", "MFA ✓") +
       '<tr><td class="id">svc-' + esc(s.tenant_name) +
-      '</td><td style="color:#c8a5e8;font-weight:700">service account</td>' +
+      '</td><td style="color:var(--purple-text);font-weight:700">service account</td>' +
       '<td style="color:var(--muted)">API 키 인증</td></tr>';
   }
   function updateMemberRole(mid, email, role) {

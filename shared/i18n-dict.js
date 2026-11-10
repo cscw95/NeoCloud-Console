@@ -20,6 +20,7 @@ window.NC_I18N.dict = Object.assign(window.NC_I18N.dict || {}, {
   "주간 모드": "Day mode",
   "야간 모드": "Night mode",
   "언어": "Language",
+  "차트": "Chart",
   "닫기": "Close",
   // ── common shell (sidebar / topbar / footer) ──
   "관제 Overview": "Operations Overview",

@@ -19,7 +19,7 @@
 .soft{color:var(--soft)}.mut{color:var(--muted)}.mut2{color:var(--muted2)}.amber{color:var(--amber)}
 .fr{margin-left:auto;flex:none}
 /* 딜 카드 */
-.deal{background:var(--card-sub);border:1px solid #2a3848;border-left:3px solid var(--line);
+.deal{background:var(--card-sub);border:1px solid var(--border-alt);border-left:3px solid var(--line);
   border-radius:8px;padding:10px 13px;margin-bottom:8px}
 .deal:last-child{margin-bottom:0}
 .deal.green{border-left-color:var(--green-text)}
@@ -45,7 +45,7 @@
 .lane .lc:last-child{margin-bottom:0}
 .lane .lc b{font-size:12px;color:var(--strong)}
 .lane .lc .s{color:var(--muted);font-size:10.5px}
-.lane .lc.blue{border-color:#1c2f4a}
+.lane .lc.blue{border-color:var(--info-bg)}
 .lane .lc.amber{border-color:var(--amber-bg)}
 .lane .lc.green{border-color:var(--green-line)}
 /* 리스트 행 */
@@ -80,7 +80,7 @@
 /* P2 프리뷰 배너 */
 .p2-banner{display:flex;gap:7px;align-items:center;margin-bottom:16px;background:var(--strip);
   border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:11.5px;color:var(--muted)}
-.p2-tag{color:var(--blue-text);font-weight:800;border:1px solid #1f4a6a;background:#0e2438;
+.p2-tag{color:var(--blue-text);font-weight:800;border:1px solid var(--info-line);background:var(--info-bg);
   border-radius:4px;padding:1px 8px;font-size:10px;flex:none}
 /* 버튼 보조 */
 .btn-plain{background:none;color:var(--muted);border:1px solid var(--line);border-radius:7px;
@@ -105,7 +105,7 @@
 .pbar{height:5px;background:var(--line-soft);border-radius:3px;overflow:hidden;margin-top:7px}
 .pbar>i{display:block;height:100%;background:var(--green);border-radius:3px}
 /* 비즈 사용자 아바타 */
-.sb-user .av{background:#13314f;color:var(--blue-text)}
+.sb-user .av{background:var(--fabA-bg);color:var(--blue-text)}
 </style>
 </head>
 <body>
@@ -181,7 +181,7 @@
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t js-mrr-label">MRR 추이 · 상품 믹스</span><span class="c">최근 12개월 · 빌링 DW</span></div>
             <svg width="100%" height="120" viewBox="0 0 560 120" preserveAspectRatio="none" role="img" aria-label="MRR 12개월 추이">
-              <rect x="8" y="96" width="30" height="18" style="fill:var(--green-line)"></rect><rect x="54" y="92" width="30" height="22" style="fill:var(--green-line)"></rect><rect x="100" y="88" width="30" height="26" style="fill:var(--green-line)"></rect><rect x="146" y="80" width="30" height="34" style="fill:var(--green-line)"></rect><rect x="192" y="76" width="30" height="38" style="fill:var(--green-line)"></rect><rect x="238" y="66" width="30" height="48" style="fill:var(--green-line)"></rect><rect x="284" y="60" width="30" height="54" style="fill:#3f6a1a"></rect><rect x="330" y="54" width="30" height="60" style="fill:#3f6a1a"></rect><rect x="376" y="44" width="30" height="70" style="fill:#3f6a1a"></rect><rect x="422" y="36" width="30" height="78" style="fill:var(--green)"></rect><rect x="468" y="28" width="30" height="86" style="fill:var(--green)"></rect><rect x="514" y="18" width="30" height="96" style="fill:var(--green)"></rect>
+              <rect x="8" y="96" width="30" height="18" style="fill:var(--chart-1-soft)"></rect><rect x="54" y="92" width="30" height="22" style="fill:var(--chart-1-soft)"></rect><rect x="100" y="88" width="30" height="26" style="fill:var(--chart-1-soft)"></rect><rect x="146" y="80" width="30" height="34" style="fill:var(--chart-1-soft)"></rect><rect x="192" y="76" width="30" height="38" style="fill:var(--chart-1-soft)"></rect><rect x="238" y="66" width="30" height="48" style="fill:var(--chart-1-soft)"></rect><rect x="284" y="60" width="30" height="54" style="fill:#3f6a1a"></rect><rect x="330" y="54" width="30" height="60" style="fill:#3f6a1a"></rect><rect x="376" y="44" width="30" height="70" style="fill:#3f6a1a"></rect><rect x="422" y="36" width="30" height="78" style="fill:var(--green)"></rect><rect x="468" y="28" width="30" height="86" style="fill:var(--green)"></rect><rect x="514" y="18" width="30" height="96" style="fill:var(--green)"></rect>
               <polyline points="23,88 69,84 115,79 161,71 207,66 253,55 299,49 345,43 391,33 437,26 483,19 529,10" style="fill:none;stroke:var(--blue-text);stroke-width:1.6;stroke-dasharray:4 3"></polyline>
             </svg>
             <div class="chart-x"><span>25-08</span><span style="color:var(--blue-text)">─ ─ 목표선</span><span>26-07</span></div>
@@ -202,9 +202,9 @@
               <button class="btn fr" data-open="lead" type="button">+ 리드 등록</button></div>
             <div class="funnel">
               <div style="flex:1.4;background:var(--line-soft);border-radius:6px 0 0 6px;color:var(--muted)">리드 <b class="js-lead-n">3</b></div>
-              <div style="flex:1.2;background:#1c2f4a;color:var(--blue-text)">견적/RFQ <b class="js-fun-q">2</b></div>
+              <div style="flex:1.2;background:var(--info-bg);color:var(--blue-text)">견적/RFQ <b class="js-fun-q">2</b></div>
               <div style="flex:1;background:var(--amber-bg);color:var(--amber)">협상 <b class="js-fun-n">1</b></div>
-              <div style="flex:.9;background:#1d3a26;border-radius:0 6px 6px 0;color:var(--green-text)">계약 임박 <b class="js-fun-c">1</b></div>
+              <div style="flex:.9;background:var(--ok-bg);border-radius:0 6px 6px 0;color:var(--green-text)">계약 임박 <b class="js-fun-c">1</b></div>
             </div>
             <div class="deal green" data-deal="delta-corp" style="cursor:pointer" title="클릭 — 딜 상세 · 세부 단계">
               <div class="hd"><b>delta-corp — 24랙 reserved 3년</b><span class="st green" data-delta-stage>계약 임박 · 90%</span><span class="amt">$61.0M ARR</span></div>
@@ -235,12 +235,12 @@
           <!-- 수요 · 공급 계획 -->
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">수요 · 공급 계획</span><span class="c">운영 Capacity 실시간 연동</span></div>
-            <div class="legend"><span><i style="background:var(--green)"></i> 계약 확정</span><span><i style="background:var(--amber)"></i> 파이프라인 (가중)</span><span><i style="background:#233043"></i> 공급 용량</span></div>
+            <div class="legend"><span><i style="background:var(--green)"></i> 계약 확정</span><span><i style="background:var(--amber)"></i> 파이프라인 (가중)</span><span><i style="background:var(--track)"></i> 공급 용량</span></div>
             <svg width="100%" height="110" viewBox="0 0 560 110" preserveAspectRatio="none" role="img" aria-label="분기별 수요 공급">
-              <rect x="10" y="20" width="120" height="74" style="fill:#233043"></rect><rect x="10" y="56" width="120" height="38" style="fill:var(--green)"></rect>
-              <rect x="150" y="20" width="120" height="74" style="fill:#233043"></rect><rect x="150" y="48" width="120" height="46" style="fill:var(--green)"></rect><rect x="150" y="38" width="120" height="10" style="fill:var(--amber)"></rect>
-              <rect x="290" y="20" width="120" height="74" style="fill:#233043"></rect><rect x="290" y="40" width="120" height="54" style="fill:var(--green)"></rect><rect x="290" y="24" width="120" height="16" style="fill:var(--amber)"></rect>
-              <rect x="430" y="6" width="120" height="88" style="fill:#233043"></rect><rect x="430" y="46" width="120" height="48" style="fill:var(--green)"></rect><rect x="430" y="24" width="120" height="22" style="fill:var(--amber)"></rect>
+              <rect x="10" y="20" width="120" height="74" style="fill:var(--track)"></rect><rect x="10" y="56" width="120" height="38" style="fill:var(--green)"></rect>
+              <rect x="150" y="20" width="120" height="74" style="fill:var(--track)"></rect><rect x="150" y="48" width="120" height="46" style="fill:var(--green)"></rect><rect x="150" y="38" width="120" height="10" style="fill:var(--amber)"></rect>
+              <rect x="290" y="20" width="120" height="74" style="fill:var(--track)"></rect><rect x="290" y="40" width="120" height="54" style="fill:var(--green)"></rect><rect x="290" y="24" width="120" height="16" style="fill:var(--amber)"></rect>
+              <rect x="430" y="6" width="120" height="88" style="fill:var(--track)"></rect><rect x="430" y="46" width="120" height="48" style="fill:var(--green)"></rect><rect x="430" y="24" width="120" height="22" style="fill:var(--amber)"></rect>
               <line x1="430" y1="6" x2="550" y2="6" style="stroke:var(--blue-text);stroke-width:1.5;stroke-dasharray:4 3"></line>
             </svg>
             <div class="chart-x"><span>Q3 '26 (140랙)</span><span>Q4 '26</span><span>Q1 '27</span><span style="color:var(--blue-text)">Q2 '27 +su-12·13 (172랙)</span></div>
@@ -410,7 +410,7 @@
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t js-mrr-label">MRR 추이 (12개월) · 목표선</span></div>
             <svg width="100%" height="110" viewBox="0 0 560 110" preserveAspectRatio="none" role="img" aria-label="MRR 추이">
-              <rect x="8" y="88" width="30" height="18" style="fill:var(--green-line)"></rect><rect x="54" y="84" width="30" height="22" style="fill:var(--green-line)"></rect><rect x="100" y="80" width="30" height="26" style="fill:var(--green-line)"></rect><rect x="146" y="72" width="30" height="34" style="fill:var(--green-line)"></rect><rect x="192" y="68" width="30" height="38" style="fill:var(--green-line)"></rect><rect x="238" y="58" width="30" height="48" style="fill:var(--green-line)"></rect><rect x="284" y="52" width="30" height="54" style="fill:#3f6a1a"></rect><rect x="330" y="46" width="30" height="60" style="fill:#3f6a1a"></rect><rect x="376" y="36" width="30" height="70" style="fill:#3f6a1a"></rect><rect x="422" y="28" width="30" height="78" style="fill:var(--green)"></rect><rect x="468" y="20" width="30" height="86" style="fill:var(--green)"></rect><rect x="514" y="10" width="30" height="96" style="fill:var(--green)"></rect>
+              <rect x="8" y="88" width="30" height="18" style="fill:var(--chart-1-soft)"></rect><rect x="54" y="84" width="30" height="22" style="fill:var(--chart-1-soft)"></rect><rect x="100" y="80" width="30" height="26" style="fill:var(--chart-1-soft)"></rect><rect x="146" y="72" width="30" height="34" style="fill:var(--chart-1-soft)"></rect><rect x="192" y="68" width="30" height="38" style="fill:var(--chart-1-soft)"></rect><rect x="238" y="58" width="30" height="48" style="fill:var(--chart-1-soft)"></rect><rect x="284" y="52" width="30" height="54" style="fill:#3f6a1a"></rect><rect x="330" y="46" width="30" height="60" style="fill:#3f6a1a"></rect><rect x="376" y="36" width="30" height="70" style="fill:#3f6a1a"></rect><rect x="422" y="28" width="30" height="78" style="fill:var(--green)"></rect><rect x="468" y="20" width="30" height="86" style="fill:var(--green)"></rect><rect x="514" y="10" width="30" height="96" style="fill:var(--green)"></rect>
               <polyline points="23,80 69,76 115,71 161,63 207,58 253,47 299,41 345,35 391,25 437,18 483,11 529,4" style="fill:none;stroke:var(--blue-text);stroke-width:1.6;stroke-dasharray:4 3"></polyline>
             </svg>
             <div class="chart-x"><span>25-08</span><span style="color:var(--blue-text)">─ ─ 목표</span><span>26-07</span></div>
@@ -485,12 +485,12 @@
         <div class="grid">
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">수요 vs 공급 — 분기별</span><span class="c">운영 Capacity 실시간 연동</span></div>
-            <div class="legend"><span><i style="background:var(--green)"></i> 계약 확정</span><span><i style="background:var(--amber)"></i> 파이프라인 (가중)</span><span><i style="background:#233043"></i> 공급 용량</span></div>
+            <div class="legend"><span><i style="background:var(--green)"></i> 계약 확정</span><span><i style="background:var(--amber)"></i> 파이프라인 (가중)</span><span><i style="background:var(--track)"></i> 공급 용량</span></div>
             <svg width="100%" height="110" viewBox="0 0 560 110" preserveAspectRatio="none" role="img" aria-label="분기별 수요 공급">
-              <rect x="10" y="20" width="120" height="74" style="fill:#233043"></rect><rect x="10" y="56" width="120" height="38" style="fill:var(--green)"></rect>
-              <rect x="150" y="20" width="120" height="74" style="fill:#233043"></rect><rect x="150" y="48" width="120" height="46" style="fill:var(--green)"></rect><rect x="150" y="38" width="120" height="10" style="fill:var(--amber)"></rect>
-              <rect x="290" y="20" width="120" height="74" style="fill:#233043"></rect><rect x="290" y="40" width="120" height="54" style="fill:var(--green)"></rect><rect x="290" y="24" width="120" height="16" style="fill:var(--amber)"></rect>
-              <rect x="430" y="6" width="120" height="88" style="fill:#233043"></rect><rect x="430" y="46" width="120" height="48" style="fill:var(--green)"></rect><rect x="430" y="24" width="120" height="22" style="fill:var(--amber)"></rect>
+              <rect x="10" y="20" width="120" height="74" style="fill:var(--track)"></rect><rect x="10" y="56" width="120" height="38" style="fill:var(--green)"></rect>
+              <rect x="150" y="20" width="120" height="74" style="fill:var(--track)"></rect><rect x="150" y="48" width="120" height="46" style="fill:var(--green)"></rect><rect x="150" y="38" width="120" height="10" style="fill:var(--amber)"></rect>
+              <rect x="290" y="20" width="120" height="74" style="fill:var(--track)"></rect><rect x="290" y="40" width="120" height="54" style="fill:var(--green)"></rect><rect x="290" y="24" width="120" height="16" style="fill:var(--amber)"></rect>
+              <rect x="430" y="6" width="120" height="88" style="fill:var(--track)"></rect><rect x="430" y="46" width="120" height="48" style="fill:var(--green)"></rect><rect x="430" y="24" width="120" height="22" style="fill:var(--amber)"></rect>
               <line x1="430" y1="6" x2="550" y2="6" style="stroke:var(--blue-text);stroke-width:1.5;stroke-dasharray:4 3"></line>
             </svg>
             <div class="chart-x"><span>Q3 '26 (140랙)</span><span>Q4 '26</span><span>Q1 '27</span><span style="color:var(--blue-text)">Q2 '27 +su-12·13 (172랙)</span></div>
