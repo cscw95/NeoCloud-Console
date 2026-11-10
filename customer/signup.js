@@ -18,7 +18,7 @@
     root.innerHTML = "<h1>" + esc(L("NeoCloud 조직 가입", "Sign up your organization")) + '</h1><p class="lead">' +
       esc(L("사업자 정보로 가입하면 테넌트·IAM realm·관리자 계정이 만들어집니다. 운영자가 사업자 확인을 마치면 활성화됩니다.",
         "Sign up with your business details to create a tenant, IAM realm and admin account. It activates once an operator verifies the business.")) + "</p>" +
-      (NC.billingViz ? NC.billingViz.stepper(steps.map(function (s, i) {   // customer/billing-viz.js — IAM 온보딩과 같은 단계 표시
+      (NC.billingViz ? NC.billingViz.steps(steps.map(function (s, i) {   // customer/billing-viz.js — IAM 온보딩과 같은 단계 표시
         return { label: L(s[0], s[1]), sub: L(s[2], s[3]), state: i < at ? "done" : i === at ? "current" : "todo" };
       }), L("진행 단계", "Progress")) :
       '<ol class="su-steps" aria-label="' + esc(L("진행 단계", "Progress")) + '">' + steps.map(function (s, i) {

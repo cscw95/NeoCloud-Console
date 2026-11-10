@@ -154,3 +154,5 @@
   .bv-meter>i,.bv-wf-t>i,.bv-sb-t>i{transition:width var(--dur) var(--ease)}
 }
 .bv-sub{font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--text-2);margin:0 0 var(--sp-2)}
+.bv-g-note{margin:var(--sp-1) 0 0;font-size:var(--fs-xs);color:var(--text-2);text-align:center}
+.bv-raw>summary{cursor:pointer;font-size:var(--fs-sm);color:var(--text-2)}

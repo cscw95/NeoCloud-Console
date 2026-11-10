@@ -143,15 +143,36 @@
     }).join("") + "</ol>";
   }
   var FLOW = ["draft", "finalized", "paid"];
-  function invoiceFlow(x, L) {
+  function invoiceFlowSteps(x, L) {
     L = L || id;
     var i = FLOW.indexOf(x && x.status), v = x && x.status === "void";
-    return stepper([
+    return [
       { label: L("초안", "Draft"), sub: x && x.created_at ? String(x.created_at).slice(0, 10) : L("계량 집계", "metering roll-up"), state: i > 0 ? "done" : i === 0 ? "current" : "todo" },
       { label: L("확정", "Finalized"), sub: x && x.finalized_at ? String(x.finalized_at).slice(0, 10) : L("금액 고정 · 웹훅", "amount locked · webhook"), state: i > 1 ? "done" : i === 1 ? "current" : v ? "failed" : "todo" },
       { label: L("결제", "Paid"), sub: x && x.paid_at ? String(x.paid_at).slice(0, 10) : L("결제 대기", "awaiting payment"), state: i === 2 ? "done" : "todo" },
       { label: L("세금계산서", "Tax invoice"), sub: x && x.tax_invoice ? L("발행 ", "issued ") + (x.tax_invoice.issue_date || "") : L("확정 후 발행", "after finalize"), state: x && x.tax_invoice ? "done" : "todo" }
-    ], L("청구서 진행 단계", "Invoice lifecycle"));
+    ];
+  }
+  function invoiceFlow(x, L) { return stepper(invoiceFlowSteps(x, L), (L || id)("청구서 진행 단계", "Invoice lifecycle")); }
+
+  /* ── design-core 공유 컴포넌트 연결 (V2-DESIGN-COMPONENTS.md): 브라우저에 NC.flow / NC.kpi 가 있으면 그것으로,
+     없으면(node 테스트 · 단독 페이지) 위의 자체 빌더로 그린다. ─────────────────────────── */
+  function shared(k) { var g = typeof window !== "undefined" ? window : null; return g && g.NC && g.NC[k] ? g.NC[k] : null; }
+  var ST = { done: "done", current: "active", todo: "pending", failed: "fail" };
+  function steps(list, aria) {
+    var F = shared("flow");
+    if (!F) return stepper(list, aria);
+    return F.timeline(list.map(function (s) { return { label: s.label, sub: s.sub, status: ST[s.state] || "pending" }; }),
+      { orientation: "horizontal", ariaLabel: aria, progress: list.length > 3 });
+  }
+  /* 가용성 게이지 — 공유 NC.kpi.gauge (warn = target: 목표 미달이면 곧 SLA 위반 → crit) + 눈금 설명 */
+  function availGauge(o) {
+    var K = shared("kpi"), L = o.L || id;
+    if (!K) return gauge(o);
+    var tg = o.target != null ? +o.target : 99.9;
+    return K.gauge({ label: L("가용성", "Availability"), value: o.value, min: o.lo != null ? o.lo : 99, max: o.hi != null ? o.hi : 100,
+      target: tg, warn: tg, unit: "%", digits: 3, size: 200 }) +
+      '<p class="bv-g-note">' + esc(L("눈금 99–100% 확대 · 목표 ", "scale zoomed to 99–100% · target ")) + tg + "%</p>";
   }
 
   /* ── 누적 막대 (월 × 상품) ────────────────────────────── */
@@ -253,5 +274,5 @@
 
   return { CREDIT_TABLE: CREDIT_TABLE, esc: esc, won: won, minutesInMonth: minutesInMonth, budget: budget, creditFor: creditFor, gauge: gauge,
     budgetBar: budgetBar, ladder: ladder, invoiceMath: invoiceMath, waterfall: waterfall, invoiceSteps: invoiceSteps, stepper: stepper,
-    invoiceFlow: invoiceFlow, stack: stack, spendRows: spendRows, forecast: forecast, taxDoc: taxDoc, term: term, roleMatrix: roleMatrix };
+    invoiceFlow: invoiceFlow, invoiceFlowSteps: invoiceFlowSteps, steps: steps, availGauge: availGauge, stack: stack, spendRows: spendRows, forecast: forecast, taxDoc: taxDoc, term: term, roleMatrix: roleMatrix };
 });

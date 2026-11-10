@@ -133,6 +133,13 @@
   var STATUS = { draft: ["초안", "Draft"], finalized: ["확정", "Finalized"], paid: ["결제 완료", "Paid"], void: ["무효", "Void"] };
   function stLabel(s) { var x = STATUS[s]; return x ? L(x[0], x[1]) : s; }
   function BV() { return NC.billingViz; }
+  /* 이 화면이 방금 주고받은 요청·응답 원문 — design-core NC.msg (없으면 생략) */
+  function raw(re) {
+    if (!NC.msg || !A.trace) return "";
+    return U.panel(L("요청 · 응답 원문", "Raw request · response"), esc(L("Lago · Stripe 형식 · 최근 6건", "Lago · Stripe format · latest 6")),
+      NC.msg.list(A.trace(), { limit: 6, filter: function (e) { return re.test(String(e.url || "")); }, layout: "split",
+        empty: L("아직 호출 없음", "No calls yet"), ariaLabel: L("요청 · 응답 원문", "Raw request · response") }));
+  }
   function unitPrice(p) { return p != null && p < 1 ? "₩" + esc(p) : U.krw(p); }
   async function renderInvoices() {
     var root = $("v2-invoices-root"); if (!root) return;
@@ -197,7 +204,7 @@
         "</dd><dt>" + esc(L("결과", "Result")) + "</dt><dd>" + U.st(x.payment.status === "succeeded" ? "paid" : x.payment.status, x.payment.status) + " · " + esc(x.payment.kind || (x.payment.payment_method_types || []).join(", ")) +
         " · " + U.krw(x.payment.amount_received != null ? x.payment.amount_received : x.payment.amount) + "</dd></dl>" : "";
       detail = U.panel(L("청구서 상세 — ", "Invoice detail — ") + x.id, U.src(d) + " · " + esc(x.period),
-        (V ? V.invoiceFlow(x, L) : "") +
+        (V ? V.steps(V.invoiceFlowSteps(x, L), L("청구서 진행 단계", "Invoice lifecycle")) : "") +
         '<div class="grid">' +
         '<div><h3 class="bv-sub">' + esc(L("청구 라인", "Line items")) + "</h3>" +
         U.table([L("상품", "Product"), L("지표", "Metric"), L("#수량", "#Qty"), L("#단가", "#Unit price"), L("#금액", "#Amount")], lr, L("라인 없음", "No lines")) + "</div>" +
@@ -220,7 +227,7 @@
         U.field("v2-pm-kind", L("종류", "Kind"), '<select id="v2-pm-kind"><option value="card">card</option><option value="bank_transfer">bank_transfer</option></select>') +
         U.field("v2-pm-token", L("결제 토큰 (PG 발급)", "Payment token (from PG)"), '<input id="v2-pm-token" placeholder="tok_visa_4242" autocomplete="off">') +
         '<button type="button" class="btn-ghost" id="v2-pm-add">' + esc(L("+ 등록", "+ Add")) + "</button></div>" : ""));
-    root.innerHTML = (NC.v2demo ? NC.v2demo.host("invoice") : "") + hero + listP + detail + pm;
+    root.innerHTML = (NC.v2demo ? NC.v2demo.host("invoice") : "") + hero + listP + detail + pm + raw(/\/billing\//);
   }
 
   /* ══ ③ SLA · 크레딧 · 자동 복구 ═════════════════════════════
@@ -253,7 +260,7 @@
       var b = V.budget(rep.target_pct || 99.9, rep.month || SL.month, counted), pct = V.creditFor(rep.availability_pct, rep.credit_table);
       hero = '<div class="bv-hero">' +
         U.panel(L("가용성 (SLA 99.9%)", "Availability (SLA 99.9%)"), esc(rep.month || SL.month),
-          '<div class="grid">' + V.gauge({ value: rep.availability_pct, target: rep.target_pct || 99.9, L: L }) +
+          '<div class="grid">' + V.availGauge({ value: rep.availability_pct, target: rep.target_pct || 99.9, L: L }) +
           '<div><div class="bv-pair" style="margin-top:0"><div><div class="k">' + esc(L("반영 다운타임", "Counted downtime")) + '</div><div class="v' + (b.over ? " crit" : "") + '">' + fmt(counted, 1) +
           "<small> " + esc(L("분", "min")) + "</small></div></div>" +
           '<div><div class="k">' + esc(L("예외 제외", "Excluded")) + '</div><div class="v">' + fmt(rep.exceptions_minutes, 1) + "<small> " + esc(L("분", "min")) + "</small></div></div>" +
@@ -305,7 +312,8 @@
       U.panel(L("예외 구간", "Exception windows"), U.src(r[2]),
         U.table(["ID", L("유형", "Kind"), L("구간", "Window"), L("범위", "Scope"), L("계약 조항", "Clause")], exRows, L("예외 없음", "No exceptions"))) + "</div>" +
       U.panel(L("자동 복구 기록", "Auto-recovery history"), U.src(r[3]),
-        U.table([L("실행", "Run"), L("노드", "Node"), L("원인", "Trigger"), L("결과", "Outcome"), "#MTTR"], runRows, L("복구 실행 없음", "No runs")));
+        U.table([L("실행", "Run"), L("노드", "Node"), L("원인", "Trigger"), L("결과", "Outcome"), "#MTTR"], runRows, L("복구 실행 없음", "No runs"))) +
+      raw(/\/sla|sla-report|remediation/);
   }
 
   /* ══ ④ 조직 · IAM · SSO ═════════════════════════════════════
@@ -319,7 +327,7 @@
     var s = sess() || {}, role = s.role === "owner" ? "admin" : (s.role || "admin");
     var actC = ctrs.filter(function (c) { return c.status === "active"; });
     var onboard = V ? U.panel(L("가입 → 청구 흐름", "Sign-up → billing flow"), esc(tid),
-      V.stepper([
+      V.steps([
         { label: L("웹 가입", "Web sign-up"), sub: L("사업자 · 담당자", "business · contact"), state: "done" },
         { label: L("이메일 검증", "Email verified"), sub: "POST /signup/{id}/verify", state: "done" },
         { label: L("조직 활성", "Organization active"), sub: L("역할 ", "role ") + role, state: "done" },

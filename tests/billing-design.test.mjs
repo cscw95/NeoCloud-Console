@@ -143,3 +143,17 @@ test("billing screens: wiring, ids kept, CSS tokens only, ≥11px, KO/EN pairs",
     });
   }
 });
+
+test("billing-viz: uses design-core NC.flow / NC.kpi when loaded; SLA miss is judged crit, not warn", () => {
+  const F = require(path.join(ROOT, "shared/flow-timeline.js")), K = require(path.join(ROOT, "shared/kpi-gauge.js"));
+  const own = BV.steps([{ label: "A", state: "done" }, { label: "B", state: "current" }], "x");
+  assert.match(own, /class="bv-steps"/);                         // node: no window → own stepper
+  globalThis.window = { NC: { flow: F, kpi: K } };
+  try {
+    const h = BV.steps(BV.invoiceFlowSteps({ status: "finalized" }, EN), "Invoice lifecycle");
+    assert.match(h, /ft-step done/); assert.match(h, /aria-current="step"/);
+    const g = BV.availGauge({ value: 99.8782, target: 99.9, L: EN });
+    assert.match(g, /kg-gauge/); assert.match(g, /data-tone="crit"/); assert.match(g, /scale zoomed to 99–100%/);
+    assert.match(BV.availGauge({ value: 99.95, target: 99.9, L: EN }), /data-tone="ok"/);
+  } finally { delete globalThis.window; }
+});
