@@ -35,6 +35,34 @@
     };
   }
   function pad(n, w) { n = String(n); while (n.length < w) n = "0" + n; return n; }
+  /* NOCP /power/telemetry (DPS 형태: {domains:[{measured_kw, groups:[{group_id, measured_kw,
+     racks:[{rack_id, measured_kw, cap_kw, ...}]}]}]} 또는 local-fallback {domains:[{domain,
+     power_kw, racks}]}) → 화면용 평면 형태 {operating_limit_kw, used_kw, groups, racks} */
+  function normTelemetry(j, domainId) {
+    if (!j || typeof j !== "object" || !Array.isArray(j.domains)) return j;
+    var d = j.domains.find(function (x) { return (x.id || x.domain) === domainId; }) || j.domains[0] || {};
+    var racks = [], groups = (d.groups || []).map(function (g) {
+      var gid = g.group_id || g.id || g.name;
+      (g.racks || []).forEach(function (k) {
+        racks.push({ rack: k.rack_id || k.rack, group: g.name || gid,
+          power_kw: +(k.measured_kw != null ? k.measured_kw : k.power_kw) || 0, cap_kw: k.cap_kw,
+          headroom_kw: k.headroom_kw, profile: k.profile, workload: k.workload,
+          throttled: k.throttled, gpus: k.gpu && k.gpu.count });
+      });
+      return { id: gid, name: g.name || gid, priority: g.priority, min_kw: g.min_kw,
+        max_kw: g.max_kw != null ? g.max_kw : g.cap_kw, rack_count: (g.racks || []).length,
+        used_kw: +(g.measured_kw != null ? g.measured_kw : g.used_kw) || 0, headroom_kw: g.headroom_kw };
+    });
+    (Array.isArray(d.racks) ? d.racks : []).forEach(function (k) {   // DPS: racks = count
+      racks.push({ rack: k.rack_id || k.rack, power_kw: +(k.measured_kw != null ? k.measured_kw : k.power_kw) || 0,
+        cap_kw: k.cap_kw, headroom_kw: k.headroom_kw, profile: k.profile || null });
+    });
+    return { domain: d.id || d.domain, mode: d.mode,
+      operating_limit_kw: d.effective_limit_kw || d.operating_limit_kw,
+      used_kw: +(d.measured_kw != null ? d.measured_kw : d.power_kw) || 0,
+      headroom_kw: d.headroom_kw, groups: groups, racks: racks, at: j.at };
+  }
+
   function arr(x, keys) {
     if (Array.isArray(x)) return x;
     if (x && typeof x === "object") {
@@ -390,7 +418,8 @@
         });
       },
       powerTelemetry: function (domain) {
-        return get("/power/telemetry" + q({ domain: domain }), function () { return mockTelemetry(domain); });
+        return get("/power/telemetry" + q({ domain: domain }), function () { return mockTelemetry(domain); },
+          function (j) { return normTelemetry(j, domain); });
       },
       simulate: function (body) {
         return act("/power/simulate", "POST", body, function () { return simulate(body, M.domains); });

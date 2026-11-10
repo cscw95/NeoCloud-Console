@@ -467,3 +467,21 @@ test("XSS: every esc() helper escapes & < > \" ' (attribute-safe)", () => {
     assert.equal(ctx.__e(`<img src=x onerror="a('b')">&`), "&lt;img src=x onerror=&quot;a(&#39;b&#39;)&quot;&gt;&amp;", f);
   }
 });
+
+/* ── integration QA: live DPS telemetry shape → screen shape ─── */
+test("dsx-api: powerTelemetry flattens NOCP/DPS domains→groups→racks (racks may be a count)", async () => {
+  const f = fakeFetch({ "GET /api/v1/power/telemetry": { source: "ai-infra", domains: [{
+    id: "pd-gasan", operating_limit_kw: 3000, effective_limit_kw: 2900, measured_kw: 2500.5, racks: 2,
+    groups: [{ group_id: "rg-su-1", name: "su-1", priority: 50, min_kw: 0, max_kw: null, cap_kw: 200,
+      measured_kw: 160, racks: [{ rack_id: "su-1-rack-00", measured_kw: 80, cap_kw: 94, headroom_kw: 14, profile: "max-p" },
+                                { rack_id: "su-1-rack-01", measured_kw: 80, cap_kw: 94, headroom_kw: 14, profile: "inference" }] }] }] } });
+  const D = dsxMod.create({ base: "http://nocp", fetch: f, token: null, session: () => null });
+  const r = await D.powerTelemetry("pd-gasan");
+  assert.equal(r.live, true);
+  assert.equal(r.data.used_kw, 2500.5);
+  assert.equal(r.data.operating_limit_kw, 2900);
+  assert.deepEqual(r.data.racks.map(k => [k.rack, k.power_kw, k.group, k.profile]),
+    [["su-1-rack-00", 80, "su-1", "max-p"], ["su-1-rack-01", 80, "su-1", "inference"]]);
+  assert.equal(r.data.groups[0].used_kw, 160);
+  assert.equal(r.data.groups[0].max_kw, 200);
+});
