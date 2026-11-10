@@ -177,7 +177,7 @@
     var resLine = res ? '<div class="dc-res mono"><span class="dc-k">' + esc(t(lang).response) + "</span>" + esc(res.summary) + "</div>" : "";
     var raw = (req || res) ? '<details class="dc-raw"><summary>' + esc(t(lang).raw) + "</summary>" + msgHtml(st, lang) + "</details>" : "";
     var exp = L(st, "expect", lang);
-    return '<li class="dc-step s-' + esc(st.state) + (cur ? " cur" : "") + '" data-step="' + i + '"' + (cur ? ' aria-current="step"' : "") + ">" +
+    return '<li class="dc-step' + (cur ? " cur" : "") + " s-" + esc(st.state) + '" data-step="' + i + '"' + (cur ? ' aria-current="step"' : "") + ">" +
       '<div class="dc-step-h"><span class="dc-no mono">' + esc(st.id) + "</span>" +
       '<span class="dc-step-t">' + esc(L(st, "title", lang)) + "</span>" + badge(st.state, st.feature, lang) +
       (cur ? '<span class="dc-now">' + esc(t(lang).now) + "</span>" : "") +
@@ -204,6 +204,10 @@
   function msgHtml(st, lang) {
     var tx = t(lang), req = st && st.request, res = st && st.response;
     if (!req && !res) return '<p class="dc-muted">' + esc(tx.noMsg) + "</p>";
+    var M = G && G.NC && G.NC.msg;
+    if (M && typeof M.render === "function") {
+      return '<div class="dc-msg-core">' + M.render(st, { open: true, layout: "split", title: (st.id || "") + " " + L(st, "title", lang) }) + "</div>";
+    }
     var reqStart = req ? esc(req.method || "") + " " + esc(pathOf(req.url) + (String(req.url || "").indexOf("?") >= 0 ? "?" + String(req.url).split("?").slice(1).join("?") : "")) : "";
     var host = req ? String(req.url || "").replace(/^[a-z]+:\/\/([^/]+).*$/i, "$1") : "";
     var reqH = req ? (host && host !== req.url ? '<span class="dc-hn">Host:</span> ' + esc(host) + (hdrs(req.headers) ? "\n" : "") : "") + hdrs(req.headers) : "";
@@ -250,8 +254,8 @@
     var lanes = lanesFor(steps), tx = t(lang);
     var items = steps.map(function (s, i) {
       return { id: String(i), lane: laneOf(s), status: FLOW_ST[s.state] || "pending",
-        label: { ko: s.id + " " + (s.title_ko || ""), en: s.id + " " + (s.title_en || s.title_ko || "") },
-        sub: s.request ? (s.request.method + " " + (s.response && s.response.status ? s.response.status : "")) : null };
+        label: { ko: s.title_ko || s.id, en: s.title_en || s.title_ko || s.id },
+        sub: s.id + (s.request ? " · " + s.request.method + (s.response && s.response.status ? " " + s.response.status : "") : "") };
     });
     var F = flow();
     if (F) return F.swimlane(lanes, items, { selectable: true, selected: String(sel), big: big, caption: tx.swimCap, ariaLabel: tx.vSwim });
@@ -441,6 +445,7 @@
     ".dc-links{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.dc-link{color:var(--accent-text)}" +
     ".dc-raw summary{cursor:pointer;color:var(--muted);font-size:calc(11px*var(--dc-scale));margin-top:5px}" +
     /* 원문 뷰어 */
+    "#demo-center-root .dc-msg-core{min-width:0;max-width:100%;overflow-x:auto;position:relative}" +
     ".dc-msg{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:10px;margin-top:8px}" +
     ".dc-pane{min-width:0;border:1px solid var(--line-soft);border-radius:6px;background:var(--surface-1);overflow:hidden}" +
     ".dc-ph{margin:0;padding:6px 10px;font-size:var(--fs-xs);font-weight:var(--fw-semi);color:var(--text-2);background:var(--surface-2);display:flex;gap:8px;align-items:center}" +
@@ -448,12 +453,13 @@
     ".dc-wire{margin:0;max-height:320px;overflow:auto;padding:8px 10px;font-size:11px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--text)}" +
     ".dc-start{font-weight:var(--fw-bold);color:var(--accent-text)}.dc-hn{color:var(--text-2)}" +
     /* 스윔레인(로컬 대체) */
-    ".dc-sl-wrap,.fsl-wrap{overflow-x:auto;max-width:100%;width:100%;margin-top:8px;contain:inline-size}" +
+    "#demo-center-root .dc-sl-wrap,#demo-center-root .fsl-wrap{overflow-x:auto;max-width:100%;width:100%;margin-top:8px;position:relative}" +
     ".dc-sl{border-collapse:separate;border-spacing:0;font-size:calc(11.5px*var(--dc-scale))}.dc-sl caption{text-align:left;color:var(--text-2);padding:0 0 6px}" +
     ".dc-sl th,.dc-sl td{border-bottom:1px solid var(--line-soft);padding:4px 6px;vertical-align:middle}" +
     ".dc-sl thead th{color:var(--muted);font-size:var(--fs-xs);font-weight:var(--fw-semi);text-align:center}" +
     ".dc-sl-lane{text-align:left;white-space:nowrap;color:var(--text-2);font-weight:var(--fw-semi);position:sticky;left:0;background:var(--card);z-index:1}" +
     ".dc-sl td.has{background:var(--surface-2)}" +
+    "#demo-center-root .fsl td,#demo-center-root .dc-sl td{min-width:136px}#demo-center-root .fsl-chip,#demo-center-root .dc-chip{max-width:190px}" +
     ".dc-chip{display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:4px 8px;border-radius:var(--radius);border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit;max-width:150px;cursor:pointer;text-align:center}" +
     ".dc-chip:hover{background:var(--surface-hover)}.dc-chip.sel{box-shadow:0 0 0 2px var(--accent)}.dc-ic{font-weight:var(--fw-bold)}" +
     ".dc-chip.done{border-color:var(--ok-line);background:var(--ok-bg)}.dc-chip.done .dc-ic{color:var(--ok)}" +
