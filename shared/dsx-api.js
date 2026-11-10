@@ -674,6 +674,23 @@
           return c;
         });
       },
+      /* F11 — CAPI/CAPNICo · 노드 라벨 · IMEX ComputeDomain (mock: 빈 결과) */
+      nvkeCapi: function (id) {
+        return get("/nvke/clusters/" + encodeURIComponent(id) + "/capi", function () {
+          return { cluster: { name: id, phase: "—", failure_domains: [] }, machine_deployments: [],
+            machines: [], nico_machines: [], history: [] };
+        });
+      },
+      nvkeNodes: function (id) {
+        return get("/nvke/clusters/" + encodeURIComponent(id) + "/nodes", function () { return []; });
+      },
+      nvkeComputeDomains: function (id) {
+        return get("/nvke/clusters/" + encodeURIComponent(id) + "/compute-domains", function () { return []; });
+      },
+      nvkeReplaceNode: function (id, node, body) {
+        return act("/nvke/clusters/" + encodeURIComponent(id) + "/nodes/" + encodeURIComponent(node) + "/replace",
+          "POST", body || {}, function () { return null; });
+      },
       nvkeAicrRecipe: function (id) {
         return get("/nvke/clusters/" + encodeURIComponent(id) + "/aicr-recipe", function () {
           var c = findNvke(id) || {};
