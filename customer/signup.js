@@ -11,15 +11,19 @@
   function render() {
     var root = $("su-root"); if (!root) return;
     var st = S.res && S.res.data ? S.res.data.status : null;
-    var steps = [["가입 신청", "Apply"], ["사업자 확인 대기", "Awaiting verification"], ["활성", "Active"], ["OIDC 로그인", "OIDC sign-in"]];
+    var steps = [["가입 신청", "Apply", "POST /api/v1/signup", "POST /api/v1/signup"], ["사업자 확인 대기", "Awaiting verification", "운영자 확인 · 주문 403", "operator check · orders 403"],
+      ["활성", "Active", "테넌트 · IAM realm · 관리자", "tenant · IAM realm · admin"], ["OIDC 로그인", "OIDC sign-in", "SSO · API 키 → 계약 · 청구서", "SSO · API keys → contract · invoice"]];
     var at = !st ? 0 : st === "pending_verification" ? 1 : st === "active" ? 2 : 0;
     var f = S.f;
     root.innerHTML = "<h1>" + esc(L("NeoCloud 조직 가입", "Sign up your organization")) + '</h1><p class="lead">' +
       esc(L("사업자 정보로 가입하면 테넌트·IAM realm·관리자 계정이 만들어집니다. 운영자가 사업자 확인을 마치면 활성화됩니다.",
         "Sign up with your business details to create a tenant, IAM realm and admin account. It activates once an operator verifies the business.")) + "</p>" +
+      (NC.billingViz ? NC.billingViz.stepper(steps.map(function (s, i) {   // customer/billing-viz.js — IAM 온보딩과 같은 단계 표시
+        return { label: L(s[0], s[1]), sub: L(s[2], s[3]), state: i < at ? "done" : i === at ? "current" : "todo" };
+      }), L("진행 단계", "Progress")) :
       '<ol class="su-steps" aria-label="' + esc(L("진행 단계", "Progress")) + '">' + steps.map(function (s, i) {
         return '<li class="' + (i <= at && (st || i === 0) ? "on" : "") + '"' + (i === at ? ' aria-current="step"' : "") + ">" + (i + 1) + ". " + esc(L(s[0], s[1])) + "</li>";
-      }).join("") + "</ol>" +
+      }).join("") + "</ol>") +
       (st ? '<section class="panel"><div class="ph"><span class="tick"></span><h2 class="t v2-h">' + esc(L("접수 완료", "Submitted")) + '</h2><span class="c">' + U.src(S.res) + "</span></div>" +
         '<dl class="v2-kv"><dt>tenant_id</dt><dd class="id">' + esc(S.res.data.tenant_id) + "</dd><dt>status</dt><dd>" + U.st(st) + "</dd></dl>" +
         '<p class="v2-note">' + esc(L("확인 전에는 주문이 403 으로 거부됩니다. 확인 후 고객 콘솔에서 SSO·API 키를 설정하세요.",
