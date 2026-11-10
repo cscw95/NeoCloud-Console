@@ -1,4 +1,4 @@
-/* 자동 생성 — ops/build-mk8s-inline.py (원본: managed-k8s.html) · 수동 편집 금지 */
+/* 원래 ops/build-mk8s-inline.py 생성물 — 이후 수동 편집됨(보안 이스케이프·토큰 위임). 빌더 재실행 금지 */
 @keyframes pulse{0%,100%{outline-offset:1px}50%{outline-offset:3px}}
 @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
 @keyframes blink{50%{opacity:.4}}
@@ -7,18 +7,18 @@
 /* ── NeoCloud 콘솔 다크 테마 — shared/tokens.css · shell.css 팔레트 정합 ──
    그림자/글로우 금지 (모달 box-shadow만 예외) */
 &{
-  --accent:#5aa7e8; --accent-dark:#3d8ad0; --accent-soft:#152a40; --on-accent:#07203a;
-  --green:#76b900; --on-green:#08210a; --green-text:#9fe0a8; --green-soft:#16241a; --green-line:#2d4a12;
-  --amber:#e8c66a; --amber-soft:#3a2f12; --amber-line:#4a3d18;
-  --red:#e5484d; --red-text:#f0a3b0; --red-soft:#3a1a20; --red-line:#43232a;
-  --blue:#5aa7e8; --blue-text:#9fd0ff;
+  /* 콘솔 공통 semantic 토큰(shared/tokens.css)에 위임 — 주간/야간 모두 body[data-design] 값으로 해석 */
+  --accent:var(--info); --accent-dark:var(--info); --accent-soft:var(--info-bg); --on-accent:var(--on-accent);
+  --green:var(--accent); --on-green:var(--on-accent); --green-text:var(--ok); --green-soft:var(--accent-soft); --green-line:var(--accent-line);
+  --amber:var(--warn); --amber-soft:var(--warn-bg); --amber-line:var(--warn-line);
+  --red:var(--crit); --red-text:var(--crit); --red-soft:var(--crit-bg); --red-line:var(--crit-line);
+  --blue:var(--info); --blue-text:var(--info-text);
   --skt-red:#EA002C;
-  --ink:#e6edf3; --ink-2:#cfe0ee; --ink-3:#8aa0b4; --ink-4:#5a6b80;
-  --line:#223142; --line-soft:#1a2433;
-  --bg:#0b121c; --panel:#16202e; --panel-sub:#0d141d; --strip:#121d2c;
-  --sidebar:#0b141f; --topbar:#0d1826; --line-sidebar:#1d2c3e;
-  --menu-act:#16241a; --menu-hover:#101b29; --dot-off:#3a4a5c; --track:#233043;
-  /* 히트맵·차트 시맨틱 (JS 인라인에서 참조 — 주간모드는 blueprint.css가 리매핑) */
+  --ink:var(--text-1); --ink-2:var(--text-soft); --ink-3:var(--text-2); --ink-4:var(--text-3);
+  --line:var(--border); --line-soft:var(--border-soft);
+  --bg:var(--surface-0); --panel:var(--surface-1); --panel-sub:var(--surface-2); --strip:var(--surface-3);
+  --sidebar:var(--surface-nav); --topbar:var(--surface-top); --line-sidebar:var(--border-nav);
+  --menu-act:var(--accent-soft); --menu-hover:var(--surface-nav-hover); --dot-off:var(--border-strong); --track:var(--track);
   --u0:#223142; --u1:#173350; --u2:#22507c; --u3:#2f6ea8; --u4:#3d8ad0; --u5:#5aa7e8;
   --hm-ok:#3e6b12; --hm-prov:#28425e; --seg-off:#3a4a5c;
   --glyph-w:#fff; --glyph-d:#241c05;

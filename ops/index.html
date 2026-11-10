@@ -11,16 +11,7 @@
 <link rel="stylesheet" href="mk8s.css"><!-- Managed K8S 인라인 통합 (#mk8s-root 스코프) -->
 <link rel="stylesheet" href="../shared/blueprint.css"><!-- 주간(Blueprint) 디자인 레이어 — body[data-design="blueprint"] 스코프 -->
 <style>
-/* ── Ops 전용 파생 토큰 (레퍼런스 고유색) ───────────────── */
-:root{
-  --ready:#2e5a38; --fault:#b04a5a; --track:#233043; --amber-dim:#6a5f22;
-  --line2:#2a3848; --ok-bg:#1c2e20; --warn-bg:#332c14; --ghost-bg:#3a1f25;
-  --resolved:#3a5a40; --teal:#5ad0c8; --orange:#e8a55a;
-  --purple:#b48ce8; --purple-text:#c8a5e8; --pink-soft:#f0c2cb;
-  --fabA-bg:#13314f; --fabA-line:#2a4868; --fabB-bg:#241b3a; --fabB-line:#463366;
-  --leaf-bg:#0f1722; --leaf-text:#9fb8d0; --leaf-green:#cfe8a0;
-  --blue-bg:#0e2438; --blue-line:#1f4a6a;
-}
+/* Ops 파생 토큰(--ready --fault --teal --fabA-* …)은 shared/tokens.css 로 이동 (두 테마) */
 [data-screen]{max-width:1340px}
 .lnk{color:var(--green);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
 .rt{margin-left:auto;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
@@ -140,7 +131,7 @@
 .obs-rcb.armed{background:var(--amber);color:#241c05;border-color:var(--amber);font-weight:800}
 .btn-danger.obs-rcb.armed{background:var(--red);color:#2a0f15;border-color:var(--red)}
 .obs-inp{background:var(--card-sub);border:1px solid var(--line);border-radius:7px;padding:6px 10px;color:#fff;font-size:11.5px;font-family:inherit;width:86px}
-.obs-inp:focus{outline:none;border-color:var(--muted2)}
+.obs-inp:focus{border-color:var(--border-strong)}
 .cdu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;align-items:start}
 .cdu-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px 15px;cursor:pointer}
 .cdu-card>div{align-items:center}

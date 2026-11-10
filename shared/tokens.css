@@ -1,25 +1,147 @@
-/* NeoCloud 3대 콘솔 — 공통 디자인 토큰 (handoff README 기준)
-   그림자/글로우 금지 — 모달 카드 box-shadow만 예외. */
+/* NeoCloud 3대 콘솔 — 공통 디자인 토큰 (DESIGN-REVIEW.md §2)
+   3계층: primitive(--p-…) → semantic(--surface-N, --text-N, --ok …) → 레거시 별칭(--bg/--muted…).
+   테마 스위치는 body[data-design]: "blueprint" = 주간(기본) · "legacy" = 야간.
+   컴포넌트는 semantic 토큰만 쓴다. primitive 직접 사용 금지.
+   레거시 별칭은 body에서 다시 선언해야 테마별 semantic 값으로 해석된다(:root 선언만으론 야간 값 고정).
+   폰트는 시스템 스택만(CSP style-src 'self' — 외부 @import 금지). 그림자는 모달·토스트만. */
+
+/* ── Tier 1: primitives ─────────────────────────────────────────── */
 :root{
-  --bg:#0b121c; --sidebar:#0b141f; --topbar:#0d1826; --card:#16202e;
-  --card-sub:#0d141d; --strip:#121d2c; --kpi-cell:#121d2c;
-  --line:#223142; --line-soft:#1a2433; --line-sidebar:#1d2c3e;
-  --text:#e6edf3; --strong:#fff; --muted:#8aa0b4; --muted2:#5a6b80;
-  --soft:#cfe0ee;
-  --green:#76b900; --on-green:#08210a; --green-text:#9fe0a8;
-  --green-line:#2d4a12;
-  --amber:#e8c66a; --amber-bg:#3a2f12; --amber-line:#4a3d18;
-  --red:#f0a3b0; --red-line:#43232a; --blue:#5aa7e8; --blue-text:#9fd0ff;
-  /* 셸 파생 토큰 (레퍼런스 반복값) */
-  --menu-act:#16241a; --menu-hover:#101b29; --dot-off:#3a4a5c;
-  --inc-strip:#1a1420;   /* 운영 overview P2 인시던트 스트립 */
+  --p-ink-950:#0b121c; --p-ink-925:#0b141f; --p-ink-900:#0d141d; --p-ink-875:#0d1826;
+  --p-ink-850:#121d2c; --p-ink-800:#16202e; --p-ink-750:#1a2635; --p-ink-700:#223142;
+  --p-ink-500:#59718c; --p-ink-400:#7d8fa4; --p-ink-300:#8aa0b4; --p-ink-200:#cfe0ee; --p-ink-100:#e6edf3;
+  --p-paper-0:#ffffff; --p-paper-50:#f7f9fc; --p-paper-100:#eef2f8; --p-paper-200:#dde5ef; --p-paper-300:#c3cede;
+  --p-slate-500:#5f6e88; --p-slate-600:#4b5a74; --p-slate-900:#141c2e;
+  --p-cobalt-50:#e3ebfa; --p-cobalt-200:#b9cdf0; --p-cobalt-600:#2458d6; --p-cobalt-700:#1a47b8; --p-cobalt-300:#9fd0ff;
+  --p-nv-500:#76b900; --p-nv-400:#8ad00a; --p-nv-200:#9fe0a8;
+  --p-green-700:#0c7752; --p-green-50:#e0f2ea;
+  --p-amber-700:#a84d08; --p-amber-50:#f8ecdb; --p-amber-300:#e8c66a; --p-amber-900:#3a2f12;
+  --p-red-700:#ca232e;   --p-red-50:#fbe7e9;   --p-red-300:#f0a3b0;   --p-red-900:#43232a;
+  --p-blue-700:#1462da;  --p-blue-50:#e0edfb;  --p-blue-400:#5aa7e8;
+  --p-violet-600:#7048b6; --p-violet-300:#b48ce8; --p-teal-600:#0e8a8a; --p-teal-300:#5ad0c8;
+
+  /* 스케일 (두 테마 공통) */
+  --font-sans:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI","Noto Sans KR",sans-serif;
+  --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --fs-2xs:11px;  /* 배지·카운터 (최소 11px) */
+  --fs-xs:11px;   /* 캡션·테이블 헤더·KPI 라벨 */
+  --fs-sm:12px;   /* 테이블 셀·폼 컨트롤 */
+  --fs-md:13px;   /* 본문 */
+  --fs-lg:15px;   /* 패널 제목 (h2) */
+  --fs-xl:18px;   /* 화면 제목 (h1) */
+  --fs-kpi:24px;  /* KPI 수치 */
+  --lh-tight:1.25; --lh-body:1.5;
+  --fw-reg:400; --fw-med:500; --fw-semi:600; --fw-bold:700;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px;
+  --row-h:32px;
+  --dur-fast:120ms; --dur:200ms; --ease:cubic-bezier(.4,0,.2,1);
+  --focus-w:2px; --focus-off:2px;
 }
+
+/* ── Tier 2: semantic — 야간 (legacy). :root는 data-design 적용 전 첫 페인트용 ── */
+:root, body[data-design="legacy"]{
+  --surface-0:var(--p-ink-950);
+  --surface-1:var(--p-ink-800);
+  --surface-2:var(--p-ink-900);
+  --surface-3:var(--p-ink-850);
+  --surface-hover:var(--p-ink-750);
+  --surface-nav:var(--p-ink-925); --surface-top:var(--p-ink-875);
+  --surface-nav-hover:#101b29; --surface-incident:#1a1420;
+  --border:var(--p-ink-700); --border-soft:#1a2433; --border-nav:#1d2c3e; --border-alt:#2a3848;
+  --border-strong:var(--p-ink-500);     /* 3.25:1 — 입력 테두리·꺼진 도트 */
+  --text-1:var(--p-ink-100); --text-strong:#fff; --text-soft:var(--p-ink-200);
+  --text-2:var(--p-ink-300);            /* 6.1:1 on card */
+  --text-3:var(--p-ink-400);            /* #5a6b80(3.0) → 4.95:1 on card */
+  --accent:var(--p-nv-500); --accent-hover:var(--p-nv-400); --on-accent:#08210a; --accent-text:var(--p-nv-200);
+  --accent-soft:#16241a; --accent-line:#2d4a12; --link-hover:#9fd045;
+  --ok:var(--p-nv-200);      --ok-bg:#1c2e20;  --ok-line:#2d4a12;
+  --warn:var(--p-amber-300); --warn-bg:var(--p-amber-900); --warn-line:#4a3d18; --on-warn:#241c05;
+  --crit:var(--p-red-300);   --crit-bg:#3a1a20; --crit-line:var(--p-red-900); --on-crit:#2a0f15;
+  --info:var(--p-blue-400);  --info-text:var(--p-cobalt-300); --info-bg:#0e2438; --info-line:#1f4a6a;
+  --leak:var(--p-teal-300);  --leak-bg:#0f2e2d; --leak-line:#1f5552;
+  --unknown:var(--text-3);   --unknown-bg:var(--surface-2);
+  --live:var(--ok); --live-bg:var(--ok-bg); --live-line:var(--ok-line);
+  --mock:var(--warn); --mock-bg:var(--warn-bg); --mock-line:var(--warn-line);
+  --focus:var(--p-cobalt-300);
+  --overlay:rgba(5,9,15,.68);
+  --track:#233043;
+  --radius-sm:4px; --radius:7px; --radius-lg:10px; --radius-xl:12px; --radius-pill:999px;
+  --elev-modal:0 18px 50px rgba(0,0,0,.5); --elev-toast:0 6px 20px rgba(0,0,0,.4);
+  --chart-1:#76b900; --chart-2:#5aa7e8; --chart-3:#e8c66a; --chart-4:#b48ce8; --chart-5:#5ad0c8; --chart-6:#f0a3b0;
+  --chart-1-soft:#5a8f0e; --chart-grid:#223142; --chart-axis:var(--text-3);
+  /* ops 화면 파생 (랙맵·패브릭·리프 — 구 ops/index.html :root) */
+  --ready:#2e5a38; --fault:#b04a5a; --amber-dim:#6a5f22;
+  --ghost-bg:#3a1f25; --resolved:#3a5a40; --teal:var(--p-teal-300); --orange:#e8a55a;
+  --purple:var(--p-violet-300); --purple-text:#c8a5e8; --pink-soft:#f0c2cb;
+  --fabA-bg:#13314f; --fabA-line:#2a4868; --fabB-bg:#241b3a; --fabB-line:#463366;
+  --leaf-bg:#0f1722; --leaf-text:#9fb8d0; --leaf-green:#cfe8a0;
+  color-scheme:dark;
+}
+
+/* ── Tier 2: semantic — 주간 (blueprint, 기본) ── */
+body[data-design="blueprint"]{
+  --surface-0:var(--p-paper-100); --surface-1:var(--p-paper-0); --surface-2:var(--p-paper-50);
+  --surface-3:var(--p-paper-50); --surface-hover:#f2f6fc;
+  --surface-nav:var(--p-paper-0); --surface-top:var(--p-paper-0);
+  --surface-nav-hover:#f2f6fc; --surface-incident:var(--p-red-50);
+  --border:var(--p-paper-300); --border-soft:var(--p-paper-200); --border-nav:var(--p-paper-300); --border-alt:var(--p-paper-300);
+  --border-strong:#728cb2;              /* 3.4:1 */
+  --text-1:var(--p-slate-900); --text-strong:var(--p-slate-900); --text-soft:var(--p-slate-900);
+  --text-2:var(--p-slate-600);          /* #5a6a85 → 6.97:1 */
+  --text-3:var(--p-slate-500);          /* #8c9ab2(2.85) → 5.16:1 */
+  --accent:var(--p-cobalt-600); --accent-hover:var(--p-cobalt-700); --on-accent:#fff; --accent-text:var(--p-cobalt-600);
+  --accent-soft:var(--p-cobalt-50); --accent-line:var(--p-cobalt-200); --link-hover:var(--p-blue-700);
+  --ok:var(--p-green-700);   --ok-bg:var(--p-green-50); --ok-line:#a8d8c2;
+  --warn:var(--p-amber-700); --warn-bg:var(--p-amber-50); --warn-line:#e4c49a; --on-warn:#fff;
+  --crit:var(--p-red-700);   --crit-bg:var(--p-red-50);   --crit-line:#f0b9be; --on-crit:#fff;
+  --info:var(--p-blue-700);  --info-text:var(--p-blue-700); --info-bg:var(--p-blue-50); --info-line:#b5cff3;
+  --leak:#0b6f78; --leak-bg:#dff3f4; --leak-line:#9ed6da;
+  --unknown:var(--text-3); --unknown-bg:var(--surface-2);
+  --live:var(--ok); --live-bg:var(--ok-bg); --live-line:var(--ok-line);
+  --mock:var(--warn); --mock-bg:var(--warn-bg); --mock-line:var(--warn-line);
+  --focus:var(--p-cobalt-600);
+  --overlay:rgba(13,21,38,.45);
+  --track:var(--p-paper-200);
+  --radius-sm:0; --radius:0; --radius-lg:0; --radius-xl:0; --radius-pill:999px;
+  --elev-modal:0 18px 50px var(--overlay); --elev-toast:0 6px 20px var(--overlay);
+  --chart-1:#2458d6; --chart-2:#0c7752; --chart-3:#a84d08; --chart-4:#7048b6; --chart-5:#0e8a8a; --chart-6:#ca232e;
+  --chart-1-soft:#9db9e8; --chart-grid:#dde5ef; --chart-axis:var(--text-3);
+  --ready:#b9cdf0; --fault:#e89aa2; --amber-dim:#e4c49a;
+  --ghost-bg:#fbe7e9; --resolved:#e0f2ea; --teal:var(--p-teal-600); --orange:#b5560c;
+  --purple:var(--p-violet-600); --purple-text:var(--p-violet-600); --pink-soft:#b02a3a;
+  --fabA-bg:#e0edfb; --fabA-line:#b9d4f5; --fabB-bg:#efe6fa; --fabB-line:#d5c5ef;
+  --leaf-bg:#f7f9fc; --leaf-text:var(--p-slate-600); --leaf-green:var(--p-green-700);
+  color-scheme:light;
+}
+
+/* ── 레거시 별칭 — 기존 var(--x) 3,300여 곳 무수정 유지. 새 코드는 semantic 사용 ── */
+:root, body[data-design]{
+  --bg:var(--surface-0); --card:var(--surface-1); --card-sub:var(--surface-2); --strip:var(--surface-3);
+  --kpi-cell:var(--surface-3); --sidebar:var(--surface-nav); --topbar:var(--surface-top);
+  --line:var(--border); --line-soft:var(--border-soft); --line-sidebar:var(--border-nav); --line2:var(--border-alt);
+  --text:var(--text-1); --strong:var(--text-strong); --soft:var(--text-soft);
+  --muted:var(--text-2); --muted2:var(--text-3); --dot-off:var(--border-strong);
+  --green:var(--accent); --on-green:var(--on-accent); --green-text:var(--ok); --green-line:var(--accent-line);
+  --amber:var(--warn); --amber-bg:var(--warn-bg); --amber-line:var(--warn-line);
+  --red:var(--crit); --red-line:var(--crit-line); --blue:var(--info); --blue-text:var(--info-text);
+  --blue-bg:var(--info-bg); --blue-line:var(--info-line);
+  --menu-act:var(--accent-soft); --menu-hover:var(--surface-nav-hover); --inc-strip:var(--surface-incident);
+}
+
 *{box-sizing:border-box}
 body{
   margin:0; background:var(--bg); color:var(--text);
-  font:13px/1.5 -apple-system,"Apple SD Gothic Neo","Segoe UI",sans-serif;
+  font:var(--fs-md)/var(--lh-body) var(--font-sans);
 }
-code,.mono{font-family:Menlo,monospace}
+code,.mono{font-family:var(--font-mono)}
 .num,.tabnum{font-variant-numeric:tabular-nums}
 a{color:var(--green);text-decoration:none}
-a:hover{color:#9fd045}
+a:hover{color:var(--link-hover)}
+
+/* ── 포커스 링 (WCAG 2.4.7) — 키보드 포커스에만 표시 ── */
+:where(a,button,input,select,textarea,summary,[tabindex],[role=button],[role=tab],[role=link],[role=menuitem],[role=option],[contenteditable]):focus-visible{
+  outline:var(--focus-w) solid var(--focus)!important;outline-offset:var(--focus-off)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
