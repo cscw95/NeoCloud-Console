@@ -14,6 +14,7 @@
   /* ══ ① 자동 복구 ═══════════════════════════════════════════ */
   var RC = { sel: null };
   async function renderRecovery() {
+    if (NC.opsViz) return NC.opsViz.recovery();   /* design-ops 7단계 타임라인 (ops/ops-viz.js) */
     var root = $("v2-recovery-root"); if (!root) return;
     var r = await Promise.all([A.remPolicy(), A.remRuns()]);
     var pol = r[0].data || {}, runs = r[1].data || [];

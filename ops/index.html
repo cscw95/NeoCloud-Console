@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/tokens.css">
 <link rel="stylesheet" href="../shared/shell.css">
 <link rel="stylesheet" href="mk8s.css"><!-- Managed K8S 인라인 통합 (#mk8s-root 스코프) -->
-<link rel="stylesheet" href="../shared/v2-design.css"><link rel="stylesheet" href="../shared/blueprint.css"><!-- 주간(Blueprint) 디자인 레이어 — body[data-design="blueprint"] 스코프 -->
+<link rel="stylesheet" href="../shared/v2-design.css"><link rel="stylesheet" href="ops-viz.css"><link rel="stylesheet" href="../shared/blueprint.css"><!-- 주간(Blueprint) 디자인 레이어 — body[data-design="blueprint"] 스코프 -->
 <style>
 /* Ops 파생 토큰(--ready --fault --teal --fabA-* …)은 shared/tokens.css 로 이동 (두 테마) */
 [data-screen]{max-width:1340px}
@@ -1649,6 +1649,7 @@ section[data-screen="mk8s"]{margin:0}
 <script src="../shared/flow-timeline.js"></script><script src="../shared/kpi-gauge.js"></script><script src="../shared/msg-viewer.js"></script><!-- v2 공유 컴포넌트 (V2-DESIGN-COMPONENTS.md) -->
 <script src="../shared/v2-scenarios.js"></script><script src="../shared/v2-demo.js"></script>
 <script src="v2.js"></script>
+<script src="ops-viz.js"></script><!-- design-ops: 복구 · 감축 · 누수 · 공지 화면 -->
 <script src="app.js"></script>
 <script src="../shared/nvke-topology.js"></script>
 <script src="../shared/sched-market-api.js"></script>
