@@ -2417,7 +2417,7 @@
             var offMost = (su.gpus || 0) > 0 && offN / su.gpus >= 0.5;
             var bg = offMost ? "#1a212b"
               : !alloc ? "var(--ready)"
-              : avg >= 80 ? "var(--green)" : avg >= 40 ? "var(--chart-1-soft)" : avg > 0 ? "#3f6a1a" : "var(--amber-dim)";
+              : avg >= 80 ? "var(--green)" : avg >= 40 ? "var(--chart-1-soft)" : avg > 0 ? "var(--chart-1-mid)" : "var(--amber-dim)";
             var worst = (su.faulted || 0) > 0 ? " crit" : (su.throttled || 0) > 0 ? " th" : "";
             var cls = "hc" + worst + (obsGpuFilter.su === su.su_id ? " sel" : "");
             return '<span class="' + cls + '" data-obs-gpusu="' + esc(su.su_id) + '" style="background:' + bg +
@@ -2453,7 +2453,7 @@
           var rk = su.racks[rid];
           var avg = Math.round(rk.u / rk.n);
           var bg = !rk.alloc ? "var(--ready)"
-            : avg >= 80 ? "var(--green)" : avg >= 40 ? "var(--chart-1-soft)" : avg > 0 ? "#3f6a1a" : "var(--amber-dim)";
+            : avg >= 80 ? "var(--green)" : avg >= 40 ? "var(--chart-1-soft)" : avg > 0 ? "var(--chart-1-mid)" : "var(--amber-dim)";
           var cls = "hc" + (rk.worst === "crit" ? " crit" : rk.worst === "warn" ? " th" : "") +
             (obsGpuFilter.su === suId ? " sel" : "");
           return '<span class="' + cls + '" data-obs-gpusu="' + esc(suId) + '" style="background:' + bg +

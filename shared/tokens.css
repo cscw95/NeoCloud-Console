@@ -11,13 +11,13 @@
   --p-ink-850:#121d2c; --p-ink-800:#16202e; --p-ink-750:#1a2635; --p-ink-700:#223142;
   --p-ink-500:#59718c; --p-ink-400:#7d8fa4; --p-ink-300:#8aa0b4; --p-ink-200:#cfe0ee; --p-ink-100:#e6edf3;
   --p-paper-0:#ffffff; --p-paper-50:#f7f9fc; --p-paper-100:#eef2f8; --p-paper-200:#dde5ef; --p-paper-300:#c3cede;
-  --p-slate-500:#5f6e88; --p-slate-600:#4b5a74; --p-slate-900:#141c2e;
+  --p-slate-500:#56647d; --p-slate-600:#4b5a74; --p-slate-900:#141c2e;
   --p-cobalt-50:#e3ebfa; --p-cobalt-200:#b9cdf0; --p-cobalt-600:#2458d6; --p-cobalt-700:#1a47b8; --p-cobalt-300:#9fd0ff;
   --p-nv-500:#76b900; --p-nv-400:#8ad00a; --p-nv-200:#9fe0a8;
   --p-green-700:#0c7752; --p-green-50:#e0f2ea;
   --p-amber-700:#a84d08; --p-amber-50:#f8ecdb; --p-amber-300:#e8c66a; --p-amber-900:#3a2f12;
   --p-red-700:#ca232e;   --p-red-50:#fbe7e9;   --p-red-300:#f0a3b0;   --p-red-900:#43232a;
-  --p-blue-700:#1462da;  --p-blue-50:#e0edfb;  --p-blue-400:#5aa7e8;
+  --p-blue-700:#1157c4;  --p-blue-50:#e0edfb;  --p-blue-400:#5aa7e8;
   --p-violet-600:#7048b6; --p-violet-300:#b48ce8; --p-teal-600:#0e8a8a; --p-teal-300:#5ad0c8;
 
   /* 스케일 (두 테마 공통) */
@@ -68,7 +68,7 @@
   --radius-sm:4px; --radius:7px; --radius-lg:10px; --radius-xl:12px; --radius-pill:999px;
   --elev-modal:0 18px 50px rgba(0,0,0,.5); --elev-toast:0 6px 20px rgba(0,0,0,.4);
   --chart-1:#76b900; --chart-2:#5aa7e8; --chart-3:#e8c66a; --chart-4:#b48ce8; --chart-5:#5ad0c8; --chart-6:#f0a3b0;
-  --chart-1-soft:#5a8f0e; --chart-grid:#223142; --chart-axis:var(--text-3);
+  --chart-1-soft:#4a7608; --chart-1-mid:#3f6a1a; --chart-grid:#223142; --chart-axis:var(--text-3);
   /* ops 화면 파생 (랙맵·패브릭·리프 — 구 ops/index.html :root) */
   --ready:#2e5a38; --fault:#b04a5a; --amber-dim:#6a5f22;
   --ghost-bg:#3a1f25; --resolved:#3a5a40; --teal:var(--p-teal-300); --orange:#e8a55a;
@@ -105,7 +105,7 @@ body[data-design="blueprint"]{
   --radius-sm:0; --radius:0; --radius-lg:0; --radius-xl:0; --radius-pill:999px;
   --elev-modal:0 18px 50px var(--overlay); --elev-toast:0 6px 20px var(--overlay);
   --chart-1:#2458d6; --chart-2:#0c7752; --chart-3:#a84d08; --chart-4:#7048b6; --chart-5:#0e8a8a; --chart-6:#ca232e;
-  --chart-1-soft:#9db9e8; --chart-grid:#dde5ef; --chart-axis:var(--text-3);
+  --chart-1-soft:#9db9e8; --chart-1-mid:#5f86de; --chart-grid:#dde5ef; --chart-axis:var(--text-3);
   --ready:#b9cdf0; --fault:#e89aa2; --amber-dim:#e4c49a;
   --ghost-bg:#fbe7e9; --resolved:#e0f2ea; --teal:#0b6f78; --orange:#b5560c;
   --purple:var(--p-violet-600); --purple-text:var(--p-violet-600); --pink-soft:#b02a3a;

@@ -312,3 +312,10 @@ body[data-design="legacy"] #mk8s-root .page-h .sub{
   margin-top:6px;color:var(--ink-3);max-width:720px}
 body[data-design="legacy"] #mk8s-root .page-h .right{
   align-self:flex-end;margin-bottom:2px}
+/* 모바일 (<768px) — 콘솔 셸 드로어와 정합: mk8s 카드·헤더 줄바꿈, 넓은 표는 카드 안 스크롤 */
+@media (max-width:767px){
+  #mk8s-root .card,#mk8s-root .card-b{max-width:100%;min-width:0;overflow-x:auto}
+  #mk8s-root .card-h,#mk8s-root .page-h,#mk8s-root .right{flex-wrap:wrap;min-width:0}
+  #mk8s-root [class*="grid"]{grid-template-columns:1fr!important}
+}
+
