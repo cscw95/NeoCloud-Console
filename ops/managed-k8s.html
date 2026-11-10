@@ -332,7 +332,7 @@ NEOCLOUD_DATA.requests = [
   { id:'REQ-2606-052', tenantId:'tenant-beta', kind:'설치', title:'Managed K8S 신규 설치', status:'진행중',
     reviewer:'dan.park@sk.com', reviewStartedAt:'2026-06-19 10:00',
     racks:100, gpuModel:'Vera Rubin NVL72', k8sVersion:'v1.33.2', wantDate:'2026-07-15', from:'Biz. 포털', createdAt:'2026-06-18 09:12',
-    specSummary:'VR NVL72 × 100랙 · Slurm(SUNK) 포함 · WEKA CSI · 학습 전용(외부노출 최소)',
+    specSummary:'VR NVL72 × 100랙 · Slurm(SUNK) 포함 · VAST CSI · 학습 전용(외부노출 최소)',
     availability:{ ok:true, detail:'Zone B 배치 확정 (2026-06-20 승인)' } },
   { id:'REQ-2607-002', tenantId:'tenant-delta', kind:'반납', title:'서비스 해지 · 자원 반납', status:'진행중',
     reviewer:'younghoon.jo@sk.com', reviewStartedAt:'2026-07-02 15:00',
@@ -568,8 +568,8 @@ NEOCLOUD_DATA.storage = [
       { pvc:'kv-cache-spill', ns:'default', mode:'RWO', sizeTB:128, gds:true, sc:'vast-rwo-gds' },
       { pvc:'dynamo-artifacts', ns:'dynamo', mode:'RWX', sizeTB:64, gds:false, sc:'vast-rwx' },
     ]},
-  { tenantId:'tenant-beta', vendor:'WEKA (csi.weka.io)', gds:true, capacityTB:4096, usedTB:220,
-    volumes:[ { pvc:'dataset-common-crawl', ns:'slurm', mode:'RWX', sizeTB:2048, gds:true, sc:'weka-rwx-gds' } ]},
+  { tenantId:'tenant-beta', vendor:'VAST Data (csi.vastdata.com)', gds:true, capacityTB:4096, usedTB:220,
+    volumes:[ { pvc:'dataset-common-crawl', ns:'slurm', mode:'RWX', sizeTB:2048, gds:true, sc:'vast-rwx-gds' } ]},
   { tenantId:'tenant-epsilon', vendor:'VAST Data (csi.vastdata.com)', gds:true, capacityTB:8192, usedTB:6520,
     volumes:[
       { pvc:'pretrain-dataset-v4', ns:'slurm', mode:'RWX', sizeTB:4096, gds:true, sc:'vast-rwx-gds' },
@@ -619,7 +619,7 @@ NEOCLOUD_DATA.logs = {
   ],
   installer:[
     "[nkd] 11:45:02 PLAY [addon-install] ***********************************************",
-    "[nkd] 11:45:04 TASK [csi : WEKA CSI driver DaemonSet 배포] ok: [batch-11]",
+    "[nkd] 11:45:04 TASK [csi : VAST CSI driver DaemonSet 배포] ok: [batch-11]",
     "[nkd] 11:45:19 TASK [gpu-operator : NVIDIA GPU Operator v25.6 helm install] ok: [batch-11]",
     "[nkd] 11:45:47 TASK [gpu-operator : driver 580.82 + CUDA 13.1 rollout] changed: [vr72-b-061..066]",
     "[nkd] 11:46:30 TASK [nvsentinel : agent DaemonSet + drainer 배포] ok: [batch-11]",
@@ -627,7 +627,7 @@ NEOCLOUD_DATA.logs = {
     "[nkd] 11:48:26 TASK [network-operator : RDMA shared device plugin] ok: [batch-11]",
     "[nkd] 11:49:15 INFO  batch 11/17 (rack vr72-b-061..066) addon install 완료 — 62/100 racks done",
     "[nkd] 11:49:16 INFO  다음 batch 12/17 시작 (rack vr72-b-067..072)",
-    "[nkd] 11:49:21 TASK [csi : WEKA CSI driver DaemonSet 배포] ok: [batch-12]",
+    "[nkd] 11:49:21 TASK [csi : VAST CSI driver DaemonSet 배포] ok: [batch-12]",
   ],
   wipe:[
     "[wipe] 09:12:40 rack vr72-d-041 tray 09: nvme format --ses=2 (crypto erase) /dev/nvme0n1 ... OK (3.2s)",
@@ -1638,7 +1638,7 @@ App.register('#/k8s/overview', function(elm){
   elm.innerHTML=`
     <div class="page-h"><div><h1>개요</h1>
       <div class="sub">테넌트별 클러스터 Lifecycle 현황 — Reserved 자원 기반 (Vera Rubin NVL72)</div></div>
-      <div class="right"><span class="chip">2026-07-09 (수) 10:52 KST</span></div></div>
+      <div class="right"><span class="chip">${new Date(Date.now()+9*3600e3).toISOString().slice(0,16).replace('T',' ')} KST</span></div></div>
     ${kpis}
     <div class="grid" style="grid-template-columns:2.2fr 1fr;margin-top:14px;align-items:start">
       <div class="grid">${D.tenants.map(lifecycleCard).join('')}</div>
@@ -2254,7 +2254,7 @@ function wizBody(){
   } else if(WIZ.step===4){
     box.innerHTML=`<div class="grid" style="grid-template-columns:1fr 1fr">
       <div>${F('CSI 벤더', `<select id="w-csi" style="width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:6px">
-        ${['VAST Data (csi.vastdata.com)','WEKA (csi.weka.io)','DDN EXAScaler'].map(v=>`<option ${d.csi===v?'selected':''}>${v}</option>`).join('')}</select>`,
+        ${['VAST Data (csi.vastdata.com)'].map(v=>`<option ${d.csi===v?'selected':''}>${v}</option>`).join('')}</select>`,
         'block(RWO)·공유(RWX 병렬FS) 동적 프로비저닝')}
       ${F('GDS (GPUDirect Storage)', `<span class="switch ${d.gds?'on':''}" id="w-gds" onclick="this.classList.toggle('on')"><span class="tr"></span> 활성화</span>`,'학습 체크포인트/데이터셋 직접 I/O')}</div>
       <div>${F('초기 용량 (TB)', inp('w-cap',d.capacity,true),'테넌트 Quota — 이후 증설 요청으로 확장')}</div></div>`;
@@ -4143,7 +4143,7 @@ App.register('#/k8s/storage', function(elm){
   elm.innerHTML=`
     <div class="page-h"><div><h1>스토리지 (GDS)</h1>
       <div class="sub">벤더 CSI 하나로 block(RWO)·공유(RWX 병렬FS) 동적 프로비저닝 — GDS·RDMA는 성능 최적화 트랙 ${apiIcon('pvc-gds')}</div></div>
-      <div class="right"><span class="chip">VAST 2식 · WEKA 1식 연동됨</span></div></div>
+      <div class="right"><span class="chip">VAST 3식 연동됨</span></div></div>
     ${cards}`;
 });
 
@@ -4961,8 +4961,7 @@ NEOCLOUD_DATA.day0=[
     desc:'벤더 CSI 하나로 RWO/RWX 동적 프로비저닝 · GDS 성능 트랙',
     fields:[
       { k:'vast', label:'VAST mgmt endpoint', v:'https://vast-mgmt.neocloud.skt.com (2식)', type:'text' },
-      { k:'weka', label:'WEKA mgmt endpoint', v:'https://weka-mgmt.neocloud.skt.com (1식)', type:'text' },
-      { k:'cred', label:'CSI 자격증명', v:'vault:secret/csi/{vast,weka}', type:'secret' },
+      { k:'cred', label:'CSI 자격증명', v:'vault:secret/csi/vast', type:'secret' },
       { k:'sc', label:'StorageClass 템플릿', v:'6종 (rwx-gds / rwo-gds / rwx / rwo × 벤더)', type:'text' },
     ], verified:'2026-06-24 · PVC 동적 프로비저닝 + GDS 벤치' },
   { id:'monitoring', ico:'📈', title:'모니터링 스택', seq:7,

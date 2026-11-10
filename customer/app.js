@@ -2350,7 +2350,7 @@
         // mock 폴백은 tid 인자를 무시 — 타 테넌트 종료 상태 노출 방지
         if (st && st.tenant && NC.sessionOwns && !NC.sessionOwns(st.tenant))
           st = null;
-        if (!st || !st.state || st.state === "closed") {
+        if (!st || !st.state || st.state === "closed" || st.state === "none") {
           wrap.style.display = "none"; wrap.innerHTML = "";
           stopTermPoll(); return;
         }
@@ -2557,11 +2557,29 @@
       " · " + esc(r.incident || "") + " · 발행 " + esc(r.date || "") + "</span>";
   }
 
+  /* 월 셀렉트 — 오늘 기준 당월(MTD) + 직전 2개월 (정적 월 하드코딩 금지) */
+  function ymOf(d, back) {
+    var x = new Date(d.getFullYear(), d.getMonth() - back, 1);
+    return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0");
+  }
+  function fillSlaMonths() {
+    var sel = $("#sla-month");
+    if (!sel || sel.getAttribute("data-filled")) return;
+    var now = new Date();
+    sel.innerHTML = [0, 1, 2].map(function (b) {
+      var m = ymOf(now, b);
+      return '<option value="' + m + '"' + (b ? "" : " selected") + ">" + m +
+        (b ? "" : " (MTD)") + "</option>";
+    }).join("");
+    sel.setAttribute("data-filled", "1");
+  }
+
   /* ── BP-006 월별 SLA 리포트 · Service Credit (빌링 화면) ── */
   function renderSlaPanel() {
     var box = $("#sla-rep-body");
     if (!box || !NC.api.slaReport) return;
-    var month = ($("#sla-month") || {}).value || "2026-07";
+    fillSlaMonths();
+    var month = ($("#sla-month") || {}).value || ymOf(new Date(), 0);
     loadTenant().then(function (t) {
       // mock SLA 리포트는 fin-corp 시나리오 데이터 — 타 테넌트 세션 차단
       if (!NC.live && getSession().tenant_name !== "fin-corp") {

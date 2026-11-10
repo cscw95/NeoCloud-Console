@@ -390,7 +390,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
             <div class="ph"><span class="tick"></span><span class="t">보안 · 컴플라이언스</span>
               <span class="st green" data-iso-badge style="display:inline-flex;align-items:center;gap:5px"><span class="dot green" data-iso-dot style="width:6px;height:6px"></span><span data-iso-tx>격리 검증 PASS</span></span></div>
             <table class="kv2"><tbody>
-              <tr><td>데이터 격리 증빙</td><td>4계층 격리 리포트 (07-08 자동 검증) <a class="lnk" style="margin-left:6px" href="#/security">보기</a></td></tr>
+              <tr><td>데이터 격리 증빙</td><td>4계층 격리 리포트 (일일 자동 검증) <a class="lnk" style="margin-left:6px" href="#/security">보기</a></td></tr>
               <tr><td>Sanitization 증명서</td><td>SAN-0691 — alloc-1 회수분 · NVMe·GPU·TPM 7단계 <button class="tbtn san-pdf" style="margin-left:6px">PDF ↓</button></td></tr>
               <tr><td>API 키</td><td>활성 3개 · 마지막 사용 2분 전 · 90일 로테이션 <span style="color:var(--amber)">D-12</span></td></tr>
               <tr><td>감사 로그</td><td class="log" style="line-height:1.6">14:20 kim.jh cluster.resize.request · 13:58 api oidc.token <span style="color:var(--red)">denied</span></td></tr>
@@ -751,9 +751,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
           <div class="ph"><span class="tick"></span><span class="t">SLA 리포트 · Service Credit</span>
             <span class="c" id="sla-rep-src">가용성 목표 99.9% · 월별</span>
             <select id="sla-month" style="margin-left:auto;width:auto;background:var(--card-sub);border:1px solid var(--line);border-radius:7px;color:var(--soft);font-size:11px;padding:5px 8px;font-family:inherit;cursor:pointer">
-              <option value="2026-07" selected>2026-07 (MTD)</option>
-              <option value="2026-06">2026-06</option>
-              <option value="2026-05">2026-05</option></select></div>
+</select></div>
           <div id="sla-rep-body" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
             <div class="mini" style="margin-top:0">불러오는 중…</div></div>
         </div>
@@ -804,7 +802,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
             <div class="ph"><span class="tick"></span><span class="t">컴플라이언스 증빙</span>
               <span class="st green" data-iso-badge style="display:inline-flex;align-items:center;gap:5px"><span class="dot green" data-iso-dot style="width:6px;height:6px"></span><span data-iso-tx>격리 검증 PASS</span></span></div>
             <table class="kv2"><tbody>
-              <tr><td style="width:170px">데이터 격리 증빙</td><td>4계층 격리 리포트 (07-08 자동) <span class="lnk" id="iso-view" style="margin-left:6px" title="라이브 시 Control-Plane 실검증 리포트 갱신">보기</span></td></tr>
+              <tr><td style="width:170px">데이터 격리 증빙</td><td>4계층 격리 리포트 (일일 자동) <span class="lnk" id="iso-view" style="margin-left:6px" title="라이브 시 Control-Plane 실검증 리포트 갱신">보기</span></td></tr>
               <tr><td>Sanitization 증명서</td><td>SAN-0691 (07-02) · SAN-0663 (06-18) <button class="btn-ghost san-pdf" style="margin-left:6px;padding:3px 10px;font-size:10.5px">PDF ↓</button><div class="mini" id="san-note"></div></td></tr>
               <tr><td>인증서</td><td>mTLS 클라이언트 인증서 2 · 만료 2027-01 <span style="color:var(--amber)">D-176</span></td></tr>
               <tr><td>데이터 처리 위치</td><td>대한민국 (안산·가산) — 국외 이전 없음</td></tr>

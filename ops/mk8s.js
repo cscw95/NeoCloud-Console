@@ -61,7 +61,7 @@ NEOCLOUD_DATA.requests = [
   { id:'REQ-2606-052', tenantId:'tenant-beta', kind:'설치', title:'Managed K8S 신규 설치', status:'진행중',
     reviewer:'dan.park@sk.com', reviewStartedAt:'2026-06-19 10:00',
     racks:100, gpuModel:'Vera Rubin NVL72', k8sVersion:'v1.33.2', wantDate:'2026-07-15', from:'Biz. 포털', createdAt:'2026-06-18 09:12',
-    specSummary:'VR NVL72 × 100랙 · Slurm(SUNK) 포함 · WEKA CSI · 학습 전용(외부노출 최소)',
+    specSummary:'VR NVL72 × 100랙 · Slurm(SUNK) 포함 · VAST CSI · 학습 전용(외부노출 최소)',
     availability:{ ok:true, detail:'Zone B 배치 확정 (2026-06-20 승인)' } },
   { id:'REQ-2607-002', tenantId:'tenant-delta', kind:'반납', title:'서비스 해지 · 자원 반납', status:'진행중',
     reviewer:'younghoon.jo@sk.com', reviewStartedAt:'2026-07-02 15:00',
@@ -289,7 +289,18 @@ NEOCLOUD_DATA.sentinelModules = {
 /* Hot spare 자동 투입 = NVSentinel 기능 아님 — 자체 개발 (NKD/NKE + Ansible, plan_r10) */
 NEOCLOUD_DATA.hotSpare=[ {tenantId:'tenant-alpha', total:4, used:0}, {tenantId:'tenant-beta', total:4, used:0}, {tenantId:'tenant-epsilon', total:4, used:1} ];
 
-/* ---------- 스토리지 (CSI / GDS) ---------- */
+/* ---------- 스토리지 (CSI / GDS) — AI 스토리지는 VAST Data 단일 ---------- */
+NEOCLOUD_DATA.vastClusters = [
+  { name:'vast-gasan', site_name:'STT 가산', state:'HEALTHY', cboxes:8, dboxes:10, usable_pb:14.0, used_pb:7.0, used_pct:50.0, drr:3.07, version:'5.3.0' },
+  { name:'vast-ansan', site_name:'IGIS 안산', state:'HEALTHY', cboxes:8, dboxes:10, usable_pb:14.0, used_pb:7.8, used_pct:55.7, drr:3.27, version:'5.3.0' },
+];
+/* VAST CSI StorageClass 카탈로그 (csi.vastdata.com) */
+NEOCLOUD_DATA.vastStorageClasses = [
+  { name:'vast-rwx-gds', mode:'RWX', protocol:'nfs4-rdma', gds:true, use:'학습 데이터셋 · 체크포인트' },
+  { name:'vast-rwo-gds', mode:'RWO', protocol:'nfs4-rdma', gds:true, use:'KV cache spill · 스크래치' },
+  { name:'vast-rwx', mode:'RWX', protocol:'nfs4', gds:false, use:'아티팩트 · 공용 파일' },
+  { name:'vast-nfs-rdma-gds', mode:'RWX', protocol:'nfs4-rdma', gds:true, use:'NOCP 기본 (VAST view → PVC)' },
+];
 NEOCLOUD_DATA.storage = [
   { tenantId:'tenant-alpha', vendor:'VAST Data (csi.vastdata.com)', gds:true, capacityTB:2048, usedTB:1310,
     volumes:[
@@ -297,8 +308,8 @@ NEOCLOUD_DATA.storage = [
       { pvc:'kv-cache-spill', ns:'default', mode:'RWO', sizeTB:128, gds:true, sc:'vast-rwo-gds' },
       { pvc:'dynamo-artifacts', ns:'dynamo', mode:'RWX', sizeTB:64, gds:false, sc:'vast-rwx' },
     ]},
-  { tenantId:'tenant-beta', vendor:'WEKA (csi.weka.io)', gds:true, capacityTB:4096, usedTB:220,
-    volumes:[ { pvc:'dataset-common-crawl', ns:'slurm', mode:'RWX', sizeTB:2048, gds:true, sc:'weka-rwx-gds' } ]},
+  { tenantId:'tenant-beta', vendor:'VAST Data (csi.vastdata.com)', gds:true, capacityTB:4096, usedTB:220,
+    volumes:[ { pvc:'dataset-common-crawl', ns:'slurm', mode:'RWX', sizeTB:2048, gds:true, sc:'vast-rwx-gds' } ]},
   { tenantId:'tenant-epsilon', vendor:'VAST Data (csi.vastdata.com)', gds:true, capacityTB:8192, usedTB:6520,
     volumes:[
       { pvc:'pretrain-dataset-v4', ns:'slurm', mode:'RWX', sizeTB:4096, gds:true, sc:'vast-rwx-gds' },
@@ -348,7 +359,7 @@ NEOCLOUD_DATA.logs = {
   ],
   installer:[
     "[nkd] 11:45:02 PLAY [addon-install] ***********************************************",
-    "[nkd] 11:45:04 TASK [csi : WEKA CSI driver DaemonSet 배포] ok: [batch-11]",
+    "[nkd] 11:45:04 TASK [csi : VAST CSI driver DaemonSet 배포] ok: [batch-11]",
     "[nkd] 11:45:19 TASK [gpu-operator : NVIDIA GPU Operator v25.6 helm install] ok: [batch-11]",
     "[nkd] 11:45:47 TASK [gpu-operator : driver 580.82 + CUDA 13.1 rollout] changed: [vr72-b-061..066]",
     "[nkd] 11:46:30 TASK [nvsentinel : agent DaemonSet + drainer 배포] ok: [batch-11]",
@@ -356,7 +367,7 @@ NEOCLOUD_DATA.logs = {
     "[nkd] 11:48:26 TASK [network-operator : RDMA shared device plugin] ok: [batch-11]",
     "[nkd] 11:49:15 INFO  batch 11/17 (rack vr72-b-061..066) addon install 완료 — 62/100 racks done",
     "[nkd] 11:49:16 INFO  다음 batch 12/17 시작 (rack vr72-b-067..072)",
-    "[nkd] 11:49:21 TASK [csi : WEKA CSI driver DaemonSet 배포] ok: [batch-12]",
+    "[nkd] 11:49:21 TASK [csi : VAST CSI driver DaemonSet 배포] ok: [batch-12]",
   ],
   wipe:[
     "[wipe] 09:12:40 rack vr72-d-041 tray 09: nvme format --ses=2 (crypto erase) /dev/nvme0n1 ... OK (3.2s)",
@@ -470,6 +481,7 @@ const DS=(function(){
     installs:  ()=>rest(V+'/k8s/installs'),
     rbac:      ()=>rest(V+'/k8s/rbac-templates'),
     cves:      ()=>rest(V+'/k8s/cves'),
+    vastClusters:()=>rest(V+'/infra/vast/v1/clusters'),
   };
   const CF={   /* 클러스터 스코프 */
     nodes:      cid=>()=>rest(`${V}/k8s/clusters/${cid}/nodes`),
@@ -934,6 +946,10 @@ const DS=(function(){
     kubeconfigs(){ return isLive()? liveKubeconfigs() : RAW.kubeconfigs; },
     rbacRoles(){ return isLive()? liveRbacRoles() : RAW.rbacRoles; },
     storage(){ return isLive()? liveStorage() : RAW.storage; },
+    /* VAST Data 클러스터 — 라이브: NOCP /api/v1/infra/vast/v1/clusters (AI-Infra VAST 프록시) */
+    vastClusters(){ if(!isLive()) return RAW.vastClusters;
+      const c=snap('vastClusters'); return c.data? (c.data.clusters||c.data||[]) : null; },
+
     lbVips(){ return isLive()? liveLbVips() : RAW.lbVips; },
     lbServices(){ return isLive()? liveLbServices() : RAW.lbServices; },
     dnsRecords(){ return isLive()? liveDnsRecords() : RAW.dnsRecords; },
@@ -1050,6 +1066,9 @@ NEOCLOUD_DATA.apiSpecs = {};
  * ============================================================ */
 
 /* ---------- 헬퍼 ---------- */
+/* 현재 시각 (KST) — 화면 헤더·액션 기록 시각은 정적 날짜 대신 오늘 기준 */
+function kstNow(addH){ const d=new Date(Date.now()+(9+(addH||0))*3600e3).toISOString(); return d.slice(0,10)+' '+d.slice(11,16); }
+function kstDate(){ return kstNow().slice(0,10); }
 function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 /* 인라인 핸들러 JS 문자열('...')용 — jsq: JS 이스케이프만(actionBtn 인자), jsa: JS+HTML 속성 */
 function jsq(s){ return String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\x22').replace(/\r?\n|\u2028|\u2029/g,'\\n').replace(/</g,'\\x3c'); }
@@ -1370,7 +1389,7 @@ App.register('#/k8s/overview', function(elm){
   elm.innerHTML=`
     <div class="page-h"><div><h1>개요</h1>
       <div class="sub">테넌트별 클러스터 Lifecycle 현황 — Reserved 자원 기반 (Vera Rubin NVL72)</div></div>
-      <div class="right"><span class="chip">2026-07-09 (수) 10:52 KST</span></div></div>
+      <div class="right"><span class="chip">${esc(kstNow())} KST</span></div></div>
     ${kpis}
     <div class="grid" style="grid-template-columns:2.2fr 1fr;margin-top:14px;align-items:start">
       <div class="grid">${D.tenants.map(lifecycleCard).join('')}</div>
@@ -1482,7 +1501,7 @@ function wfDetail(reqId){
 }
 function wfStartReview(reqId){
   const r=DS.data().requests.find(x=>x.id===reqId);
-  r.status='검토중'; r.reviewer='dan.park@sk.com'; r.reviewStartedAt='2026-07-09 14:02';
+  r.status='검토중'; r.reviewer='dan.park@sk.com'; r.reviewStartedAt=kstNow();
   closeModal(); App.render();
   toast(`${reqId} 검토 시작 — 담당자 dan.park 지정 (Biz. 포털에 InReview 회신)`);
 }
@@ -1496,9 +1515,9 @@ function wfStartRetire(reqId){
   let job=DS.data().jobs.find(j=>j.tenantId===r.tenantId && j.type==='retire');
   if(!job){
     job={ id:'JOB-1184', type:'retire', tenantId:r.tenantId, title:'반납 — Secure Erase & 자원 회수', progress:2,
-      currentStage:'kubeconfig 회수 · RBAC 제거', startedAt:'2026-07-09 14:20', racksDone:0,
+      currentStage:'kubeconfig 회수 · RBAC 제거', startedAt:kstNow(), racksDone:0,
       stages:[
-        {name:'kubeconfig 전량 회수 · RBAC 제거', status:'now', at:'2026-07-09 14:20'},
+        {name:'kubeconfig 전량 회수 · RBAC 제거', status:'now', at:kstNow()},
         {name:'클러스터 삭제 (NKD teardown)', status:'pending', at:null},
         {name:'Secure Erase (NVMe crypto-erase + 검증)', status:'pending', at:null},
         {name:'진단·Burn-in 후 Pool 복귀', status:'pending', at:null},
@@ -1532,7 +1551,7 @@ function wfRejectExec(reqId){
   const r=DS.data().requests.find(x=>x.id===reqId);
   const code=document.getElementById('rj-code').value;
   const text=document.getElementById('rj-text').value||'(상세 사유 미입력)';
-  r.status='반려'; r.rejectReason={ code, text, at:'2026-07-09 14:05' };
+  r.status='반려'; r.rejectReason={ code, text, at:kstNow() };
   closeModal(); App.render();
   toast(`${reqId} 반려 — 사유 회신 완료 (${code})`);
 }
@@ -1986,7 +2005,7 @@ function wizBody(){
   } else if(WIZ.step===4){
     box.innerHTML=`<div class="grid" style="grid-template-columns:1fr 1fr">
       <div>${F('CSI 벤더', `<select id="w-csi" style="width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:6px">
-        ${['VAST Data (csi.vastdata.com)','WEKA (csi.weka.io)','DDN EXAScaler'].map(v=>`<option ${d.csi===v?'selected':''}>${v}</option>`).join('')}</select>`,
+        ${['VAST Data (csi.vastdata.com)'].map(v=>`<option ${d.csi===v?'selected':''}>${v}</option>`).join('')}</select>`,
         'block(RWO)·공유(RWX 병렬FS) 동적 프로비저닝')}
       ${F('GDS (GPUDirect Storage)', `<span class="switch ${d.gds?'on':''}" id="w-gds" onclick="this.classList.toggle('on')"><span class="tr"></span> 활성화</span>`,'학습 체크포인트/데이터셋 직접 I/O')}</div>
       <div>${F('초기 용량 (TB)', inp('w-cap',d.capacity,true),'테넌트 Quota — 이후 증설 요청으로 확장')}</div></div>`;
@@ -2086,9 +2105,9 @@ function wizSubmit(){
     const r=DS.data().requests.find(x=>x.id===d.reqId); if(r) r.status='진행중';
     if(!DS.data().jobs.find(j=>j.tenantId===d.tenantId&&j.type==='install')){
       DS.data().jobs.unshift({ id:'JOB-1183', type:'install', tenantId:d.tenantId, title:'클러스터 설치 — '+t.company,
-        progress:4, currentStage:'BM 준비 (batch 1/17)', startedAt:'2026-07-09 11:02', racksDone:4,
+        progress:4, currentStage:'BM 준비 (batch 1/17)', startedAt:kstNow(), racksDone:4,
         stages:[
-          {name:'BM 준비 ('+d.racks+'랙 인벤토리·펌웨어)', status:'now', at:'2026-07-09 11:02'},
+          {name:'BM 준비 ('+d.racks+'랙 인벤토리·펌웨어)', status:'now', at:kstNow()},
           {name:'NKD 클러스터 설치 (CP 3식 + Worker join)', status:'pending', at:null},
           {name:'애드온 설치 ('+d.addons.length+'종)', status:'pending', at:null},
           {name:'NS/RBAC 구성 (default/slurm/dynamo + 템플릿)', status:'pending', at:null},
@@ -2185,7 +2204,7 @@ function renderAcceptance(box, tenantId, opts={}){
   box.innerHTML=`
     <div class="card" style="background:var(--green-soft);border-color:transparent;margin-bottom:14px"><div class="card-b" style="display:flex;align-items:center;gap:14px">
       <span style="font-size:26px">✅</span><div><b>Acceptance 종합 PASS</b>
-      <div class="small muted">${esc(t.company)} · ${opts.readonly?'개통 시점 리포트 ('+esc(t.since||'2026-07-09')+')':'2026-07-09 11:58 실행'} · ai-cloud-validation v2.4</div></div>
+      <div class="small muted">${esc(t.company)} · ${opts.readonly?'개통 시점 리포트 ('+esc(t.since||kstDate())+')':esc(kstNow())+' 실행'} · ai-cloud-validation v2.4</div></div>
       ${opts.readonly?'':`<div style="margin-left:auto">${actionBtn('개통 승인 → kubeconfig 발급','approve',`acceptApprove('${jsq(tenantId)}')`)}</div>`}
     </div></div>
     <div class="grid" style="grid-template-columns:1fr 1fr">
@@ -2205,7 +2224,7 @@ App.register('#/k8s/clusters/:tenantId/acceptance', function(elm, p){
 });
 function acceptApprove(tenantId){
   const t=DS.data().tenant(tenantId);
-  t.lifecycle='Active'; t.day=2; t.note=null; t.since='2026-07-09';
+  t.lifecycle='Active'; t.day=2; t.note=null; t.since=kstDate();
   const job=DS.data().jobs.find(j=>j.tenantId===tenantId&&j.type==='install');
   if(job){ job.progress=100; job.racksDone=100; job.currentStage='개통 완료'; job.stages.forEach(s=>s.status='done'); }
   const r=DS.data().requests.find(x=>x.tenantId===tenantId&&x.kind==='설치'); if(r) r.status='개통완료';
@@ -2723,7 +2742,7 @@ function accReissue(i){
     });
     return;
   }
-  k.issuedAt='2026-07-09 14:30'; k.expiresAt='2026-07-12 14:30'; k.status='active';
+  k.issuedAt=kstNow(); k.expiresAt=kstNow(72); k.status='active';
   k.serial=Array.from({length:6},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join(':');
   App.render();
   openModal(`재발급 완료 — ${esc(k.user)} <span class="chip mono">${esc(k.serial)}</span>`,
@@ -2870,8 +2889,8 @@ function issueExec(){
   }
   DS.data().kubeconfigs.unshift({ user:ISSUE.user.split('@')[0], email:ISSUE.user, tenantId:ISSUE.tenantId,
     role:ISSUE.role, nsScope:ISSUE.role==='tenant-user'?[...ISSUE.nsScope]:'전체',
-    serial:'9a:1f:44:b8:2e:63', issuedAt:'2026-07-09 14:35',
-    expiresAt:'2026-07-12 14:35', ttl:ISSUE.ttl, status:'active' });
+    serial:'9a:1f:44:b8:2e:63', issuedAt:kstNow(),
+    expiresAt:kstNow(72), ttl:ISSUE.ttl, status:'active' });
   ISSUE.step=4; issueRender(); toast('Vault PKI 발급 완료');
 }
 
@@ -3851,8 +3870,35 @@ Authorization: Bearer <oidc-token>
  * ============================================================ */
 App.register('#/k8s/storage', function(elm){
   const D=DS.data();
+  const live=DS.isLive();
+  const vc=DS.vastClusters();
+  const scs=NEOCLOUD_DATA.vastStorageClasses;
+  const scUse={};
+  D.storage.forEach(s=>s.volumes.forEach(v=>{ scUse[v.sc]=(scUse[v.sc]||0)+1; }));
+  const nCl=vc?vc.length:0;
+  const clRows=(vc||[]).map(c=>{
+    const ok=String(c.state||'').toUpperCase()==='HEALTHY';
+    return `<tr><td class="mono small"><b>${esc(c.name)}</b></td><td class="small">${esc(c.site_name||c.site||'—')}</td>
+      <td><span class="badge ${ok?'b-green':'b-amber'}">${esc(c.state||'—')}</span></td>
+      <td class="small">CBox ${esc(c.cboxes)} · DBox ${esc(c.dboxes)}</td>
+      <td class="small">${esc(c.used_pb)} / ${esc(c.usable_pb)} PB (${esc(c.used_pct)}%)</td>
+      <td class="small">${esc(c.drr)}:1</td><td class="mono small muted">${esc(c.version)}</td></tr>`;
+  }).join('');
+  const clCard=`<div class="card" style="margin-bottom:14px">
+      <div class="card-h">VAST Data 클러스터 <span class="chip">${live?'NOCP live':'mock'}</span>
+        <div class="right small muted">GET /api/v1/infra/vast/v1/clusters</div></div>
+      <div class="card-b">${vc==null?'<div class="small muted">VAST 클러스터 조회 중…</div>'
+        :nCl?`<table class="table"><tr><th>클러스터</th><th>사이트</th><th>상태</th><th>구성</th><th>사용 / 가용</th><th>DRR</th><th>VAST OS</th></tr>${clRows}</table>`
+        :'<div class="small muted">연동된 VAST 클러스터 없음</div>'}</div></div>`;
+  const scCard=`<div class="card" style="margin-bottom:14px">
+      <div class="card-h">StorageClass (csi.vastdata.com) <div class="right small muted">${apiIcon('pvc-gds')}</div></div>
+      <div class="card-b"><table class="table"><tr><th>StorageClass</th><th>Mode</th><th>Protocol</th><th>GDS</th><th>용도</th><th>PVC</th></tr>
+      ${scs.map(c=>`<tr><td class="mono small"><b>${esc(c.name)}</b></td><td><span class="chip">${esc(c.mode)}</span></td>
+        <td class="mono small">${esc(c.protocol)}</td>
+        <td>${c.gds?'<span class="badge b-green">GDS</span>':'<span class="badge b-gray">—</span>'}</td>
+        <td class="small">${esc(c.use)}</td><td class="small">${esc(scUse[c.name]||0)}</td></tr>`).join('')}</table></div></div>`;
   const cards=D.storage.map(s=>{
-    const t=D.tenant(s.tenantId);
+    const t=D.tenant(s.tenantId)||{company:s.tenantId};
     const pct=s.capacityTB?Math.round(s.usedTB/s.capacityTB*100):0;
     const vols=s.volumes.map(v=>`
       <tr><td class="mono small"><b>${esc(v.pvc)}</b></td><td class="mono small">${esc(v.ns)}</td>
@@ -3874,9 +3920,10 @@ App.register('#/k8s/storage', function(elm){
   }).join('');
   elm.innerHTML=`
     <div class="page-h"><div><h1>스토리지 (GDS)</h1>
-      <div class="sub">벤더 CSI 하나로 block(RWO)·공유(RWX 병렬FS) 동적 프로비저닝 — GDS·RDMA는 성능 최적화 트랙 ${apiIcon('pvc-gds')}</div></div>
-      <div class="right"><span class="chip">VAST 2식 · WEKA 1식 연동됨</span></div></div>
-    ${cards}`;
+      <div class="sub">VAST Data CSI 하나로 block(RWO)·공유(RWX) 동적 프로비저닝 — GDS·RDMA는 성능 최적화 트랙 ${apiIcon('pvc-gds')}</div></div>
+      <div class="right"><span class="chip">VAST ${esc(nCl)}식 연동됨</span></div></div>
+    ${clCard}${scCard}
+    ${cards||'<div class="card"><div class="card-b small muted">테넌트 PVC 없음 — 클러스터 개통 후 VAST view가 PVC로 표시됩니다</div></div>'}`;
 });
 
 /* ---------- API 스펙 ---------- */
@@ -4289,7 +4336,7 @@ function monLogRender(){
       <div class="logbox" id="ml-box" style="height:300px"></div>
     </div>`;
   const lines=DS.data().logs[pd.kind==='system'?'installer':pd.kind]||DS.data().logs.vllm;
-  const src=MONLOG.ts?lines.map(l=>'2026-07-09T10:'+(40+Math.floor(Math.random()*19))+':'+String(Math.floor(Math.random()*60)).padStart(2,'0')+'Z '+l):lines;
+  const src=MONLOG.ts?lines.map(l=>kstDate()+'T10:'+(40+Math.floor(Math.random()*19))+':'+String(Math.floor(Math.random()*60)).padStart(2,'0')+'Z '+l):lines;
   startLogStream(document.getElementById('ml-box'), src, {follow:MONLOG.follow, tail:MONLOG.tail, filter:MONLOG.filter});
   box.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
@@ -4693,8 +4740,7 @@ NEOCLOUD_DATA.day0=[
     desc:'벤더 CSI 하나로 RWO/RWX 동적 프로비저닝 · GDS 성능 트랙',
     fields:[
       { k:'vast', label:'VAST mgmt endpoint', v:'https://vast-mgmt.neocloud.skt.com (2식)', type:'text' },
-      { k:'weka', label:'WEKA mgmt endpoint', v:'https://weka-mgmt.neocloud.skt.com (1식)', type:'text' },
-      { k:'cred', label:'CSI 자격증명', v:'vault:secret/csi/{vast,weka}', type:'secret' },
+      { k:'cred', label:'CSI 자격증명', v:'vault:secret/csi/vast', type:'secret' },
       { k:'sc', label:'StorageClass 템플릿', v:'6종 (rwx-gds / rwo-gds / rwx / rwo × 벤더)', type:'text' },
     ], verified:'2026-06-24 · PVC 동적 프로비저닝 + GDS 벤치' },
   { id:'monitoring', ico:'📈', title:'모니터링 스택', seq:7,
@@ -4795,7 +4841,7 @@ function day0Save(idx){
       if(el.value.trim()){ f.v='vault:secret/'+s.id+'/updated'; changed++; toast(`${f.label} — Vault에 기록됨 (참조 갱신)`); }
     } else if(el.value.trim() && el.value!==f.v){ f.v=el.value.trim(); changed++; }
   });
-  if(changed){ s.modified='2026-07-09 15:40 (dan.park)'; toast(`${s.title} — ${changed}개 필드 저장 · 감사 로그 기록 (mock)`); }
+  if(changed){ s.modified=kstNow()+' (dan.park)'; toast(`${s.title} — ${changed}개 필드 저장 · 감사 로그 기록 (mock)`); }
   else toast('변경 사항 없음');
   closeModal(); App.render();
 }

@@ -579,3 +579,55 @@ test("dell: firmware mock uses iDRAC10 baseline = AI-Infra IDRAC_FW, no OpenBMC"
   assert.ok(src.includes(`{ component: "BMC (Dell iDRAC10)", baseline: "${fw}" }`));
   assert.match(src, /component: "BMC \(Dell iDRAC10\)", current: "[^"]+", baseline: "1\.4\.2", severity: "warning"/);
 });
+
+/* ── CONSOLE-BUGS Round 2 ─────────────────────────────────── */
+test("dsx-api normEvent: SSE envelope (data nested) and polled row (received_at)", () => {
+  const n = dsxMod.normEvent;
+  const sse = n({ id: 7, topic: "grid", source: "nocp.power", at: "2026-11-10T04:19:49+00:00",
+    data: { event: "flex", domain: "pd-aif-stt-gasan-f1", reduce_kw: 100, status: "active" } });
+  assert.equal(sse.topic, "grid");
+  assert.equal(sse.ts, "2026-11-10T04:19:49+00:00");
+  assert.equal(sse.rack, "pd-aif-stt-gasan-f1");
+  assert.match(sse.message, /flex/);
+  assert.match(sse.message, /reduce_kw=100/);
+  const rma = n({ topic: "rma", at: "x", data: { rma: "rma-1", machine: "nh-1", stage: "isolate" } });
+  assert.equal(rma.rack, "nh-1");
+  assert.match(rma.message, /isolate/);
+  const polled = n({ id: "oob-28", topic: "leak", severity: "OK", message: "LeakCleared on t3",
+    rack: "su-1-rack-06", received_at: "2026-11-10T04:21:19+00:00" });
+  assert.equal(polled.ts, "2026-11-10T04:21:19+00:00");
+  assert.equal(polled.rack, "su-1-rack-06");
+  assert.equal(polled.message, "LeakCleared on t3");
+  assert.equal(polled.severity, "OK");
+});
+
+test("assets/palette page NOCP machines (offset) instead of limit=3000", () => {
+  for (const f of ["ops/app.js", "shared/palette.js"]) assert.doesNotMatch(read(f), /limit: 3000/, f);
+  const s = read("shared/nocp-api.js");
+  assert.match(s, /async hostsAll\(p\)/);
+  assert.match(s, /limit: 1000, offset/);
+  assert.match(s, /next_offset/);
+});
+
+test("no static 2026-07 month/date in live chrome (sla month, biz topbar, mk8s header)", () => {
+  assert.doesNotMatch(read("customer/app.js"), /\|\| "2026-07"/);
+  assert.doesNotMatch(read("customer/index.html"), /value="2026-07"/);
+  assert.doesNotMatch(read("biz/index.html"), /2026-07 · 데이터 기준/);
+  assert.doesNotMatch(read("ops/mk8s.js"), /2026-07-09 \(수\) 10:52 KST/);
+  assert.match(read("ops/index.html"), /id="ov-rack-note"/);
+  assert.match(read("ops/app.js"), /function renderOvFaultRefs\(inc\)/);
+});
+
+test("storage is VAST Data only (no WEKA) and mk8s storage reads live VAST clusters", () => {
+  for (const f of jsFiles().concat(["ops/index.html", "ops/managed-k8s.html", "customer/index.html", "biz/index.html"]))
+    assert.doesNotMatch(read(f), /weka/i, f);
+  const s = read("ops/mk8s.js");
+  assert.match(s, /vastClusters:\(\)=>rest\(V\+'\/infra\/vast\/v1\/clusters'\)/);
+  assert.match(s, /VAST \$\{esc\(nCl\)\}식 연동됨/);
+});
+
+test("obs-rack heatmap scales to MaxP 227 kW (not the 187 kW MaxQ cap)", () => {
+  const s = read("ops/app.js");
+  assert.match(s, /OBS_RACK_MAXP_KW = 227/);
+  assert.doesNotMatch(s, /it_power_kw \|\| 0\) \/ 187/);
+});

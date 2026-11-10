@@ -756,6 +756,7 @@
     var log = $("#ov-inc-log");
     if (!log || !NC.live) return;
     var inc = list.filter(function (i) { return i.state !== "resolved"; })[0] || list[0];
+    renderOvFaultRefs(list.filter(function (i) { return i.state !== "resolved"; })[0]);
     if (!inc) {
       setTxt("ov-inc-title", "인시던트");
       setHtml("ov-inc-st", "열린 인시던트 없음");
@@ -770,6 +771,23 @@
     log.innerHTML = (inc.timeline || []).map(function (t) {
       return '<div><span class="ts">' + esc(t[0] || "—") + "</span> " + esc(t[1] || "") + "</div>";
     }).join("") || '<div style="color:var(--muted)">' + esc(inc.target || "—") + " " + esc(inc.kind || "") + "</div>";
+  }
+
+  /* Overview 랙맵 하단 장애 노트 · 스트래글러 1행 — 라이브: 열린 인시던트(NOCP /emu/faults) 기준.
+     정적 mock 문구(INC-0412 · 07-09 정비 창)는 mock 모드에서만 남는다. MFU 실측원 없음 → "—" */
+  function renderOvFaultRefs(inc) {
+    var note = $("#ov-rack-note"), row = $("#ov-strag-1");
+    var at = inc && inc.timeline && inc.timeline[0] ? String(inc.timeline[0][0] || "").replace("T", " ") : "";
+    if (note) note.innerHTML = inc
+      ? '<b style="color:var(--soft)">' + esc(inc.target) + "</b> — " + esc(inc.kind) +
+        " · 배치 자동 제외 · 감지 " + esc(at || "—")
+      : "열린 장애 없음 — 배치 제외 랙 없음";
+    if (row) {
+      row.style.display = inc ? "" : "none";
+      if (inc) row.innerHTML = '<td class="id" style="color:var(--pink-soft)">' + esc(inc.target) +
+        '</td><td class="num" style="color:var(--muted)">—</td><td style="color:var(--muted)">GPU fault (' +
+        esc(inc.id) + ")</td>";
+    }
   }
 
   /* 상단 시계 — 현재 시각 (KST) */
@@ -1386,7 +1404,7 @@
   }
 
   function renderAssets() {
-    Promise.all([apiOr("hosts", { limit: 3000 }), apiOr("nodesSummary"), apiOr("topologyTree")])
+    Promise.all([apiOr("hostsAll"), apiOr("nodesSummary"), apiOr("topologyTree")])
       .then(function (r) {
         if (!r[0] || !r[0].length) return;      // 폴백: 정적 mock 표 유지
         assetsCache = r[0];
@@ -2604,6 +2622,7 @@
   }
 
   /* ── ⑮ 랙 · 전력 (DCIM) — 히트맵 + 전체 랙 제어 (데모) ──── */
+  var OBS_RACK_MAXP_KW = 227;      // VR NVL72 MaxP (NOCP spec.py) — 히트맵 스케일 상한 (MaxQ 187)
   function obsHeatColor(ratio) {
     var r = Math.max(0, Math.min(1, ratio || 0));
     if (r < 0.1) return "#233043";
@@ -2864,15 +2883,16 @@
               (cs.power_cap_kw != null ? " · cap " + cs.power_cap_kw + "kW" : "") +
               (cs.workload_profile ? " · " + cs.workload_profile : "");
             return '<span class="' + cls + '" data-obs-rack="' + esc(rk.rack_id) + '"' +
-              (off ? "" : ' style="background:' + obsHeatColor((rk.it_power_kw || 0) / 187) + '"') +
+              (off ? "" : ' style="background:' + obsHeatColor((rk.it_power_kw || 0) / OBS_RACK_MAXP_KW) + '"') +
               ' title="' + esc(ttl) + '">' + (off ? "OFF" : "") + "</span>";
           }).join("") + "</span></div>";
       }).join(""));
       setHtml("obs-rack-leg",
         '<span><span class="leg" style="background:#233043"></span> idle</span>' +
-        '<span><span class="leg" style="background:' + obsHeatColor(0.5) + '"></span> ~95kW</span>' +
-        '<span><span class="leg" style="background:' + obsHeatColor(0.8) + '"></span> ~150kW</span>' +
-        '<span><span class="leg" style="background:' + obsHeatColor(1) + '"></span> 187kW 캡</span>' +
+        '<span><span class="leg" style="background:' + obsHeatColor(95 / OBS_RACK_MAXP_KW) + '"></span> ~95kW</span>' +
+        '<span><span class="leg" style="background:' + obsHeatColor(150 / OBS_RACK_MAXP_KW) + '"></span> ~150kW</span>' +
+        '<span><span class="leg" style="background:' + obsHeatColor(187 / OBS_RACK_MAXP_KW) + '"></span> 187kW MaxQ</span>' +
+        '<span><span class="leg" style="background:' + obsHeatColor(1) + '"></span> 227kW MaxP</span>' +
         '<span><span class="leg" style="background:#1a212b;outline:1px solid #2a3644"></span> OFF</span>' +
         '<span><span class="leg" style="background:linear-gradient(#233043 50%,#1a212b 50%)"></span> 부분 Off (트레이)</span>' +
         '<span><span class="leg" style="background:repeating-linear-gradient(45deg,#233043 0 2px,rgba(240,163,176,.5) 2px 4px)"></span> cordon</span>' +
@@ -4705,7 +4725,7 @@
           applyNow && !NC.live ? "warn" : undefined);
       } else {                                  // on: 대상 트레이 1대 실전환
         (assetsCache && assetsCache.length
-          ? Promise.resolve(assetsCache) : apiOr("hosts", { limit: 3000 }))
+          ? Promise.resolve(assetsCache) : apiOr("hostsAll"))
           .then(function (hs) {
             hs = hs || [];
             var cand = hs.filter(function (h) { return h.firmware_ok === false; })[0] ||

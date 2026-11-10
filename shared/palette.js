@@ -80,7 +80,7 @@
         label: `${k.id} · ${k.subject}`, sub: k.state,
         go: () => NC.nav(R.ticket) }));
       if (NC.api.hosts) {
-        const hs = await NC.api.hosts({ limit: 3000 });
+        const hs = await NC.api.hostsAll();
         (hs || []).slice(0, 3000).forEach(h => out.push({ grp: "호스트",
           label: h.host_id, sub: h.state, lazy: true,
           go: () => { location.hash = "#/" + R.host + "?q=" + h.host_id;

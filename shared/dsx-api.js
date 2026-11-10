@@ -33,6 +33,34 @@
     { id: "aif-igis-ansan-f1", site: "ansan", name: "IGIS 안산 1층 · 12.9MW", power_mw: 12.9, n: 54 },
     { id: "aif-igis-ansan-f2", site: "ansan", name: "IGIS 안산 2층 · 10.4MW", power_mw: 10.4, n: 50 }];
 
+  /* ── 이벤트 정규화 — SSE 봉투 {id,topic,source,data:{…},at} 와 폴링 행
+     (/oob/events: received_at, raw)을 화면 공통 형태 {ts,topic,severity,rack,message}로 ── */
+  function normEvent(d) {
+    if (!d || typeof d !== "object") return d ? { message: String(d) } : null;
+    var b = (d.data && typeof d.data === "object" && !Array.isArray(d.data)) ? d.data : {};
+    var e = {};
+    Object.keys(b).forEach(function (k) { e[k] = b[k]; });
+    Object.keys(d).forEach(function (k) { if (k !== "data" && e[k] == null) e[k] = d[k]; });
+    if (d.topic) e.topic = d.topic;
+    e.ts = d.ts || d.timestamp || d.received_at || d.at || b.at || b.ts || b.start ||
+      (d.raw && d.raw.EventTimestamp) || "";
+    var sev = d.severity || b.severity || b.level || b.state || "";
+    if (!sev && b.status) sev = /fault|fail|crit|error/i.test(b.status) ? "critical" :
+      (/active|warn|pending/i.test(b.status) ? "warning" : "info");
+    e.severity = String(sev || "info");
+    e.rack = d.rack || b.rack || b.domain || b.machine || d.machine || d.origin || "";
+    var msg = d.message || b.message || d.summary || b.summary;
+    if (!msg) {
+      var parts = [];
+      ["event", "stage", "rma", "status", "action", "reduce_kw", "cap_kw", "measured_kw", "duration_s"].forEach(function (k) {
+        if (b[k] != null && typeof b[k] !== "object") parts.push(k === "event" || k === "stage" ? String(b[k]) : k + "=" + b[k]);
+      });
+      msg = parts.join(" · ") || (d.source || "");
+    }
+    e.message = String(msg);
+    return e;
+  }
+
   /* ── 결정적 PRNG (mock이 새로고침마다 바뀌지 않도록) ─────────── */
   function rng(seed) {
     var s = seed >>> 0;
@@ -475,7 +503,7 @@
       },
       oobEvents: function (limit) {
         return get("/oob/events" + q({ limit: limit || 50 }), function () { return M.events.slice(0, limit || 50); },
-          function (j) { return arr(j, ["events"]); });
+          function (j) { return arr(j, ["events"]).map(normEvent); });
       },
       oobSel: function (machine) {
         return get("/oob/sel/" + encodeURIComponent(machine), function () { return mockSel(machine); },
@@ -510,14 +538,14 @@
         es.onmessage = function (m) {
           var d = null;
           try { d = JSON.parse(m.data); } catch (e) { d = { message: m.data }; }
-          onEvent(d);
+          onEvent(normEvent(d));
         };
-        ["power", "thermal", "leak", "grid", "health"].forEach(function (tp) {
+        ["power", "thermal", "leak", "grid", "health", "rma", "firmware", "nvke"].forEach(function (tp) {
           es.addEventListener(tp, function (m) {
             var d = null;
             try { d = JSON.parse(m.data); } catch (e) { d = { message: m.data }; }
             if (d && !d.topic) d.topic = tp;
-            onEvent(d);
+            onEvent(normEvent(d));
           });
         });
           return es;
@@ -671,5 +699,5 @@
     return api;
   }
 
-  return { create: create, MATRIX: MATRIX, WPPS: WPPS, RMA_STAGES: RMA_STAGES, simulate: simulate, _buildMock: buildMock };
+  return { create: create, normEvent: normEvent, MATRIX: MATRIX, WPPS: WPPS, RMA_STAGES: RMA_STAGES, simulate: simulate, _buildMock: buildMock };
 });

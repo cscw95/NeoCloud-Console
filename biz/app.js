@@ -27,6 +27,13 @@
   "use strict";
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
+  /* 상단 기준월·데이터 기준 시각 — 오늘(KST) 기준, 정적 월 하드코딩 금지 */
+  (function tbNote() {
+    var el = document.getElementById("tb-note");
+    if (!el) return;
+    var k = new Date(Date.now() + 9 * 3600e3).toISOString();
+    el.textContent = k.slice(0, 7) + " · 데이터 기준 오늘 " + k.slice(11, 16);
+  })();
   var $$ = function (s, r) {
     return Array.prototype.slice.call((r || document).querySelectorAll(s));
   };

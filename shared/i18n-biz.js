@@ -585,6 +585,7 @@ Object.assign(window.NC_I18N.dict, {
   "스토리지 (VAST · QoS)": "Storage (VAST · QoS)",
 });
 window.NC_I18N.patterns = [
+  [/^(\d{4}-\d\d) · 데이터 기준 오늘 (\d\d:\d\d)$/, "$1 · data as of today $2"],
   [/^([\d.$,]+K) \/PB-월$/, "$1 /PB-month"],
   [/^(\d{2}-\d{2}) 발효 · (.+)$/, "$1 effective · $2"],
 ].concat(window.NC_I18N.patterns);

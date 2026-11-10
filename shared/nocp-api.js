@@ -107,11 +107,35 @@
       return raw(BASE + legacy);
     }
   }
-  // NICo Machine → 레거시 host shape (host_id/tray_id 키 보강, 원 필드 유지)
+  // NICo Machine → 레거시 host shape (원 필드 유지). NOCP adapters._machine_to_host 와 동일 매핑:
+  // SKU = controllerMachineType, tray = placementInRack/metadata, state = lifecycleState/status
+  const LC_STATE = { expected: "discovered", discovered: "discovered", validating: "discovered",
+    ready: "pool_ready", sanitizing: "sanitizing", failed: "quarantined", assigned: "allocated" };
+  const ST_STATE = { initializing: "discovered", ready: "pool_ready", reset: "sanitizing",
+    error: "quarantined", maintenance: "rma", decommissioning: "rma", decommissioned: "rma",
+    inuse: "allocated" };
   const asHosts = j => (Array.isArray(j) ? j : (j && (j.items || j.machines)) || [])
-    .map(m => Object.assign({}, m, {
-      host_id: m.host_id || m.id || m.machine_id,
-      tray_id: m.tray_id || m.tray || "" }));
+    .map(m => {
+      if (m.host_id) return m;
+      const meta = m.metadata || {}, pl = m.placementInRack || {}, lb = m.labels || {};
+      const id = m.id || m.machine_id || "";
+      const alerts = ((m.health || {}).alerts || []).map(a => String(a.id || "").toLowerCase());
+      return Object.assign({}, m, {
+        host_id: id,
+        tray_id: m.tray_id || m.tray || lb.trayId || meta.trayId || pl.trayId ||
+          (id.indexOf("nh-") === 0 ? id.slice(3) : ""),
+        sku: m.sku || lb.sku || m.controllerMachineType || "",
+        site: m.site || m.siteId || "",
+        state: m.state || lb["nocp.state"] || LC_STATE[String(m.lifecycleState || "").toLowerCase()] ||
+          ST_STATE[String(m.status || "").toLowerCase()] || "discovered",
+        firmware_ok: m.firmware_ok != null ? m.firmware_ok
+          : !(m.firmwareDrift || alerts.some(a => a.indexOf("firmware") >= 0)),
+        attested: m.attested != null ? m.attested : !alerts.some(a => a.indexOf("attest") >= 0),
+        cordoned: m.cordoned != null ? m.cordoned : !!m.maintenanceMessage,
+        instance_id: m.instance_id !== undefined ? m.instance_id : m.instanceId,
+        tenant_ref: m.tenant_ref !== undefined ? m.tenant_ref : m.tenantId,
+      });
+    });
   const jp = (u, body, method) => raw(u, {
     method: method || "POST",
     headers: { "Content-Type": "application/json" },
@@ -432,6 +456,26 @@
     /* DSX: NICo REST(Machine) 기반 NOCP 경로 우선 → 미구현 시 /fake-nico (deprecated) 폴백 */
     hosts: p => nicoRead("/machines?" + new URLSearchParams(p || {}),
       "/fake-nico/hosts?" + new URLSearchParams(p || {}), asHosts),
+    /* 전체 머신 — NOCP /machines 는 limit ≤ 1000 이므로 offset/next_offset 으로 페이지 순회 */
+    async hostsAll(p) {
+      const q = Object.assign({}, p || {}); delete q.limit;
+      const out = [];
+      let offset = 0;
+      for (let i = 0; i < 20; i++) {
+        let j;
+        try { j = await raw(V + "/machines?" + new URLSearchParams(Object.assign({}, q, { limit: 1000, offset }))); }
+        catch (e) {
+          if (e && e.status && e.status !== 404) throw e;
+          return asHosts(await raw(BASE + "/fake-nico/hosts?" + new URLSearchParams(Object.assign({}, q, { limit: 1000 }))));
+        }
+        const rows = asHosts(j);
+        out.push(...rows);
+        const nx = j && j.next_offset;
+        if (nx == null || !rows.length) break;
+        offset = nx;
+      }
+      return out;
+    },
     hostHardware: id => nicoRead(`/machines/${id}/hardware`,
       `/fake-nico/hosts/${id}/hardware`),
     sanitizeReport: id => nicoRead(`/machines/${id}/sanitize-report`,

@@ -136,7 +136,7 @@
     if (!el) return;
     el.innerHTML = oob.events.slice(0, 60).map(function (e) {
       return "<div>" + stc(e.severity || "info") + ' <span class="id" style="color:var(--muted2)">' +
-        esc(String(e.ts || e.timestamp || "").replace("T", " ").slice(5, 19)) + "</span> <b>" + esc(e.topic || "event") +
+        esc(String(e.ts || e.timestamp || e.received_at || e.at || "").replace("T", " ").slice(5, 19)) + "</span> <b>" + esc(e.topic || "event") +
         "</b> " + esc(e.rack || e.origin || "") + " — " + esc(e.message || e.summary || "") + "</div>";
     }).join("") || '<div style="color:var(--muted)">이벤트 없음</div>';
   }
