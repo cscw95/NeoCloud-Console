@@ -1050,7 +1050,10 @@ NEOCLOUD_DATA.apiSpecs = {};
  * ============================================================ */
 
 /* ---------- 헬퍼 ---------- */
-function esc(s){ return String(s??'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+/* 인라인 핸들러 JS 문자열('...')용 — jsq: JS 이스케이프만(actionBtn 인자), jsa: JS+HTML 속성 */
+function jsq(s){ return String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\x22').replace(/\r?\n|\u2028|\u2029/g,'\\n').replace(/</g,'\\x3c'); }
+function jsa(s){ return esc(jsq(s)); }
 function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstElementChild; }
 
 function badge(state){
@@ -1062,8 +1065,8 @@ function badge(state){
   const label={ writeback:'write-back 완료', ensure:'EnsureLoadBalancer', detected:'감지됨', assigned:'VIP 할당' }[state]||state;
   return `<span class="badge ${map[state]||'b-gray'}">${esc(label)}</span>`;
 }
-function dayChip(day){ return `<span class="chip day">Day ${day}</span>`; }
-function bar(pct, color){ return `<div class="bar-o"><div class="bar-i" style="width:${pct}%${color?';background:'+color:''}"></div></div>`; }
+function dayChip(day){ return `<span class="chip day">Day ${esc(day)}</span>`; }
+function bar(pct, color){ return `<div class="bar-o"><div class="bar-i" style="width:${esc(pct)}%${color?';background:'+esc(color):''}"></div></div>`; }
 function sparkline(vals, w=90, h=26){
   const max=Math.max(...vals)*1.15, pts=vals.map((v,i)=>`${(i/(vals.length-1)*w).toFixed(1)},${(h-v/max*h).toFixed(1)}`).join(' ');
   return `<svg width="${w}" height="${h}" class="sparkline"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.6"/></svg>`;
@@ -1086,13 +1089,13 @@ function actionBtn(label, action, onclick, opts={}){
   const cls = opts.danger?'btn btn-danger':(opts.secondary?'btn':'btn btn-primary');
   const sm = opts.sm?' btn-sm':'';
   if (!can(action)) return `<button class="btn${sm} btn-disabled tip" data-tip="관리자 권한 필요">${esc(label)} 🔒</button>`;
-  return `<button class="${cls}${sm}" onclick="${onclick}">${esc(label)}</button>`;
+  return `<button class="${cls}${sm}" onclick="${esc(onclick)}">${esc(label)}</button>`;
 }
 
 /* ---------- 코드 하이라이팅 (YAML/JSON 단순) ---------- */
 function hl(code){
   return esc(code)
-    .replace(/(#[^\n]*)/g,'<span class="tok-c">$1</span>')
+    .replace(/(?<!&)(#[^\n]*)/g,'<span class="tok-c">$1</span>')  /* &#39; 엔티티 제외 */
     .replace(/^(\s*)([\w.\-\/&;']+)(:)(?=\s|$)/gm,'$1<span class="tok-k">$2</span>$3')
     .replace(/(&quot;[^&\n]*?&quot;)/g,'<span class="tok-s">$1</span>')
     .replace(/\b(GET|POST|PUT|PATCH|DELETE|WATCH)\b/g,'<span class="tok-m">$1</span>')
@@ -1107,7 +1110,7 @@ function codeBlock(title, code){
 }
 
 /* ---------- API 사이드패널 ---------- */
-function apiIcon(specId){ return `<span class="api-ico tip" data-tip="API 보기" onclick="event.stopPropagation();openApiPanel('${specId}')">&lt;/&gt;</span>`; }
+function apiIcon(specId){ return `<span class="api-ico tip" data-tip="API 보기" onclick="event.stopPropagation();openApiPanel('${jsa(specId)}')">&lt;/&gt;</span>`; }
 function openApiPanel(specId){
   const spec=NEOCLOUD_DATA.apiSpecs[specId];
   if(!spec){ toast('스펙 준비 중: '+specId); return; }
@@ -1116,7 +1119,7 @@ function openApiPanel(specId){
   const d=el(`<div class="drawer" id="api-drawer">
     <div class="d-h"><span class="api-ico" style="cursor:default">&lt;/&gt;</span> ${esc(spec.title)}
       <button class="x" onclick="closeApiPanel()">✕</button></div>
-    <div class="tabs" style="margin:0 18px">${tabs.map((t,i)=>`<button class="${i===0?'on':''}" onclick="apiTab(this,'${specId}','${esc(t)}')">${esc(t)}</button>`).join('')}</div>
+    <div class="tabs" style="margin:0 18px">${tabs.map((t,i)=>`<button class="${i===0?'on':''}" onclick="apiTab(this,'${jsa(specId)}','${jsa(t)}')">${esc(t)}</button>`).join('')}</div>
     <div class="d-b" id="api-body">${spec.intro?`<p class="muted small" style="margin-bottom:12px">${spec.intro}</p>`:''}${codeBlock(tabs[0], spec.tabs[tabs[0]])}</div>
   </div>`);
   (document.getElementById('mk8s-root')||document.body).appendChild(d);
@@ -1324,9 +1327,9 @@ App.register('#/k8s/overview', function(elm){
   const kpis=`
     <div class="grid" style="grid-template-columns:repeat(4,1fr)">
       <div class="card kpi"><span class="v">${totalRacks.toLocaleString()} <span class="muted" style="font-size:14px">racks</span></span>
-        <span class="l">Vera Rubin NVL72 총 할당</span><span class="d muted">${ov?'클러스터 '+ov.clusters_total+' (NOCP live)':'테넌트 5 × 100랙'} · GPU ${totalGpus.toLocaleString()}기</span></div>
+        <span class="l">Vera Rubin NVL72 총 할당</span><span class="d muted">${esc(ov?'클러스터 '+ov.clusters_total+' (NOCP live)':'테넌트 5 × 100랙')} · GPU ${totalGpus.toLocaleString()}기</span></div>
       <div class="card kpi"><span class="v" style="color:var(--green)">${activeTenants} / ${D.tenants.length}</span>
-        <span class="l">Active 테넌트</span><span class="d muted">${ov?'active '+ov.by_state.active+' · installing '+ov.by_state.installing+' · 설치 작업 '+ov.installs_active+' · 업그레이드 '+ov.upgrades_active:'Provisioning 1 · Requested 1 · Retiring 1'}</span></div>
+        <span class="l">Active 테넌트</span><span class="d muted">${esc(ov?'active '+ov.by_state.active+' · installing '+ov.by_state.installing+' · 설치 작업 '+ov.installs_active+' · 업그레이드 '+ov.upgrades_active:'Provisioning 1 · Requested 1 · Retiring 1')}</span></div>
       <div class="card kpi"><span class="v" style="color:var(--amber)">${pendingReqs}</span>
         <span class="l">미처리 요청 (Biz. 포털)</span><span class="d"><a href="#/k8s/workflow">요청·작업 보드 →</a></span></div>
       <div class="card kpi"><span class="v" style="color:var(--red)">${critAlarms}</span>
@@ -1337,19 +1340,19 @@ App.register('#/k8s/overview', function(elm){
     const stepIdx=D.lifecycleSteps.indexOf(t.lifecycle);
     const steps=D.lifecycleSteps.map((s,i)=>{
       const cls=i<stepIdx?'done':(i===stepIdx?'now':'');
-      return `<div class="step ${cls}"><span class="ball">${i<stepIdx?'✓':i+1}</span>${s}</div>${i<7?'<div class="step '+(i<stepIdx?'done':'')+'"><span class="bar"></span></div>':''}`;
+      return `<div class="step ${cls}"><span class="ball">${i<stepIdx?'✓':i+1}</span>${esc(s)}</div>${i<7?'<div class="step '+(i<stepIdx?'done':'')+'"><span class="bar"></span></div>':''}`;
     }).join('');
-    return `<div class="card" style="cursor:pointer" onclick="App.navigate('#/k8s/clusters/${t.id}')">
-      <div class="card-h">${esc(t.company)} <span class="muted small">${t.id}</span>
+    return `<div class="card" style="cursor:pointer" onclick="App.navigate('#/k8s/clusters/${jsa(encodeURIComponent(t.id))}')">
+      <div class="card-h">${esc(t.company)} <span class="muted small">${esc(t.id)}</span>
         ${badge(t.lifecycle)} ${dayChip(t.day)}
         <div class="right small muted">${esc(t.workload)}</div></div>
       <div class="card-b">
         <div class="stepper" style="margin-bottom:12px">${steps}</div>
         <div style="display:flex;gap:26px;flex-wrap:wrap" class="small">
-          <span><b>${t.racks}</b> racks · <b>${t.gpus.toLocaleString()}</b> GPU</span>
-          <span class="muted">K8s <b>${t.k8sVersion}</b> · ${t.nkdVersion}</span>
+          <span><b>${esc(t.racks)}</b> racks · <b>${esc(t.gpus.toLocaleString())}</b> GPU</span>
+          <span class="muted">K8s <b>${esc(t.k8sVersion)}</b> · ${esc(t.nkdVersion)}</span>
           <span class="muted">${esc(t.zone)}</span>
-          ${t.since?`<span class="muted">개통 ${t.since}</span>`:''}
+          ${t.since?`<span class="muted">개통 ${esc(t.since)}</span>`:''}
           ${t.note?`<span style="color:var(--amber);font-weight:600">⚠ ${esc(t.note)}</span>`:''}
         </div>
       </div></div>`;
@@ -1377,7 +1380,7 @@ App.register('#/k8s/overview', function(elm){
           ${attention.map(a=>`
             <div style="display:flex;gap:10px;padding:9px 16px;cursor:pointer;border-bottom:1px solid var(--line-soft)"
                  onmouseover="this.style.background='var(--accent-soft)'" onmouseout="this.style.background=''"
-                 onclick="App.navigate('${a.link}')">
+                 onclick="App.navigate('${jsa(a.link)}')">
               ${badge(a.sev)}<span class="small" style="flex:1">${esc(a.txt)}</span></div>`).join('')}
         </div>
       </div>
@@ -1400,13 +1403,13 @@ App.register('#/k8s/workflow', function(elm){
         const t=D.tenant(r.tenantId);
         const quick = r.status==='승인' && r.kind==='설치' && can('install')
           ? `<button class="btn btn-sm btn-primary" style="margin-top:8px;width:100%"
-               onclick="event.stopPropagation();App.navigate('#/k8s/clusters/new?req=${r.id}')">🚀 설치 시작</button>`
+               onclick="event.stopPropagation();App.navigate('#/k8s/clusters/new?req=${jsa(encodeURIComponent(r.id))}')">🚀 설치 시작</button>`
           : (r.status==='승인' && r.kind==='반납' && can('retire')
           ? `<button class="btn btn-sm" style="margin-top:8px;width:100%"
-               onclick="event.stopPropagation();wfStartRetire('${r.id}')">반납 시작</button>`:'');
-        return `<div class="kcard" onclick="wfDetail('${r.id}')">
-          <b>${esc(t.company)} <span class="chip" style="font-size:9.5px">${r.kind}</span></b>
-          <div class="meta"><span>${r.id}</span><span>VR NVL72 × ${r.racks}랙</span><span>희망 ${r.wantDate}</span><span class="muted">${r.from}</span>
+               onclick="event.stopPropagation();wfStartRetire('${jsa(r.id)}')">반납 시작</button>`:'');
+        return `<div class="kcard" onclick="wfDetail('${jsa(r.id)}')">
+          <b>${esc(t.company)} <span class="chip" style="font-size:9.5px">${esc(r.kind)}</span></b>
+          <div class="meta"><span>${esc(r.id)}</span><span>VR NVL72 × ${esc(r.racks)}랙</span><span>희망 ${esc(r.wantDate)}</span><span class="muted">${esc(r.from)}</span>
           ${r.reviewer?`<span style="color:var(--accent)">👤 ${esc(r.reviewer.split('@')[0])}</span>`:''}
           ${r.rejectReason?`<span style="color:var(--red)">⛔ ${esc(r.rejectReason.code)}</span>`:''}</div>
           ${quick}
@@ -1420,11 +1423,11 @@ App.register('#/k8s/workflow', function(elm){
     const typeChip={install:'설치',upgrade:'업그레이드',retire:'반납'}[j.type];
     const link=j.type==='install'?`#/k8s/clusters/${j.tenantId}/progress`:(j.type==='upgrade'?'#/k8s/upgrade':'#/k8s/clusters/'+j.tenantId+'/progress');
     return `<div style="display:grid;grid-template-columns:130px 1fr 240px 120px;gap:14px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line-soft);cursor:pointer"
-        onclick="App.navigate('${link}')" onmouseover="this.style.background='var(--accent-soft)'" onmouseout="this.style.background=''">
-      <div><span class="chip">${typeChip}</span> <span class="small muted">${j.id}</span></div>
+        onclick="App.navigate('${jsa(link)}')" onmouseover="this.style.background='var(--accent-soft)'" onmouseout="this.style.background=''">
+      <div><span class="chip">${esc(typeChip)}</span> <span class="small muted">${esc(j.id)}</span></div>
       <div><b class="small">${esc(j.title)}</b><div class="small muted">${esc(j.currentStage)}</div></div>
       <div>${bar(j.progress, j.type==='retire'?'var(--amber)':null)}</div>
-      <div class="small" style="text-align:right"><b>${j.progress}%</b> <span class="muted">${j._install?'(stage: '+(j._install.stage||'—')+')':'('+j.racksDone+'/100랙)'}</span></div>
+      <div class="small" style="text-align:right"><b>${esc(j.progress)}%</b> <span class="muted">${esc(j._install?'(stage: '+(j._install.stage||'—')+')':'('+j.racksDone+'/100랙)')}</span></div>
     </div>`;
   };
 
@@ -1441,11 +1444,11 @@ function wfDetail(reqId){
   const r=DS.data().requests.find(x=>x.id===reqId);
   const t=DS.data().tenant(r.tenantId);
   const specRows=[
-    ['상품', r.gpuModel+' × '+r.racks+'랙 (GPU '+(r.racks*72).toLocaleString()+'기)'],
-    ['K8s 버전', r.k8sVersion],['희망 개통일', r.wantDate],['접수 경로', r.from+' · '+r.createdAt],
-    ['계약 스펙 요약', r.specSummary],
-    ...(r.reviewer?[['검토 담당자', r.reviewer+' (검토 시작 '+(r.reviewStartedAt||'-')+')']]:[]),
-    ...(r.rejectReason?[['반려 사유', '<b style="color:var(--red)">'+esc(r.rejectReason.code)+'</b> — '+esc(r.rejectReason.text)+'<div class="small muted">'+r.rejectReason.at+' · Biz. 포털 회신 완료</div>']]:[]),
+    ['상품', esc(r.gpuModel+' × '+r.racks+'랙 (GPU '+(r.racks*72).toLocaleString()+'기)')],
+    ['K8s 버전', esc(r.k8sVersion)],['희망 개통일', esc(r.wantDate)],['접수 경로', esc(r.from+' · '+r.createdAt)],
+    ['계약 스펙 요약', esc(r.specSummary)],
+    ...(r.reviewer?[['검토 담당자', esc(r.reviewer+' (검토 시작 '+(r.reviewStartedAt||'-')+')')]]:[]),
+    ...(r.rejectReason?[['반려 사유', '<b style="color:var(--red)">'+esc(r.rejectReason.code)+'</b> — '+esc(r.rejectReason.text)+'<div class="small muted">'+esc(r.rejectReason.at)+' · Biz. 포털 회신 완료</div>']]:[]),
   ].map(([k,v])=>`<tr><td class="muted" style="width:130px">${k}</td><td>${v}</td></tr>`).join('');
   const avail=`<div class="card" style="margin-top:12px;background:${r.availability.ok?'var(--green-soft)':'var(--amber-soft)'};border-color:transparent">
     <div class="card-b" style="display:flex;gap:10px;align-items:center">
@@ -1455,24 +1458,24 @@ function wfDetail(reqId){
   let foot='', guide='';
   if(r.status==='접수대기'){
     guide='접수대기 = 담당자 미지정. <b>검토 시작</b>으로 담당자를 지정한 뒤 검토중 단계에서 승인/반려를 결정합니다.';
-    foot=actionBtn('반려…','reject',`wfRejectModal('${r.id}')`,{secondary:true})
-        +actionBtn('검토 시작 (담당자 지정)','approve',`wfStartReview('${r.id}')`);
+    foot=actionBtn('반려…','reject',`wfRejectModal('${jsq(r.id)}')`,{secondary:true})
+        +actionBtn('검토 시작 (담당자 지정)','approve',`wfStartReview('${jsq(r.id)}')`);
   } else if(r.status==='검토중'){
     guide='가용성·일정·정책 검토 완료 후 결정하세요. 승인 시 자원 예약(Reserved)이 시작되고 Biz. 포털로 회신됩니다.';
-    foot=actionBtn('반려…','reject',`wfRejectModal('${r.id}')`,{secondary:true})
-        +actionBtn('승인','approve',`wfApprove('${r.id}')`);
+    foot=actionBtn('반려…','reject',`wfRejectModal('${jsq(r.id)}')`,{secondary:true})
+        +actionBtn('승인','approve',`wfApprove('${jsq(r.id)}')`);
   } else if(r.status==='승인'){
     if(r.kind==='설치'){
       guide='승인 완료 — 자원이 예약(Reserved)되어 있습니다. 설치 마법사에 계약 스펙이 자동 반영됩니다.';
-      foot=actionBtn('설치 시작 (마법사)','install',`closeModal();App.navigate('#/k8s/clusters/new?req=${r.id}')`);
+      foot=actionBtn('설치 시작 (마법사)','install',`closeModal();App.navigate('#/k8s/clusters/new?req=${jsq(encodeURIComponent(r.id))}')`);
     } else if(r.kind==='반납'){
       guide='반납 승인 완료 — kubeconfig 회수 → 클러스터 삭제 → Secure Erase 순으로 진행됩니다.';
-      foot=actionBtn('반납 파이프라인 시작 / 진행 보기','retire',`closeModal();wfStartRetire('${r.id}')`);
+      foot=actionBtn('반납 파이프라인 시작 / 진행 보기','retire',`closeModal();wfStartRetire('${jsq(r.id)}')`);
     } else {
       guide='견적 승인 = Biz. 포털 회신으로 종결됩니다. 고객이 계약을 확정하면 <b>새 설치 요청</b>이 웹훅으로 접수되고, 그때 설치 플로우가 시작됩니다.';
     }
   }
-  openModal(`${esc(t.company)} — ${esc(r.title)} <span class="chip">${r.id}</span> ${badge(r.status==='개통완료'?'Active':(r.status==='반려'?'critical':r.status))}`,
+  openModal(`${esc(t.company)} — ${esc(r.title)} <span class="chip">${esc(r.id)}</span> ${badge(r.status==='개통완료'?'Active':(r.status==='반려'?'critical':r.status))}`,
     `<table class="table">${specRows}</table>${avail}
      ${guide?`<p class="small muted" style="margin-top:12px">${guide} ${apiIcon('workflow-approve')}</p>`:''}`,
     foot);
@@ -1512,7 +1515,7 @@ function wfRejectModal(reqId){
   const r=DS.data().requests.find(x=>x.id===reqId);
   const t=DS.data().tenant(r.tenantId);
   const preset=!r.availability.ok?WF_REJECT_CODES[0]:'';
-  openModal(`반려 — ${esc(t.company)} <span class="chip">${r.id}</span>`,
+  openModal(`반려 — ${esc(t.company)} <span class="chip">${esc(r.id)}</span>`,
     `<p class="small muted" style="margin-bottom:12px">반려 사유는 Biz. 포털로 회신되어 고객 커뮤니케이션에 사용됩니다. 조정된 요청은 새 웹훅으로 재접수됩니다. ${apiIcon('workflow-approve')}</p>
      <label class="small" style="font-weight:700">사유 코드</label>
      <select id="rj-code" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;margin:5px 0 13px">
@@ -1521,9 +1524,9 @@ function wfRejectModal(reqId){
      <label class="small" style="font-weight:700">상세 사유 (고객 회신용)</label>
      <textarea id="rj-text" rows="4" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;margin-top:5px;font:inherit"
        placeholder="예) Zone D 가용 랙 12 < 요청 20랙 — 8월 증설분 반영 후 재접수 요청드립니다.">${!r.availability.ok?esc(r.availability.detail):''}</textarea>
-     <div class="small muted" style="margin-top:8px">회신 payload: <code>POST /biz/v1/requests/${r.id}:status {"status":"Rejected","reasonCode":…,"reason":…}</code></div>`,
+     <div class="small muted" style="margin-top:8px">회신 payload: <code>POST /biz/v1/requests/${esc(r.id)}:status {"status":"Rejected","reasonCode":…,"reason":…}</code></div>`,
     `<button class="btn" onclick="closeModal()">취소</button>`
-    +actionBtn('반려 확정 · Biz. 포털 회신','reject',`wfRejectExec('${r.id}')`,{danger:true}));
+    +actionBtn('반려 확정 · Biz. 포털 회신','reject',`wfRejectExec('${jsq(r.id)}')`,{danger:true}));
 }
 function wfRejectExec(reqId){
   const r=DS.data().requests.find(x=>x.id===reqId);
@@ -1612,13 +1615,13 @@ Content-Type: application/json
 App.register('#/k8s/clusters', function(elm){
   const D=DS.data();
   const rows=D.tenants.map(t=>`
-    <tr class="click" onclick="App.navigate('#/k8s/clusters/${t.id}')">
-      <td><b>${esc(t.company)}</b><div class="small muted">${t.id} · ${esc(t.workload)}</div></td>
+    <tr class="click" onclick="App.navigate('#/k8s/clusters/${jsa(encodeURIComponent(t.id))}')">
+      <td><b>${esc(t.company)}</b><div class="small muted">${esc(t.id)} · ${esc(t.workload)}</div></td>
       <td>${badge(t.lifecycle)}${t.note?`<div class="small" style="color:var(--amber)">${esc(t.note)}</div>`:''}</td>
-      <td class="mono">${t.k8sVersion}<div class="small muted">${t.nkdVersion}</div></td>
-      <td><b>${t.racks}</b> racks<div class="small muted">${t.gpus.toLocaleString()} GPU · spare ${t.hotSpareTrays} tray</div></td>
+      <td class="mono">${esc(t.k8sVersion)}<div class="small muted">${esc(t.nkdVersion)}</div></td>
+      <td><b>${esc(t.racks)}</b> racks<div class="small muted">${esc(t.gpus.toLocaleString())} GPU · spare ${esc(t.hotSpareTrays)} tray</div></td>
       <td class="small">${esc(t.zone)}</td>
-      <td class="small muted">${t.since||'—'}</td>
+      <td class="small muted">${esc(t.since||'—')}</td>
     </tr>`).join('');
   elm.innerHTML=`
     <div class="page-h"><div><h1>클러스터</h1>
@@ -1635,14 +1638,14 @@ App.register('#/k8s/clusters/:tenantId', function(elm, p){
   const tab=p.tab||'overview';
   const tabs=[['overview','개요'],['nodepool','노드풀'],['addons','애드온'],['accept','검증 리포트'],['events','이벤트']];
   elm.innerHTML=`
-    <div class="page-h"><div><h1>${esc(t.company)} <span class="muted" style="font-weight:400;font-size:14px">${t.id}</span> ${badge(t.lifecycle)} ${dayChip(t.day)}</h1>
-      <div class="sub">${esc(t.workload)} · ${esc(t.zone)} · K8s ${t.k8sVersion} (${t.nkdVersion})</div></div>
+    <div class="page-h"><div><h1>${esc(t.company)} <span class="muted" style="font-weight:400;font-size:14px">${esc(t.id)}</span> ${badge(t.lifecycle)} ${dayChip(t.day)}</h1>
+      <div class="sub">${esc(t.workload)} · ${esc(t.zone)} · K8s ${esc(t.k8sVersion)} (${esc(t.nkdVersion)})</div></div>
       <div class="right">
-        <button class="btn" onclick="App.navigate('#/k8s/monitoring/${t.id}')">모니터링</button>
-        ${t.lifecycle==='Provisioned'?`<button class="btn btn-primary" onclick="App.navigate('#/k8s/clusters/${t.id}/progress')">설치 진행 보기</button>`:''}
+        <button class="btn" onclick="App.navigate('#/k8s/monitoring/${jsa(encodeURIComponent(t.id))}')">모니터링</button>
+        ${t.lifecycle==='Provisioned'?`<button class="btn btn-primary" onclick="App.navigate('#/k8s/clusters/${jsa(encodeURIComponent(t.id))}/progress')">설치 진행 보기</button>`:''}
         ${actionBtn('업그레이드','upgrade',`App.navigate('#/k8s/upgrade')`,{secondary:true})}
       </div></div>
-    <div class="tabs">${tabs.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="App.navigate('#/k8s/clusters/${t.id}?tab=${k}')">${l}</button>`).join('')}</div>
+    <div class="tabs">${tabs.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="App.navigate('#/k8s/clusters/${jsa(encodeURIComponent(t.id))}?tab=${k}')">${l}</button>`).join('')}</div>
     <div id="cl-tab"></div>`;
   const box=document.getElementById('cl-tab');
   if(tab==='overview') clTabOverview(box,t);
@@ -1658,19 +1661,19 @@ function clTabOverview(box,t){
     <div class="card"><div class="card-h">클러스터 스펙 ${apiIcon('cluster-crd')}</div>
       ${kv([
         ['Control Plane','전용 3식 (16 vCPU / 64 GB) — hosted, 고객 접근 불가'],
-        ['Worker','Vera Rubin NVL72 × '+t.racks+'랙 = '+(t.racks*18).toLocaleString()+' 트레이(노드) · GPU '+t.gpus.toLocaleString()+'기'],
-        ['Hot Spare',t.hotSpareTrays+' tray (NVSentinel 자동 투입)'],
+        ['Worker',esc('Vera Rubin NVL72 × '+t.racks+'랙 = '+(t.racks*18).toLocaleString()+' 트레이(노드) · GPU '+t.gpus.toLocaleString()+'기')],
+        ['Hot Spare',esc(t.hotSpareTrays+' tray (NVSentinel 자동 투입)')],
         ['GPU 라벨','<code>nvidia.com/gpu.product: Rubin</code> · <code>topology.neocloud.skt/rack</code>'],
-        ['K8s / NKD',t.k8sVersion+' / '+t.nkdVersion],
+        ['K8s / NKD',esc(t.k8sVersion+' / '+t.nkdVersion)],
         ['Bastion','1식 (8 vCPU / 16 GB) — kubectl 진입점'],
       ])}</div>
     <div class="card"><div class="card-h">네트워크 / 접근</div>
       ${kv([
         ['VPC / 격리',esc(t.vpc)+' — DPU(NICo) VRF/VXLAN 하드 격리'],
         ['F5 Partition',esc(t.f5Partition)],
-        ['테넌트 도메인','<code>*.'+t.domainSuffix+'</code> (suffix 플랫폼 강제)'],
+        ['테넌트 도메인','<code>*.'+esc(t.domainSuffix)+'</code> (suffix 플랫폼 강제)'],
         ['apiserver 노출','<code>'+esc(t.apiEndpoint)+'</code> (L4 passthrough)'],
-        ['접근 allowlist',t.allowlist.length?t.allowlist.map(a=>'<code>'+a+'</code>').join(' '):'—'],
+        ['접근 allowlist',t.allowlist.length?t.allowlist.map(a=>'<code>'+esc(a)+'</code>').join(' '):'—'],
         ['kubeconfig','<a href="#/k8s/access">Vault PKI 인증서 기반 — 접근관리 →</a>'],
       ])}</div></div>`;
 }
@@ -1695,11 +1698,11 @@ function clTabNodepool(box,t){
     return `<svg width="90" height="90">${arcs}</svg>`;
   })();
   const rackRows=racks.slice(0,12).map(r=>`
-    <tr class="click" onclick="App.navigate('#/k8s/monitoring/${t.id}/${r.rack}')">
-      <td class="mono">${r.rack}${r.alarm?' <span class="badge b-red">XID</span>':''}</td>
+    <tr class="click" onclick="App.navigate('#/k8s/monitoring/${jsa(encodeURIComponent(t.id))}/${jsa(encodeURIComponent(r.rack))}')">
+      <td class="mono">${esc(r.rack)}${r.alarm?' <span class="badge b-red">XID</span>':''}</td>
       <td>${badge(r.status==='active'?'Ready':(r.status==='provisioning'?'Provisioned':r.status))}</td>
       <td>18 tray · 72 GPU</td>
-      <td style="width:180px">${bar(r.util)}</td><td class="small muted">${r.util}%</td>
+      <td style="width:180px">${bar(r.util)}</td><td class="small muted">${esc(r.util)}%</td>
     </tr>`).join('');
   box.innerHTML=`<div class="grid" style="grid-template-columns:280px 1fr;align-items:start">
     <div class="card"><div class="card-h">노드 상태 분포 ${apiIcon('nodes-list')}</div>
@@ -1713,7 +1716,7 @@ function clTabNodepool(box,t){
         </div></div></div>
     <div class="card"><div class="card-h">랙 (VR NVL72) <div class="right small muted">상위 12 / ${racks.length} — 전체는 모니터링 히트맵</div></div>
       <table class="table"><tr><th>랙</th><th>상태</th><th>구성</th><th colspan="2">GPU Util</th></tr>${rackRows}</table>
-      <div class="card-b small"><a href="#/k8s/monitoring/${t.id}">… ${Math.max(0,racks.length-12)} more — 랙 히트맵에서 전체 보기 →</a></div></div></div>`;
+      <div class="card-b small"><a href="#/k8s/monitoring/${esc(encodeURIComponent(t.id))}">… ${Math.max(0,racks.length-12)} more — 랙 히트맵에서 전체 보기 →</a></div></div></div>`;
 }
 
 function clTabAddons(box,t){
@@ -1733,7 +1736,7 @@ function clTabAddons(box,t){
     ['external-dns','0.19.1','LB IP → Route53 자동 등록 (DNSEndpoint gate)',t.lifecycle==='Active'?'Running':'Installing'],
     ['NVSentinel','25.06','GPU 헬스 · 자동 remediation',t.lifecycle==='Active'?'Running':'Installing'],
     ['GPU Operator','25.6.0','드라이버 580.82 · CUDA 13.1 · DCGM',t.lifecycle==='Active'?'Running':'Installing'],
-    ['CSI ('+((DS.data().storage.find(s=>s.tenantId===t.id)||{}).vendor||'VAST')+')','2.6','PVC 동적 프로비저닝 · GDS','Running'],
+    ['CSI ('+esc((DS.data().storage.find(s=>s.tenantId===t.id)||{}).vendor||'VAST')+')','2.6','PVC 동적 프로비저닝 · GDS','Running'],
     ['Prometheus + Grafana + Loki','LGTM 스택','메트릭/로그 수집 · 테넌트 대시보드','Running'],
   ];
   box.innerHTML=`<div class="card"><div class="card-h">애드온</div><table class="table">
@@ -1774,8 +1777,8 @@ function clTabEvents(box,t){
   ];
   box.innerHTML=`<div class="card"><div class="card-h">이벤트 <span class="muted small">events.k8s.io/v1</span> ${apiIcon('nodes-list')}</div>
     <table class="table"><tr><th>Type</th><th>Reason</th><th>From</th><th>Object</th><th>Message</th><th>Age</th></tr>
-    ${evts.map(e=>`<tr><td>${badge(e[0]==='Warning'?'warning':'info')}</td><td class="mono small">${e[1]}</td>
-      <td class="small muted">${e[2]}</td><td class="mono small">${e[3]}</td><td class="small">${e[4]}</td><td class="small muted">${e[5]}</td></tr>`).join('')}
+    ${evts.map(e=>`<tr><td>${badge(e[0]==='Warning'?'warning':'info')}</td><td class="mono small">${esc(e[1])}</td>
+      <td class="small muted">${esc(e[2])}</td><td class="mono small">${esc(e[3])}</td><td class="small">${esc(e[4])}</td><td class="small muted">${esc(e[5])}</td></tr>`).join('')}
     </table></div>`;
 }
 
@@ -1905,7 +1908,7 @@ App.register('#/k8s/clusters/new', function(elm, p){
   }
   elm.innerHTML=`
     <div class="page-h"><div><h1>클러스터 생성</h1>
-      <div class="sub">${WIZ.data.reqId?`요청 <b>${WIZ.data.reqId}</b> 스펙 자동 적용 — `:''}NKD/NKE 프로비저닝 · Reserved 자원 자동 배치 ${apiIcon('wizard-submit')}</div></div>
+      <div class="sub">${WIZ.data.reqId?`요청 <b>${esc(WIZ.data.reqId)}</b> 스펙 자동 적용 — `:''}NKD/NKE 프로비저닝 · Reserved 자원 자동 배치 ${apiIcon('wizard-submit')}</div></div>
       <div class="right"><button class="btn" onclick="App.navigate('#/k8s/workflow')">← 요청·작업</button></div></div>
     <div class="card"><div class="card-b">
       <div class="stepper" style="margin-bottom:20px">${WIZ_STEPS.map((s,i)=>{
@@ -1963,12 +1966,12 @@ function wizBody(){
         ${['v1.33.2','v1.32.4','v1.31.9'].map(v=>`<option ${d.k8sVersion===v?'selected':''}>${v}</option>`).join('')}</select>`,'NKD 25.06 지원 버전')}</div>
       <div>${F('존 (Zone)', `<select id="w-zone" style="width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:6px">
         ${['AIDC-1 / Zone A','AIDC-1 / Zone B','AIDC-1 / Zone C','AIDC-1 / Zone D'].map(z=>`<option ${d.zone===z?'selected':''}>${z}</option>`).join('')}</select>`,'가용성: Zone C 128랙 여유')}
-      ${F('테넌트', `<div class="chip" style="padding:8px 12px">${d.tenantId?esc(DS.data().tenant(d.tenantId).company)+' ('+d.tenantId+')':'신규 테넌트'}</div>`)}</div></div>`;
+      ${F('테넌트', `<div class="chip" style="padding:8px 12px">${d.tenantId?esc(DS.data().tenant(d.tenantId).company)+' ('+esc(d.tenantId)+')':'신규 테넌트'}</div>`)}</div></div>`;
   } else if(WIZ.step===2){
     box.innerHTML=`
       ${F('Control Plane','<div class="chip" style="padding:8px 12px">전용 3식 — 16 vCPU / 64 GB (hosted · 고객 접근 불가)</div>','plan_r10 소요자원 기준 고정')}
-      ${F(`GPU Worker — Vera Rubin NVL72 랙 수량: <b id="w-racks-v">${d.racks}</b>랙 (= GPU ${(d.racks*72).toLocaleString()}기 · 트레이 ${(d.racks*18).toLocaleString()}노드)`,
-        `<input type="range" id="w-racks" min="10" max="120" step="10" value="${d.racks}" style="width:100%"
+      ${F(`GPU Worker — Vera Rubin NVL72 랙 수량: <b id="w-racks-v">${esc(d.racks)}</b>랙 (= GPU ${(d.racks*72).toLocaleString()}기 · 트레이 ${(d.racks*18).toLocaleString()}노드)`,
+        `<input type="range" id="w-racks" min="10" max="120" step="10" value="${esc(d.racks)}" style="width:100%"
           oninput="document.getElementById('w-racks-v').textContent=this.value">`,
         'Reserved 계약 수량. 랙 = 18 compute tray × 4 GPU')}
       ${F('Hot Spare (tray)', `<select id="w-spare" style="width:130px;padding:8px 11px;border:1px solid var(--line);border-radius:6px">
@@ -1994,16 +1997,16 @@ function wizBody(){
       'KAI Scheduler / Kueue':'배치/큐 스케줄링 (P1)','Slurm (SUNK)':'HPC 스타일 학습 잡'};
     box.innerHTML=`<div class="grid" style="grid-template-columns:1fr 1fr">${all.map(a=>`
       <label class="card" style="display:flex;gap:10px;padding:12px 14px;cursor:pointer;box-shadow:none">
-        <input type="checkbox" class="w-addon" value="${a}" ${d.addons.includes(a)?'checked':''} ${['NVSentinel','GPU Operator','Prometheus/Grafana/Loki'].includes(a)?'onclick="return false" checked':''}>
-        <div><b class="small">${a}</b><div class="small muted">${desc[a]}</div></div></label>`).join('')}</div>`;
+        <input type="checkbox" class="w-addon" value="${esc(a)}" ${d.addons.includes(a)?'checked':''} ${['NVSentinel','GPU Operator','Prometheus/Grafana/Loki'].includes(a)?'onclick="return false" checked':''}>
+        <div><b class="small">${esc(a)}</b><div class="small muted">${esc(desc[a])}</div></div></label>`).join('')}</div>`;
   } else {
     box.innerHTML=`<table class="table">
-      ${[['클러스터',`<code>${esc(d.name)}</code> · ${d.k8sVersion} · ${esc(d.zone)}`],
-        ['노드풀',`VR NVL72 × <b>${d.racks}랙</b> (GPU ${(d.racks*72).toLocaleString()} · 노드 ${(d.racks*18).toLocaleString()}) + spare ${d.spare} tray`],
+      ${[['클러스터',`<code>${esc(d.name)}</code> · ${esc(d.k8sVersion)} · ${esc(d.zone)}`],
+        ['노드풀',`VR NVL72 × <b>${esc(d.racks)}랙</b> (GPU ${(d.racks*72).toLocaleString()} · 노드 ${(d.racks*18).toLocaleString()}) + spare ${esc(d.spare)} tray`],
         ['네트워킹',`${esc(d.vpc)} · ${esc(d.partition)} · <code>*.${esc(d.suffix)}</code>`],
         ['apiserver',`<code>${esc(d.endpoint)}</code> · allowlist ${esc(d.allow||'—')}`],
-        ['스토리지',`${esc(d.csi)} · GDS ${d.gds?'ON':'OFF'} · ${d.capacity} TB`],
-        ['애드온',d.addons.map(a=>`<span class="chip">${a}</span>`).join(' ')],
+        ['스토리지',`${esc(d.csi)} · GDS ${d.gds?'ON':'OFF'} · ${esc(d.capacity)} TB`],
+        ['애드온',d.addons.map(a=>`<span class="chip">${esc(a)}</span>`).join(' ')],
       ].map(([k,v])=>`<tr><td class="muted" style="width:110px">${k}</td><td>${v}</td></tr>`).join('')}</table>
       <div class="card" style="margin-top:14px;background:var(--accent-soft);border-color:transparent"><div class="card-b small">
         실행 시: Reserved 랙 Lock → NKD 설치(batch) → 애드온 → NS/RBAC(<code>default/slurm/dynamo</code>) → Acceptance 검증(NCCL/DCGM) 순으로 진행됩니다. ${apiIcon('wizard-submit')}
@@ -2028,7 +2031,7 @@ function wizBodyLive(box, d, F){
   } else if(WIZ.step===2){
     box.innerHTML=err+`
       ${F('Control Plane','<div class="chip" style="padding:8px 12px">전용 3식 — CPU 노드 풀에서 NICo(DPU isolation) 경유 할당</div>','부족 시 NOCP가 409 (insufficient CPU pool) 반환')}
-      ${F('GPU Worker','<div class="chip" style="padding:8px 12px">'+(a?('allocation '+a.allocation_id+' — '+(a.racks||'?')+'랙 (Reserved 계약 수량 · 변경 불가)'):'—')+'</div>','delivered BMaaS 트레이 전체가 gpu-worker로 join')}`;
+      ${F('GPU Worker','<div class="chip" style="padding:8px 12px">'+(a?esc('allocation '+a.allocation_id+' — '+(a.racks||'?')+'랙 (Reserved 계약 수량 · 변경 불가)'):'—')+'</div>','delivered BMaaS 트레이 전체가 gpu-worker로 join')}`;
   } else if(WIZ.step===3){
     box.innerHTML=err+`
       ${F('API VIP','<div class="chip mono" style="padding:8px 12px">kube-vip — Converged Network 상 자동 할당</div>','CP 3노드 L2/ARP · 설치 net-attach 스테이지에서 확정')}
@@ -2049,7 +2052,7 @@ function wizBodyLive(box, d, F){
   } else {
     box.innerHTML=err+`<table class="table">
       ${[['대상', a?esc(a.label):'—'],
-        ['버전',`<code>${esc(d.k8sVersion)}</code> · NKD ${(DS.spec()||{}).nkd_version||'—'}`],
+        ['버전',`<code>${esc(d.k8sVersion)}</code> · NKD ${esc((DS.spec()||{}).nkd_version||'—')}`],
         ['선택 애드온', d.addons.length?d.addons.map(x=>`<span class="chip">${esc(x)}</span>`).join(' '):'<span class="muted">없음</span>'],
         ['API 호출','<code>POST /api/v1/k8s/installs</code> {tenant_id, allocation_id, k8s_version}'],
       ].map(([k,v])=>`<tr><td class="muted" style="width:110px">${k}</td><td>${v}</td></tr>`).join('')}</table>
@@ -2111,25 +2114,25 @@ App.register('#/k8s/clusters/:tenantId/progress', function(elm, p){
     return `<i class="${done?'done':(run?'run':'')}" title="rack ${String(i+1).padStart(3,'0')}"></i>`;
   }).join('');
   elm.innerHTML=`
-    <div class="page-h"><div><h1>${isRetire?'반납 진행':'설치 진행'} — ${esc(t.company)} <span class="chip">${job.id}</span></h1>
-      <div class="sub">${esc(job.currentStage)} · 시작 ${job.startedAt} ${apiIcon('install-pipeline')}</div></div>
-      <div class="right"><button class="btn" onclick="App.navigate('#/k8s/clusters/${t.id}')">클러스터 상세</button>
-        ${job.progress>=100||t.lifecycle==='Active'?'':actionBtn('검증 리포트 미리보기','install',`App.navigate('#/k8s/clusters/${t.id}/acceptance')`,{secondary:true})}</div></div>
+    <div class="page-h"><div><h1>${isRetire?'반납 진행':'설치 진행'} — ${esc(t.company)} <span class="chip">${esc(job.id)}</span></h1>
+      <div class="sub">${esc(job.currentStage)} · 시작 ${esc(job.startedAt)} ${apiIcon('install-pipeline')}</div></div>
+      <div class="right"><button class="btn" onclick="App.navigate('#/k8s/clusters/${jsa(encodeURIComponent(t.id))}')">클러스터 상세</button>
+        ${job.progress>=100||t.lifecycle==='Active'?'':actionBtn('검증 리포트 미리보기','install',`App.navigate('#/k8s/clusters/${jsq(encodeURIComponent(t.id))}/acceptance')`,{secondary:true})}</div></div>
     <div class="grid" style="grid-template-columns:1fr 1.4fr;align-items:start">
       <div class="grid">
         <div class="card"><div class="card-h">파이프라인</div><div class="card-b"><div class="timeline">
-          ${job.stages.map(s=>`<div class="tl-item ${s.status}">
-            <b>${esc(s.name)}</b><div class="small muted">${s.at||'대기'}</div></div>`).join('')}
+          ${job.stages.map(s=>`<div class="tl-item ${esc(s.status)}">
+            <b>${esc(s.name)}</b><div class="small muted">${esc(s.at||'대기')}</div></div>`).join('')}
         </div></div></div>
-        <div class="card"><div class="card-h">${isRetire?'Secure Erase':(job._install?'설치 saga':'랙 Batch')} 진행 <div class="right small muted">${job._install?(job.progress+'% · stage: '+(job._install.stage||'—')):(job.racksDone+'/100랙 ('+job.progress+'%)')}</div></div>
+        <div class="card"><div class="card-h">${isRetire?'Secure Erase':(job._install?'설치 saga':'랙 Batch')} 진행 <div class="right small muted">${esc(job._install?(job.progress+'% · stage: '+(job._install.stage||'—')):(job.racksDone+'/100랙 ('+job.progress+'%)'))}</div></div>
           <div class="card-b"><div class="batchgrid">${cells}</div>
           <div style="margin-top:10px">${bar(job.progress, isRetire?'var(--amber)':null)}</div></div></div>
       </div>
       <div class="card" style="display:flex;flex-direction:column;min-height:520px">
         <div class="logctl">
           <b>${isRetire?'wipe.log':'nkd-installer.log'}</b>
-          <span class="switch on" onclick="this.classList.toggle('on');progressLog('${t.id}',${isRetire},this.classList.contains('on'))"><span class="tr"></span> follow</span>
-          <span class="muted mono" style="margin-left:auto">tail -f · ${isRetire?'secure-erase':(job._install?('saga '+(job._install.stage||'—')):'batch '+Math.ceil((job.racksDone+1)/6)+'/17')}</span>
+          <span class="switch on" onclick="this.classList.toggle('on');progressLog('${jsa(t.id)}',${isRetire},this.classList.contains('on'))"><span class="tr"></span> follow</span>
+          <span class="muted mono" style="margin-left:auto">tail -f · ${esc(isRetire?'secure-erase':(job._install?('saga '+(job._install.stage||'—')):'batch '+Math.ceil((job.racksDone+1)/6)+'/17'))}</span>
         </div>
         <div class="logbox" id="prog-log" style="flex:1"></div>
       </div>
@@ -2165,8 +2168,8 @@ function renderAcceptance(box, tenantId, opts={}){
     const pass=liveAcc.status==='pass';
     box.innerHTML=`
       <div class="card" style="background:${pass?'var(--green-soft)':'var(--amber-soft)'};border-color:transparent;margin-bottom:14px"><div class="card-b" style="display:flex;align-items:center;gap:14px">
-        <span style="font-size:26px">${pass?'✅':'⚠️'}</span><div><b>Acceptance 종합 ${(liveAcc.status||'').toUpperCase()}</b>
-        <div class="small muted">${esc(t?t.company:tenantId)} · 리포트 ${(liveAcc.report_ts||'').slice(0,19).replace('T',' ')} · NOCP live — GET /k8s/clusters/{id}/acceptance</div></div>
+        <span style="font-size:26px">${pass?'✅':'⚠️'}</span><div><b>Acceptance 종합 ${esc((liveAcc.status||'').toUpperCase())}</b>
+        <div class="small muted">${esc(t?t.company:tenantId)} · 리포트 ${esc((liveAcc.report_ts||'').slice(0,19).replace('T',' '))} · NOCP live — GET /k8s/clusters/{id}/acceptance</div></div>
       </div></div>
       <div class="card"><div class="card-h">검증 체크 (${(liveAcc.checks||[]).length})</div>
         <table class="table"><tr><th>체크</th><th>판정</th><th>측정값</th><th>상세</th></tr>
@@ -2182,8 +2185,8 @@ function renderAcceptance(box, tenantId, opts={}){
   box.innerHTML=`
     <div class="card" style="background:var(--green-soft);border-color:transparent;margin-bottom:14px"><div class="card-b" style="display:flex;align-items:center;gap:14px">
       <span style="font-size:26px">✅</span><div><b>Acceptance 종합 PASS</b>
-      <div class="small muted">${esc(t.company)} · ${opts.readonly?'개통 시점 리포트 ('+(t.since||'2026-07-09')+')':'2026-07-09 11:58 실행'} · ai-cloud-validation v2.4</div></div>
-      ${opts.readonly?'':`<div style="margin-left:auto">${actionBtn('개통 승인 → kubeconfig 발급','approve',`acceptApprove('${tenantId}')`)}</div>`}
+      <div class="small muted">${esc(t.company)} · ${opts.readonly?'개통 시점 리포트 ('+esc(t.since||'2026-07-09')+')':'2026-07-09 11:58 실행'} · ai-cloud-validation v2.4</div></div>
+      ${opts.readonly?'':`<div style="margin-left:auto">${actionBtn('개통 승인 → kubeconfig 발급','approve',`acceptApprove('${jsq(tenantId)}')`)}</div>`}
     </div></div>
     <div class="grid" style="grid-template-columns:1fr 1fr">
       <div>${sec('NCCL all-reduce (576 GPU 샘플)',['메시지','busbw (GB/s)','기준','판정'],ACCEPTANCE.nccl)}
@@ -2196,7 +2199,7 @@ App.register('#/k8s/clusters/:tenantId/acceptance', function(elm, p){
   const t=DS.data().tenant(p.tenantId);
   elm.innerHTML=`<div class="page-h"><div><h1>Acceptance 검증 리포트 — ${esc(t.company)}</h1>
     <div class="sub">NCCL · DCGM · 네트워크 · 스토리지 자동 검증 (설치 파이프라인 5단계)</div></div>
-    <div class="right"><button class="btn" onclick="App.navigate('#/k8s/clusters/${t.id}/progress')">← 설치 진행</button></div></div>
+    <div class="right"><button class="btn" onclick="App.navigate('#/k8s/clusters/${jsa(encodeURIComponent(t.id))}/progress')">← 설치 진행</button></div></div>
     <div id="accept-box"></div>`;
   renderAcceptance(document.getElementById('accept-box'), p.tenantId, {readonly:t.lifecycle==='Active'});
 });
@@ -2306,13 +2309,13 @@ function netTabLb(box){
   const rows=DS.data().lbVips.map(v=>{
     const t=DS.data().tenant(v.tenantId);
     const up=v.poolMembers.filter(m=>m.state==='up').length;
-    return `<tr class="click" onclick="netVipDetail('${v.id}')">
-      <td><b>${esc(t.company)}</b><div class="small muted">${v.partition}</div></td>
-      <td class="mono"><b>${v.vip}</b><div class="small muted">${v.ports}</div></td>
+    return `<tr class="click" onclick="netVipDetail('${jsa(v.id)}')">
+      <td><b>${esc(t.company)}</b><div class="small muted">${esc(v.partition)}</div></td>
+      <td class="mono"><b>${esc(v.vip)}</b><div class="small muted">${esc(v.ports)}</div></td>
       <td class="small">${esc(v.type)}</td>
       <td class="mono small">${esc(v.boundSvc)}</td>
       <td>${badge(v.health)}<div class="small muted">pool ${up}/${v.poolMembers.length} up</div></td>
-      <td>${sparkline(v.tpGbps)}<div class="small muted">${v.tpGbps[v.tpGbps.length-1]} Gbps</div></td>
+      <td>${sparkline(v.tpGbps)}<div class="small muted">${esc(v.tpGbps[v.tpGbps.length-1])} Gbps</div></td>
     </tr>`;
   }).join('');
   box.innerHTML=`<div class="card">
@@ -2324,13 +2327,13 @@ function netTabLb(box){
 function netVipDetail(vipId){
   const v=DS.data().lbVips.find(x=>x.id===vipId);
   const t=DS.data().tenant(v.tenantId);
-  const members=v.poolMembers.map(m=>`<tr><td class="mono">${m.node}</td><td class="mono">${m.ep}</td>
+  const members=v.poolMembers.map(m=>`<tr><td class="mono">${esc(m.node)}</td><td class="mono">${esc(m.ep)}</td>
     <td>${m.state==='up'?'<span class="badge b-green">UP</span>':'<span class="badge b-red">DOWN</span>'}</td></tr>`).join('');
-  openModal(`VIP ${v.vip} <span class="chip">${esc(t.company)}</span> ${badge(v.health)}`,
+  openModal(`VIP ${esc(v.vip)} <span class="chip">${esc(t.company)}</span> ${badge(v.health)}`,
     `<table class="table">
       <tr><td class="muted" style="width:130px">유형</td><td>${esc(v.type)}</td></tr>
-      <tr><td class="muted">Listener</td><td class="mono">${v.ports}</td></tr>
-      <tr><td class="muted">F5 Partition</td><td class="mono">${v.partition}</td></tr>
+      <tr><td class="muted">Listener</td><td class="mono">${esc(v.ports)}</td></tr>
+      <tr><td class="muted">F5 Partition</td><td class="mono">${esc(v.partition)}</td></tr>
       <tr><td class="muted">연결 Service</td><td class="mono">${esc(v.boundSvc)} <a href="#/k8s/networking?tab=svc" onclick="closeModal()">→</a></td></tr>
      </table>
      <h4 class="small" style="margin:14px 0 8px;font-weight:700">Pool Members (노드IP:NodePort) ${apiIcon('svc-lb-3steps')}</h4>
@@ -2347,11 +2350,11 @@ function netTabSvc(box){
     const machine=PHASES.map((ph,i)=>`<span class="chip" style="${i<=pi?'background:var(--accent-soft);color:var(--accent);font-weight:700':''}">${
       {detected:'감지',ensure:'EnsureLB',assigned:'VIP 할당',writeback:'write-back'}[ph]}</span>${i<3?' → ':''}`).join('');
     return `<tr>
-      <td><b class="mono small">${s.ns}/${s.name}</b><div class="small muted">${esc(t.company)} · ${s.createdAt}</div></td>
-      <td class="mono small">${s.ports}</td>
+      <td><b class="mono small">${esc(s.ns)}/${esc(s.name)}</b><div class="small muted">${esc(t.company)} · ${esc(s.createdAt)}</div></td>
+      <td class="mono small">${esc(s.ports)}</td>
       <td class="small">${machine}</td>
-      <td class="mono">${s.vip?`<b>${s.vip}</b>`:`<span class="badge b-amber">&lt;pending&gt;</span>`}</td>
-      <td class="small mono muted">${s.annotation}</td>
+      <td class="mono">${s.vip?`<b>${esc(s.vip)}</b>`:`<span class="badge b-amber">&lt;pending&gt;</span>`}</td>
+      <td class="small mono muted">${esc(s.annotation)}</td>
     </tr>`;
   }).join('');
   box.innerHTML=`<div class="card">
@@ -2367,10 +2370,10 @@ function netTabDns(box){
     const t=D.tenant(r.tenantId);
     return `<tr>
       <td class="mono small"><b>${esc(r.fqdn)}</b></td>
-      <td><span class="chip">${r.type}</span></td>
+      <td><span class="chip">${esc(r.type)}</span></td>
       <td class="mono small" style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.target)}">${esc(r.target)}</td>
       <td class="small">${esc(r.source)}</td>
-      <td class="small muted">${esc(t.company)} · TTL ${r.ttl}</td>
+      <td class="small muted">${esc(t.company)} · TTL ${esc(r.ttl)}</td>
     </tr>`;
   }).join('');
   box.innerHTML=`
@@ -2393,20 +2396,20 @@ function netTabIngress(box){
   const D=DS.data();
   const ctrls=D.ingressControllers.map(c=>{
     const t=D.tenant(c.tenantId);
-    return `<tr><td><b>${esc(t.company)}</b></td><td class="mono small">${c.name} (class: ${c.cls}) v${c.version}</td>
-      <td>${c.replicas}</td><td class="mono">${c.vip}</td><td>${badge('healthy')}</td></tr>`;
+    return `<tr><td><b>${esc(t.company)}</b></td><td class="mono small">${esc(c.name)} (class: ${esc(c.cls)}) v${esc(c.version)}</td>
+      <td>${esc(c.replicas)}</td><td class="mono">${esc(c.vip)}</td><td>${badge('healthy')}</td></tr>`;
   }).join('');
   const ings=D.ingresses.map(i=>{
     const t=D.tenant(i.tenantId);
-    return `<tr><td class="mono small"><b>${esc(i.host)}</b><div class="muted">${i.ns}/${i.name} · ${esc(t.company)}</div></td>
-      <td class="mono small">${i.path}</td><td class="mono small">${i.backend}</td><td class="mono small">${i.tls}</td></tr>`;
+    return `<tr><td class="mono small"><b>${esc(i.host)}</b><div class="muted">${esc(i.ns)}/${esc(i.name)} · ${esc(t.company)}</div></td>
+      <td class="mono small">${esc(i.path)}</td><td class="mono small">${esc(i.backend)}</td><td class="mono small">${esc(i.tls)}</td></tr>`;
   }).join('');
   const certs=D.certs.map(c=>{
     const t=D.tenant(c.tenantId);
     const cls=c.daysLeft<15?'b-amber':(c.daysLeft<5?'b-red':'b-green');
-    return `<tr><td class="mono small"><b>${esc(c.cn)}</b><div class="muted">${c.name} · ${esc(t.company)}</div></td>
-      <td class="small">${c.issuer}</td><td class="small">${c.notAfter}</td>
-      <td><span class="badge ${cls}">D-${c.daysLeft}</span> <span class="small muted">자동갱신</span></td></tr>`;
+    return `<tr><td class="mono small"><b>${esc(c.cn)}</b><div class="muted">${esc(c.name)} · ${esc(t.company)}</div></td>
+      <td class="small">${esc(c.issuer)}</td><td class="small">${esc(c.notAfter)}</td>
+      <td><span class="badge ${cls}">D-${esc(c.daysLeft)}</span> <span class="small muted">자동갱신</span></td></tr>`;
   }).join('');
   box.innerHTML=`
     <div class="card" style="margin-bottom:14px"><div class="card-h">Ingress Controller (테넌트당 1세트 · Pod×N + HPA)</div>
@@ -2627,7 +2630,7 @@ App.register('#/k8s/access', function(elm, p){
   elm.innerHTML=`
     <div class="page-h"><div><h1>접근관리 (kubeconfig)</h1>
       <div class="sub">Vault PKI 인증서 기반 · 단기 TTL 자동 회전 — OIDC(Keycloak)는 포탈 SSO 전용, apiserver 인증과 무관 ${apiIcon('vault-issue')}</div></div>
-      <div class="right"><button class="btn btn-primary" onclick="issueOpen(${p.issue?`'${p.issue}'`:'null'})">+ kubeconfig 발급</button></div></div>
+      <div class="right"><button class="btn btn-primary" onclick="issueOpen(${p.issue?`'${jsa(p.issue)}'`:'null'})">+ kubeconfig 발급</button></div></div>
     <div class="tabs">${tabs.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="App.navigate('#/k8s/access?tab=${k}')">${l}</button>`).join('')}</div>
     <div id="acc-tab"></div>`;
   const box=document.getElementById('acc-tab');
@@ -2637,7 +2640,7 @@ App.register('#/k8s/access', function(elm, p){
 
 function nsScopeChips(k){
   if(k.nsScope==='전체') return '<span class="chip" style="background:var(--green-soft);color:var(--green)">NS 전체</span>';
-  return (k.nsScope||[]).map(n=>`<span class="chip">${n}</span>`).join(' ');
+  return (k.nsScope||[]).map(n=>`<span class="chip">${esc(n)}</span>`).join(' ');
 }
 function accTabIssued(box){
   const roleChip=r=>({'skt-admin':'<span class="chip" style="background:#3a1a20;color:#f0a3b0">SKT Admin</span>',
@@ -2651,9 +2654,9 @@ function accTabIssued(box){
       <td><b>${esc(k.user)}</b><div class="small muted">${esc(k.email)}</div></td>
       <td class="small">${esc(t.company)}</td>
       <td>${roleChip(k.role)}<div style="margin-top:3px">${nsScopeChips(k)}</div></td>
-      <td class="mono small">${k.serial}</td>
-      <td class="small">${k.issuedAt}<div class="muted">TTL ${k.ttl}</div></td>
-      <td class="small">${k.expiresAt}</td>
+      <td class="mono small">${esc(k.serial)}</td>
+      <td class="small">${esc(k.issuedAt)}<div class="muted">TTL ${esc(k.ttl)}</div></td>
+      <td class="small">${esc(k.expiresAt)}</td>
       <td>${badge(k.status)}</td>
       <td style="white-space:nowrap">${dim?'—':
         `<button class="btn btn-sm" onclick="accViewKubeconfig(${i})">보기</button>
@@ -2723,11 +2726,11 @@ function accReissue(i){
   k.issuedAt='2026-07-09 14:30'; k.expiresAt='2026-07-12 14:30'; k.status='active';
   k.serial=Array.from({length:6},()=>Math.floor(Math.random()*256).toString(16).padStart(2,'0')).join(':');
   App.render();
-  openModal(`재발급 완료 — ${esc(k.user)} <span class="chip mono">${k.serial}</span>`,
+  openModal(`재발급 완료 — ${esc(k.user)} <span class="chip mono">${esc(k.serial)}</span>`,
     codeBlock('kubeconfig-'+k.tenantId+'.yaml (새 인증서 — 이 화면에서만 개인키 포함)', kubeconfigText(k, true))+
     `<p class="small muted">기존 인증서는 남은 TTL 동안 유효하며(revoke 불가), 새 인증서로 교체를 안내하세요.</p>`,
-    `<button class="btn btn-primary" onclick="toast('kubeconfig-${k.tenantId}.yaml 다운로드 (mock)')">⬇ 다운로드 (1회)</button>
-     <button class="btn" onclick="toast('고객포탈 보안 전달함으로 발송 — ${esc(k.email)} (mock)')">고객포탈 보안 전달함으로 발송</button>
+    `<button class="btn btn-primary" onclick="toast('kubeconfig-${jsa(k.tenantId)}.yaml 다운로드 (mock)')">⬇ 다운로드 (1회)</button>
+     <button class="btn" onclick="toast('고객포탈 보안 전달함으로 발송 — ${jsa(k.email)} (mock)')">고객포탈 보안 전달함으로 발송</button>
      <button class="btn" onclick="closeModal()">닫기</button>`);
 }
 function accRevoke(i){
@@ -2737,10 +2740,10 @@ function accRevoke(i){
       ⚠️ <b>인증서는 native revoke가 불가</b>합니다 (K8s apiserver는 CRL/OCSP 미지원). 회수는 아래 3단계로 수행됩니다. ${apiIcon('revoke-flow')}</div></div>
      <div class="timeline">
        <div class="tl-item done"><b>① 자동 회전 중단</b><div class="small muted">Vault lease 폐기 — 다음 재발급 차단 (즉시)</div></div>
-       <div class="tl-item done"><b>② RBAC 바인딩 제거</b><div class="small muted"><code>kubectl delete rolebinding ${k.role}-${esc(k.user.replace(/[^\w]/g,''))}</code> — 인증은 되나 인가 거부 (즉시)</div></div>
+       <div class="tl-item done"><b>② RBAC 바인딩 제거</b><div class="small muted"><code>kubectl delete rolebinding ${esc(k.role)}-${esc(k.user.replace(/[^\w]/g,''))}</code> — 인증은 되나 인가 거부 (즉시)</div></div>
        <div class="tl-item now"><b>③ (선택) apiserver allowlist 제거</b><div class="small muted">해당 사용자 소스 IP 차단 — 네트워크 레벨 즉시 차단</div></div>
      </div>
-     <p class="small muted">잔여 인증서는 최대 TTL(${k.ttl}) 후 자연 만료됩니다.</p>`,
+     <p class="small muted">잔여 인증서는 최대 TTL(${esc(k.ttl)}) 후 자연 만료됩니다.</p>`,
     actionBtn('회수 실행','revoke-exec',`accRevokeExec(${i})`,{danger:true})+`<button class="btn" onclick="closeModal()">취소</button>`);
 }
 function accRevokeExec(i){
@@ -2780,7 +2783,7 @@ function issueRender(){
       <div class="grid" style="grid-template-columns:1fr 1fr">
         <div><label class="small muted">테넌트</label>
           <select id="is-t" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;margin-top:4px">
-          ${D.tenants.filter(t=>['Active','Provisioned'].includes(t.lifecycle)).map(t=>`<option value="${t.id}" ${ISSUE.tenantId===t.id?'selected':''}>${esc(t.company)} (${t.id})</option>`).join('')}</select></div>
+          ${D.tenants.filter(t=>['Active','Provisioned'].includes(t.lifecycle)).map(t=>`<option value="${esc(t.id)}" ${ISSUE.tenantId===t.id?'selected':''}>${esc(t.company)} (${esc(t.id)})</option>`).join('')}</select></div>
         <div><label class="small muted">사용자 이메일</label>
           <input id="is-u" value="${esc(ISSUE.user)}" placeholder="user@customer.com" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;margin-top:4px"></div>
       </div>`;
@@ -2793,7 +2796,7 @@ function issueRender(){
       <div class="card" style="box-shadow:none;background:var(--accent-soft);border-color:transparent;margin-bottom:12px"><div class="card-b">
         <b class="small">허용 Namespace 선택</b> <span class="small muted">— 선택한 NS에만 RoleBinding 생성 (최소 1개)</span>
         <div style="display:flex;gap:8px;margin-top:8px">
-          ${t.nsList.map(ns=>`<button class="btn btn-sm ${ISSUE.nsScope.includes(ns)?'btn-primary':''}" onclick="issueToggleNs('${ns}')">${ISSUE.nsScope.includes(ns)?'✓ ':''}${ns}</button>`).join('')}
+          ${t.nsList.map(ns=>`<button class="btn btn-sm ${ISSUE.nsScope.includes(ns)?'btn-primary':''}" onclick="issueToggleNs('${jsa(ns)}')">${ISSUE.nsScope.includes(ns)?'✓ ':''}${esc(ns)}</button>`).join('')}
         </div></div></div>` : '';
     const scopeNs = ISSUE.role==='tenant-user' ? ISSUE.nsScope : t.nsList;
     const resources=['pods','pods/log','deployments','jobs','services','ingresses','secrets','pvc','nodes (R)','clusterroles'];
@@ -2805,7 +2808,7 @@ function issueRender(){
     };
     body=`<p class="small" style="font-weight:700;margin-bottom:10px">② 역할 · 범위 — 권한 미리보기 <span class="muted">(SelfSubjectRulesReview 형식)</span> ${apiIcon('rules-review')}</p>
       <div style="display:flex;gap:8px;margin-bottom:12px">
-        ${D.rbacRoles.map(r=>`<button class="btn ${ISSUE.role===r.id?'btn-primary':''}" onclick="ISSUE.role='${r.id}';issueRender()">${r.label}</button>`).join('')}
+        ${D.rbacRoles.map(r=>`<button class="btn ${ISSUE.role===r.id?'btn-primary':''}" onclick="ISSUE.role='${jsa(r.id)}';issueRender()">${esc(r.label)}</button>`).join('')}
       </div>
       <div class="small muted" style="margin-bottom:10px">${esc(role.scope)} · ${esc(role.bindingKind)} ${apiIcon('rbac-3roles')}</div>
       ${nsPicker}
@@ -2823,10 +2826,10 @@ function issueRender(){
       </div>
       <table class="table">
         <tr><td class="muted" style="width:130px">사용자</td><td>${esc(ISSUE.user)}</td></tr>
-        <tr><td class="muted">테넌트</td><td>${esc(DS.data().tenant(ISSUE.tenantId).company)} (${ISSUE.tenantId})</td></tr>
-        <tr><td class="muted">역할</td><td>${ISSUE.role}${isUser?` · NS: <b>${ISSUE.nsScope.join(', ')}</b>`:' · NS 전체'}</td></tr>
-        <tr><td class="muted">인증서 Subject</td><td>CN=<code>${esc(ISSUE.user)}</code>, ${groups.map(g=>`O=<code>${g}</code>`).join(', ')} <span class="small muted">← O 하나가 K8s Group 하나 (NS별 바인딩)</span></td></tr>
-        <tr><td class="muted">Vault 경로</td><td class="mono">pki-${ISSUE.tenantId.replace('tenant-','')}/issue/${ISSUE.role} (TTL ${ISSUE.ttl})</td></tr>
+        <tr><td class="muted">테넌트</td><td>${esc(DS.data().tenant(ISSUE.tenantId).company)} (${esc(ISSUE.tenantId)})</td></tr>
+        <tr><td class="muted">역할</td><td>${esc(ISSUE.role)}${isUser?` · NS: <b>${esc(ISSUE.nsScope.join(', '))}</b>`:' · NS 전체'}</td></tr>
+        <tr><td class="muted">인증서 Subject</td><td>CN=<code>${esc(ISSUE.user)}</code>, ${groups.map(g=>`O=<code>${esc(g)}</code>`).join(', ')} <span class="small muted">← O 하나가 K8s Group 하나 (NS별 바인딩)</span></td></tr>
+        <tr><td class="muted">Vault 경로</td><td class="mono">pki-${esc(ISSUE.tenantId.replace('tenant-',''))}/issue/${esc(ISSUE.role)} (TTL ${esc(ISSUE.ttl)})</td></tr>
       </table>
       <p class="small muted" style="margin-top:10px">발급 즉시 자동 회전 스케줄 등록 (만료 24h 전 재발급). ${apiIcon('vault-issue')} ${apiIcon('kubeconfig-yaml')}</p>`;
     foot=`<button class="btn" onclick="ISSUE.step=2;issueRender()">← 이전</button>
@@ -2835,10 +2838,10 @@ function issueRender(){
     const iss=ISSUE._issued;
     body=`<div style="text-align:center;padding:12px 0">
       <div style="font-size:40px">✅</div><h3 style="margin:8px 0">발급 완료${iss?' (NOCP live)':''}</h3>
-      <p class="small muted">인증서 serial <code>${iss?esc(iss.serial):'9a:1f:44:b8:2e:63'}</code> · 만료 ${ISSUE.ttl} 후${iss?' · '+esc(iss.kubeconfig_id):' (자동 회전 등록됨)'}</p>
+      <p class="small muted">인증서 serial <code>${iss?esc(iss.serial):'9a:1f:44:b8:2e:63'}</code> · 만료 ${esc(ISSUE.ttl)} 후${iss?' · '+esc(iss.kubeconfig_id):' (자동 회전 등록됨)'}</p>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
         ${iss?`<button class="btn btn-primary" onclick="issueShowYaml()">⬇ kubeconfig 보기 (1회)</button>`
-             :`<button class="btn btn-primary" onclick="toast('kubeconfig-${ISSUE.tenantId}.yaml 다운로드 (mock)')">⬇ kubeconfig 다운로드</button>`}
+             :`<button class="btn btn-primary" onclick="toast('kubeconfig-${jsa(ISSUE.tenantId)}.yaml 다운로드 (mock)')">⬇ kubeconfig 다운로드</button>`}
         <button class="btn" onclick="toast('고객포탈 보안 전달함으로 발송 ${iss?'(live 데모)':'(mock)'}')">고객포탈로 전달</button>
         <button class="btn" onclick="openApiPanel('kubeconfig-yaml')">파일 구조 보기</button>
       </div></div>`;
@@ -2876,12 +2879,12 @@ function issueExec(){
 function accTabRbac(box){
   const D=DS.data();
   const roleCards=D.rbacRoles.map(r=>`
-    <div class="card"><div class="card-h">${r.label} <span class="chip mono">${esc(r.group)}</span>
+    <div class="card"><div class="card-h">${esc(r.label)} <span class="chip mono">${esc(r.group)}</span>
       <div class="right">${apiIcon('rbac-3roles')}</div></div>
       <div class="card-b small">
         <p style="margin-bottom:8px"><b>${esc(r.bindingKind)}</b><br>${esc(r.scope)}</p>
         ${r.rules.map(rule=>`<div style="padding:7px 10px;background:var(--line-soft);border-radius:6px;margin-bottom:6px" class="mono small">
-          verbs: [${rule.verbs.join(', ')}]<br>resources: [${rule.resources.slice(0,5).join(', ')}${rule.resources.length>5?', …':''}]<br>
+          verbs: [${esc(rule.verbs.join(', '))}]<br>resources: [${esc(rule.resources.slice(0,5).join(', '))}${rule.resources.length>5?', …':''}]<br>
           <span class="muted"># ${esc(rule.where)}</span></div>`).join('')}
       </div></div>`).join('');
   const nsGrid=`
@@ -2890,7 +2893,7 @@ function accTabRbac(box){
         <tr><th style="text-align:left">Namespace / Resource</th><th>Tenant-user</th><th>Tenant-operator</th><th>SKT Admin</th></tr>
         ${['default','slurm','dynamo'].map(ns=>`<tr><td class="mono">${ns} <span class="chip" style="font-size:9.5px">테넌트</span></td>
           <td class="ok">CRUD<div class="small muted" style="font-weight:400">발급 시 선택한 NS만</div></td><td class="ok">CRUD</td><td class="ok">R</td></tr>`).join('')}
-        ${D.systemNs.map(ns=>`<tr><td class="mono">${ns} <span class="chip" style="font-size:9.5px;background:#3a1a20;color:#f0a3b0">시스템</span></td>
+        ${D.systemNs.map(ns=>`<tr><td class="mono">${esc(ns)} <span class="chip" style="font-size:9.5px;background:#3a1a20;color:#f0a3b0">시스템</span></td>
           <td class="no">—</td><td class="no">—</td><td class="ok">CRUD</td></tr>`).join('')}
         <tr><td class="mono">nodes <span class="chip" style="font-size:9.5px">클러스터 스코프</span></td>
           <td class="ok">R</td><td class="ok">R</td><td class="ok">R</td></tr>
@@ -3088,14 +3091,14 @@ App.register('#/k8s/upgrade', function(elm){
   const D=DS.data();
   const verCards=D.upgrades.map(u=>{
     const t=D.tenant(u.tenantId);
-    return `<div class="card"><div class="card-h">${esc(t.company)} <span class="chip mono">${u.current}</span>
-      ${u.target?`→ <span class="chip mono" style="background:var(--accent-soft);color:var(--accent)">${u.target}</span>`:''}
+    return `<div class="card"><div class="card-h">${esc(t.company)} <span class="chip mono">${esc(u.current)}</span>
+      ${u.target?`→ <span class="chip mono" style="background:var(--accent-soft);color:var(--accent)">${esc(u.target)}</span>`:''}
       <div class="right small">${u.target?badge('Approved'):`<span class="muted">${esc(u.status)}</span>`}</div></div>
       <div class="card-b small">
-        ${u.target?`<div style="margin-bottom:6px">🗓 <b>${u.window}</b> · ${esc(u.approvedBy)}</div>
-          <div class="muted">${esc(u.plan)} · ${u.nkdTarget}</div>`
+        ${u.target?`<div style="margin-bottom:6px">🗓 <b>${esc(u.window)}</b> · ${esc(u.approvedBy)}</div>
+          <div class="muted">${esc(u.plan)} · ${esc(u.nkdTarget)}</div>`
         :`<div class="muted">${u.status==='계획 미수립'?'v1.33.2 업그레이드 계획 수립 필요 (CVE-2026-32871 해소 포함)':esc(u.status)}</div>`}
-        ${u._target?`<div style="margin-top:8px">${actionBtn('▶ 업그레이드 실행 — '+u._target,'upgrade',`upgLiveStart('${u._cid}','${u._target}')`,{sm:true})}</div>`:''}
+        ${u._target?`<div style="margin-top:8px">${actionBtn('▶ 업그레이드 실행 — '+u._target,'upgrade',`upgLiveStart('${jsq(u._cid)}','${jsq(u._target)}')`,{sm:true})}</div>`:''}
       </div></div>`;
   }).join('');
 
@@ -3109,12 +3112,12 @@ App.register('#/k8s/upgrade', function(elm){
     </div>`).join('');
 
   const cveRows=D.cves.map(c=>`
-    <tr><td><b class="mono small">${c.id}</b></td>
-      <td>${badge(c.sev)}<div class="small muted">CVSS ${c.cvss}</div></td>
+    <tr><td><b class="mono small">${esc(c.id)}</b></td>
+      <td>${badge(c.sev)}<div class="small muted">CVSS ${esc(c.cvss)}</div></td>
       <td class="small">${esc(c.comp)}<div class="muted">${esc(c.desc)}</div></td>
       <td class="small">${c.affected.map(a=>`<span class="chip">${esc(D.tenant(a).company)}</span>`).join(' ')}</td>
-      <td class="small">${esc(c.patch)}<div class="muted">기한 ${c.due}</div></td>
-      <td>${actionBtn(c.sev==='Critical'?'긴급 패치 예약':'패치 예약','patch',`toast('${c.id} 패치 예약 — maintenance window 협의 요청 발송 (mock)')`,{sm:true, secondary:c.sev!=='Critical'})}</td>
+      <td class="small">${esc(c.patch)}<div class="muted">기한 ${esc(c.due)}</div></td>
+      <td>${actionBtn(c.sev==='Critical'?'긴급 패치 예약':'패치 예약','patch',`toast('${jsq(c.id)} 패치 예약 — maintenance window 협의 요청 발송 (mock)')`,{sm:true, secondary:c.sev!=='Critical'})}</td>
     </tr>`).join('');
 
   elm.innerHTML=`
@@ -3139,7 +3142,7 @@ function upgLiveStart(cid, target){
   openModal(`업그레이드 실행 — <code>${esc(cid)}</code> → ${esc(target)}`,
     `<p class="small">전 노드(CP 우선 → GPU 워커) 롤링: cordon → drain → upgrade → uncordon.<br>
      <b style="color:var(--amber)">되돌릴 수 없습니다</b> (다운그레이드 불가 — NOCP N/N-1 정책).</p>`,
-    actionBtn('실행','upgrade',`upgLiveExec('${cid}','${target}')`,{danger:true})
+    actionBtn('실행','upgrade',`upgLiveExec('${jsq(cid)}','${jsq(target)}')`,{danger:true})
     +`<button class="btn" onclick="closeModal()">취소</button>`);
 }
 function upgLiveExec(cid, target){
@@ -3164,11 +3167,11 @@ function upgLivePanel(){
     return `<div style="margin-bottom:10px">
       <div class="small" style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
         <b>${esc(u._cid)}</b> <span class="chip mono">${esc(up.from_version)}</span>→<span class="chip mono" style="background:var(--accent-soft);color:var(--accent)">${esc(up.target_version)}</span>
-        <span class="muted">노드 ${np.done||0}/${np.total||0} · 현재 ${esc(up.current_node||'—')}</span></div>
+        <span class="muted">노드 ${esc(np.done||0)}/${esc(np.total||0)} · 현재 ${esc(up.current_node||'—')}</span></div>
       ${bar(pct)}
       <div style="margin-top:8px">${ev.map(function(e){
         return `<div class="small" style="display:flex;gap:10px;padding:3px 0;border-bottom:1px solid var(--line-soft)">
-          <span class="muted mono">${(e.ts||'').slice(11,19)}</span><code style="flex:1">${esc(e.node)}</code>
+          <span class="muted mono">${esc((e.ts||'').slice(11,19))}</span><code style="flex:1">${esc(e.node)}</code>
           <span class="chip" style="${e.step==='upgrade'?'background:var(--accent-soft);color:var(--accent)':''}">${esc(e.step)}</span></div>`; }).join('')}</div>
     </div>`;
   }).join('')+'<p class="small muted" style="margin-top:6px">이벤트 = NOCP saga 실기록 (cordon→drain→upgrade→uncordon) · 4s 폴링 자동 갱신</p>';
@@ -3295,8 +3298,8 @@ function senTabFleet(box, p){
                else { bg='#e8c66a'; warnRacks++; } }
       } else if(r.status==='provisioning') bg='var(--hm-prov)';
       return `<div class="hm-cell ${cls}" style="background:${bg}"
-        title="${r.rack} · ${r.status}${h?' · '+h.evt.errorCode.join(',')+' ('+h.sev+')':''}"
-        onclick="senFleetRack('${t.id}','${r.rack}')">${h?'!':''}</div>`;
+        title="${esc(r.rack+' · '+r.status+(h?' · '+h.evt.errorCode.join(',')+' ('+h.sev+')':''))}"
+        onclick="senFleetRack('${jsa(t.id)}','${jsa(r.rack)}')">${h?'!':''}</div>`;
     }).join('');
     const tCrit=racks.filter(r=>hm[r.rack]&&hm[r.rack].sev==='critical').length;
     const tWarn=racks.filter(r=>hm[r.rack]&&hm[r.rack].sev!=='critical').length;
@@ -3309,7 +3312,7 @@ function senTabFleet(box, p){
   const maps=D.tenants.map(tenantMap).join('');
   box.innerHTML=`
     <div class="grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
-      <div class="card kpi"><span class="v">${DS.isLive()?D.tenants.reduce((s,t)=>s+t.gpus,0).toLocaleString():'36,000'}</span><span class="l">${DS.isLive()?'전체 GPU ('+D.tenants.reduce((s,t)=>s+t.racks,0)+'랙 — NOCP live)':'전체 GPU (500랙 × 72)'}</span></div>
+      <div class="card kpi"><span class="v">${esc(DS.isLive()?D.tenants.reduce((s,t)=>s+t.gpus,0).toLocaleString():'36,000')}</span><span class="l">${esc(DS.isLive()?'전체 GPU ('+D.tenants.reduce((s,t)=>s+t.racks,0)+'랙 — NOCP live)':'전체 GPU (500랙 × 72)')}</span></div>
       <div class="card kpi"><span class="v" style="color:var(--red)">${critRacks}</span><span class="l">Critical 랙 (quarantine 진행)</span></div>
       <div class="card kpi"><span class="v" style="color:var(--amber)">${warnRacks}</span><span class="l">Warning 랙 (관찰 중)</span></div>
       <div class="card kpi"><span class="v" style="color:var(--green)">${(activeRacks-critRacks-warnRacks)}</span><span class="l">Healthy 랙 (가동 중)</span></div>
@@ -3344,30 +3347,30 @@ function senFleetRack(tenantId, rackId){
     const isEvNode=tr.node===evNode;
     const gpus=tr.gpus.map(g=>{
       const bad=g.xid || (isEvNode && h.sev!=='critical' && h.evt.gpu.includes('GPU '+g.idx));
-      return `<div class="tip" data-tip="GPU ${g.idx}${g.xid?' — '+g.xid:bad?' — '+h.evt.errorCode.join(','):(tr.status==='Ready'?' — 정상':'')}"
+      return `<div class="tip" data-tip="${esc('GPU '+g.idx+(g.xid?' — '+g.xid:bad?' — '+h.evt.errorCode.join(','):(tr.status==='Ready'?' — 정상':'')))}"
         style="width:30px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;
         font-size:9px;font-weight:800;color:${!g.xid&&bad?'var(--glyph-d)':'var(--glyph-w)'};background:${g.xid?'var(--red)':(bad?'#e8c66a':(tr.status==='Ready'?'var(--hm-ok)':'var(--seg-off)'))}">${g.xid?'✕':(bad?'!':'')}</div>`;
     }).join('');
     const stateLabel=tr.status.includes('NotReady')?`<span class="badge b-red">quarantined</span>`:
       (isEvNode?`<span class="badge b-amber">관찰</span>`:badge(tr.status==='Ready'?'Ready':tr.status));
     return `<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--line-soft);${tr.status.includes('NotReady')?'background:var(--red-soft)':''}">
-      <code class="small" style="width:126px">${tr.node.replace(rackId+'-','')}</code>
+      <code class="small" style="width:126px">${esc(tr.node.replace(rackId+'-',''))}</code>
       <div style="display:flex;gap:4px">${gpus}</div>
       <div style="margin-left:auto">${stateLabel}</div></div>`;
   };
   document.getElementById('fleet-detail').innerHTML=`
-    <div class="card"><div class="card-h">${rackId} <span class="chip">${esc(t.company)}</span>
+    <div class="card"><div class="card-h">${esc(rackId)} <span class="chip">${esc(t.company)}</span>
       ${h?badge(h.sev):badge('Ready')}
       <div class="right small muted">18 tray × 4 GPU ${apiIcon('node-condition-xid')}</div></div>
       ${h?`<div class="card-b small" style="background:${h.sev==='critical'?'var(--red-soft)':'var(--amber-soft)'};border-bottom:1px solid var(--line-soft)">
-        <b>${h.evt.errorCode.join(', ')}</b> · ${esc(h.evt.checkName)} · ${h.evt.node} ${h.evt.gpu?'· '+esc(h.evt.gpu):''}
+        <b>${esc(h.evt.errorCode.join(', '))}</b> · ${esc(h.evt.checkName)} · ${esc(h.evt.node)} ${h.evt.gpu?'· '+esc(h.evt.gpu):''}
         <div class="muted" style="margin-top:3px">${esc(h.evt.msg)}</div>
-        ${h.evt.state?`<div style="margin-top:5px" class="mono small">nvsentinel-state: <b>${h.evt.state}</b> · eviction: ${h.evt.status.eviction}</div>`:''}
+        ${h.evt.state?`<div style="margin-top:5px" class="mono small">nvsentinel-state: <b>${esc(h.evt.state)}</b> · eviction: ${esc(h.evt.status.eviction)}</div>`:''}
       </div>`:''}
       <div class="card-b" style="max-height:430px;overflow-y:auto">${rack.trays.map(trayRow).join('')}</div>
       <div class="card-b" style="display:flex;gap:8px;border-top:1px solid var(--line-soft)">
         ${h?`<button class="btn btn-sm" onclick="App.navigate('#/k8s/sentinel?tab=events')">이벤트 상세 →</button>`:''}
-        <button class="btn btn-sm" onclick="App.navigate('#/k8s/monitoring/${tenantId}/${rackId}')">모니터링 (util) →</button>
+        <button class="btn btn-sm" onclick="App.navigate('#/k8s/monitoring/${jsa(encodeURIComponent(tenantId))}/${jsa(encodeURIComponent(rackId))}')">모니터링 (util) →</button>
       </div>
     </div>`;
 }
@@ -3416,7 +3419,7 @@ function senTabEvents(box, p){
     const flow=['quarantined','draining','drain-succeeded','remediating','remediation-succeeded'];
     return `<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">
       <span class="small muted mono">dgxc.nvidia.com/nvsentinel-state:</span>
-      ${flow.map(f=>`<span class="chip" style="${f===s?'background:var(--accent);color:var(--on-accent)':(flow.indexOf(f)<flow.indexOf(s)?'background:var(--green-soft);color:var(--green-text)':'')}">${f}</span>`).join('<span class="muted">→</span>')}
+      ${flow.map(f=>`<span class="chip" style="${f===s?'background:var(--accent);color:var(--on-accent)':(flow.indexOf(f)<flow.indexOf(s)?'background:var(--green-soft);color:var(--green-text)':'')}">${esc(f)}</span>`).join('<span class="muted">→</span>')}
     </div>`;
   };
   const evtCard=(e)=>{
@@ -3424,33 +3427,33 @@ function senTabEvents(box, p){
     const rack=e.node.split('-t')[0];
     const statusRow=e.status?`
       <div class="small" style="display:flex;gap:18px;margin-top:8px;flex-wrap:wrap">
-        <span>nodeQuarantined: <b>${e.status.nodeQuarantined}</b></span>
-        <span>userPodsEviction: <b style="color:var(--accent)">${e.status.eviction}</b></span>
-        <span>faultRemediated: <b>${e.status.faultRemediated}</b></span>
+        <span>nodeQuarantined: <b>${esc(e.status.nodeQuarantined)}</b></span>
+        <span>userPodsEviction: <b style="color:var(--accent)">${esc(e.status.eviction)}</b></span>
+        <span>faultRemediated: <b>${esc(e.status.faultRemediated)}</b></span>
       </div>`:'';
     const rem=e.remediation?`
       <div class="timeline" style="margin-top:12px">
-        ${e.remediation.map(s=>`<div class="tl-item ${s.status}"><b>${esc(s.step)}</b>
-          <div class="small muted">${s.at||'대기'} · ${esc(s.by)}</div></div>`).join('')}
+        ${e.remediation.map(s=>`<div class="tl-item ${esc(s.status)}"><b>${esc(s.step)}</b>
+          <div class="small muted">${esc(s.at||'대기')} · ${esc(s.by)}</div></div>`).join('')}
       </div>
-      <div class="small muted">수동 취소 = <code>kubectl uncordon ${e.node}</code> → NVSentinel이 감지해 워크플로 중단·이벤트 Cancelled 처리 (annotation <code>quarantinedNodeUncordonedManually="True"</code>)</div>`:'';
+      <div class="small muted">수동 취소 = <code>kubectl uncordon ${esc(e.node)}</code> → NVSentinel이 감지해 워크플로 중단·이벤트 Cancelled 처리 (annotation <code>quarantinedNodeUncordonedManually="True"</code>)</div>`:'';
     return `<div class="card" style="margin-bottom:12px">
-      <div class="card-h">${badge(e.sev)} <b>${e.errorCode.join(', ')}</b>
+      <div class="card-h">${badge(e.sev)} <b>${esc(e.errorCode.join(', '))}</b>
         <span class="chip mono">${esc(e.checkName)}</span>
-        <span class="mono small">${e.node} · ${esc(e.gpu)}</span>
-        <div class="right small muted">${esc(t.company)} · ${e.at} ${apiIcon('node-condition-xid')}</div></div>
+        <span class="mono small">${esc(e.node)} · ${esc(e.gpu)}</span>
+        <div class="right small muted">${esc(t.company)} · ${esc(e.at)} ${apiIcon('node-condition-xid')}</div></div>
       <div class="card-b small">
         <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:6px" class="small muted">
-          <span>agent: <code>${e.agent}</code></span><span>componentClass: <code>${e.componentClass}</code></span>
-          <span>isFatal: <b style="color:${e.isFatal?'var(--red)':'var(--ink-3)'}">${e.isFatal}</b></span>
-          <span>recommendedAction: <code>${e.recommendedAction}</code></span>
+          <span>agent: <code>${esc(e.agent)}</code></span><span>componentClass: <code>${esc(e.componentClass)}</code></span>
+          <span>isFatal: <b style="color:${e.isFatal?'var(--red)':'var(--ink-3)'}">${esc(e.isFatal)}</b></span>
+          <span>recommendedAction: <code>${esc(e.recommendedAction)}</code></span>
         </div>
         ${esc(e.msg)}
         ${stateChip(e.state)}
         ${statusRow}
         ${rem}
         <div style="margin-top:10px;display:flex;gap:8px">
-          <button class="btn btn-sm" onclick="App.navigate('#/k8s/monitoring/${e.tenantId}/${rack}')">랙 드릴다운 →</button>
+          <button class="btn btn-sm" onclick="App.navigate('#/k8s/monitoring/${jsa(encodeURIComponent(e.tenantId))}/${jsa(encodeURIComponent(rack))}')">랙 드릴다운 →</button>
           ${e.isFatal?`<button class="btn btn-sm" onclick="openApiPanel('janitor-crd')">유지보수 CRD 보기</button>
           <button class="btn btn-sm" onclick="toast('event-exporter → ITSM INC-20791 (CloudEvents) 연동됨 (mock)')">ITSM 티켓</button>`:''}
         </div>
@@ -3468,8 +3471,8 @@ function senTabEvents(box, p){
         <div class="card"><div class="card-h">Hot Spare 현황 <span class="chip">자체 기능 (NKD/Ansible)</span></div>
           <table class="table"><tr><th>테넌트</th><th>가용</th><th>상태</th></tr>
           ${DS.data().hotSpare.map(h=>{ const t=DS.data().tenant(h.tenantId);
-            return `<tr><td>${esc(t.company)}</td><td><b>${h.total-h.used}</b> / ${h.total} tray</td>
-              <td>${h.used?`<span class="badge b-amber">${h.used} 투입됨</span>`:'<span class="badge b-green">대기</span>'}</td></tr>`;}).join('')}</table>
+            return `<tr><td>${esc(t.company)}</td><td><b>${esc(h.total-h.used)}</b> / ${esc(h.total)} tray</td>
+              <td>${h.used?`<span class="badge b-amber">${esc(h.used)} 투입됨</span>`:'<span class="badge b-green">대기</span>'}</td></tr>`;}).join('')}</table>
           <div class="card-b small muted">NVSentinel remediation 완료 이벤트(remediation-succeeded/-failed)를 구독해 자체 오케스트레이터가 예비 tray 투입 — NVSentinel 범위 밖(plan_r10 자체 개발 항목)</div></div>
         <div class="card"><div class="card-h">외부 연동 (event-exporter)</div>
           <div class="card-b small">
@@ -3484,10 +3487,10 @@ function senTabEvents(box, p){
 function senTabPolicy(box){
   const M=DS.data().sentinelModules;
   const modRow=(m, actionable)=>`
-    <tr><td><b class="mono small">${m.name}</b><div class="small muted">${m.kind||'Deployment'} · ${esc(m.desc)}</div></td>
+    <tr><td><b class="mono small">${esc(m.name)}</b><div class="small muted">${esc(m.kind||'Deployment')} · ${esc(m.desc)}</div></td>
       <td>${m.enabled?'<span class="badge b-green">enabled</span>':'<span class="badge b-gray">disabled</span>'}</td>
       ${actionable?`<td>${m.dryRun?'<span class="badge b-amber">dryRun</span>':'<span class="small muted">off</span>'}</td>`:'<td class="small muted">—</td>'}
-      <td>${actionable?actionBtn(m.enabled?'비활성':'활성','policy',`toast('helm upgrade — global.${m.name.split(' ')[0].replace(/-([a-z])/g,(_,c)=>c.toUpperCase())}.enabled=${!m.enabled} (mock)')`,{sm:true,secondary:true}):''}</td></tr>`;
+      <td>${actionable?actionBtn(m.enabled?'비활성':'활성','policy',`toast('helm upgrade — global.${jsq(m.name.split(' ')[0].replace(/-([a-z])/g,(_,c)=>c.toUpperCase()))}.enabled=${!m.enabled} (mock)')`,{sm:true,secondary:true}):''}</td></tr>`;
   const cb=M.circuitBreaker;
   box.innerHTML=`
     <div class="card" style="background:var(--accent-soft);border-color:transparent;margin-bottom:14px"><div class="card-b small">
@@ -3504,13 +3507,13 @@ function senTabPolicy(box){
           <div class="card-b small muted">이벤트→조치 매핑: fault-quarantine <code>ruleSets[]</code> (CEL) · fault-remediation <code>maintenance.actions</code> (RESTART_BM→RebootNode, COMPONENT_RESET→GPUReset) ${apiIcon('sentinel-values')}</div></div>
       </div>
       <div class="grid">
-        <div class="card"><div class="card-h">Circuit Breaker <span class="badge ${cb.status==='CLOSED'?'b-green':'b-red'}">${cb.status}</span>
+        <div class="card"><div class="card-h">Circuit Breaker <span class="badge ${cb.status==='CLOSED'?'b-green':'b-red'}">${esc(cb.status)}</span>
           <div class="right">${apiIcon('circuit-breaker')}</div></div>
           <div class="card-b small">
             <div style="display:flex;justify-content:space-between;margin-bottom:5px">
-              <span>동시 격리 사용률</span><b>${cb.utilization}% / ${cb.percentage}% (${cb.duration} 윈도우)</b></div>
+              <span>동시 격리 사용률</span><b>${esc(cb.utilization)}% / ${esc(cb.percentage)}% (${esc(cb.duration)} 윈도우)</b></div>
             ${bar(cb.utilization/cb.percentage*100)}
-            <p class="muted" style="margin:10px 0 8px">최근 ${cb.duration} 내 격리 노드가 전체의 ${cb.percentage}%를 넘으면 <b>TRIPPED</b> — 신규 quarantine 전면 중단 (연쇄 오탐/광역 장애로부터 가용자원 보호).</p>
+            <p class="muted" style="margin:10px 0 8px">최근 ${esc(cb.duration)} 내 격리 노드가 전체의 ${esc(cb.percentage)}%를 넘으면 <b>TRIPPED</b> — 신규 quarantine 전면 중단 (연쇄 오탐/광역 장애로부터 가용자원 보호).</p>
             <p class="muted" style="margin-bottom:10px">⚠️ <b>자동 리셋 없음</b> — TRIPPED 시 원인 확인 후 운영자가 수동 리셋해야 합니다 (ConfigMap <code>circuit-breaker</code> 삭제 + fault-quarantine 재시작).</p>
             ${actionBtn('브레이커 리셋','policy',`toast('상태가 CLOSED — 리셋 불필요')`,{sm:true,secondary:true})}
             <span class="small muted" style="margin-left:8px">메트릭: <code>fault_quarantine_breaker_state</code> · <code>_breaker_utilization</code></span>
@@ -3852,10 +3855,10 @@ App.register('#/k8s/storage', function(elm){
     const t=D.tenant(s.tenantId);
     const pct=s.capacityTB?Math.round(s.usedTB/s.capacityTB*100):0;
     const vols=s.volumes.map(v=>`
-      <tr><td class="mono small"><b>${v.pvc}</b></td><td class="mono small">${v.ns}</td>
-        <td><span class="chip">${v.mode}</span></td><td class="small">${v.sizeTB.toLocaleString()} TB</td>
+      <tr><td class="mono small"><b>${esc(v.pvc)}</b></td><td class="mono small">${esc(v.ns)}</td>
+        <td><span class="chip">${esc(v.mode)}</span></td><td class="small">${esc(v.sizeTB.toLocaleString())} TB</td>
         <td>${v.gds?'<span class="badge b-green">GDS</span>':'<span class="badge b-gray">—</span>'}</td>
-        <td class="mono small muted">${v.sc}</td></tr>`).join('');
+        <td class="mono small muted">${esc(v.sc)}</td></tr>`).join('');
     return `<div class="card" style="margin-bottom:14px">
       <div class="card-h">${esc(t.company)} <span class="chip">${esc(s.vendor)}</span>
         ${s.gds?'<span class="badge b-green">GDS 활성</span>':'<span class="badge b-gray">GDS 미사용</span>'}
@@ -3863,7 +3866,7 @@ App.register('#/k8s/storage', function(elm){
       <div class="card-b">
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:${s.volumes.length?'12px':'0'}">
           <div style="flex:1">${bar(pct, pct>85?'var(--amber)':null)}</div>
-          <span class="small"><b>${s.usedTB.toLocaleString()}</b> / ${s.capacityTB.toLocaleString()} TB (${pct}%)</span>
+          <span class="small"><b>${esc(s.usedTB.toLocaleString())}</b> / ${esc(s.capacityTB.toLocaleString())} TB (${esc(pct)}%)</span>
         </div>
         ${s.volumes.length?`<table class="table"><tr><th>PVC</th><th>Namespace</th><th>Mode</th><th>용량</th><th>GDS</th><th>StorageClass</th></tr>${vols}</table>`
           :'<div class="small muted">할당 볼륨 없음 (반납 시 회수 완료)</div>'}
@@ -3940,7 +3943,7 @@ App.register('#/k8s/monitoring', function(elm){
       <path d="M 8 48 A 35 35 0 0 1 78 48" fill="none" stroke="${avg>85?'var(--green)':utilColor(avg)}" stroke-width="9" stroke-linecap="round"
         stroke-dasharray="${(avg/100*110).toFixed(0)} 200"/>
       <text x="43" y="46" text-anchor="middle" font-size="15" font-weight="800" fill="var(--ink)">${avg}%</text></svg>`;
-    return `<div class="card" style="cursor:pointer" onclick="App.navigate('#/k8s/monitoring/${t.id}')">
+    return `<div class="card" style="cursor:pointer" onclick="App.navigate('#/k8s/monitoring/${jsa(encodeURIComponent(t.id))}')">
       <div class="card-h">${esc(t.company)} ${badge(t.lifecycle)}
         <div class="right">${alarms?`<span class="badge b-red">알람 ${alarms}</span>`:''}</div></div>
       <div class="card-b" style="display:flex;gap:16px;align-items:center">
@@ -3968,9 +3971,9 @@ App.register('#/k8s/monitoring/:tenantId', function(elm, p){
   if(t.dynamoDGDs && t.dynamoDGDs.length) tabs.splice(1,0,['dynamo','Dynamo (Inferium)']);
   elm.innerHTML=`
     <div class="page-h"><div><h1>${esc(t.company)} — 모니터링 ${badge(t.lifecycle)}</h1>
-      <div class="sub">K8s ${t.k8sVersion} · ${t.racks} racks · GPU ${t.gpus.toLocaleString()} · NS ${t.nsList.join('/')} ${apiIcon('grafana-embed')}</div></div>
+      <div class="sub">K8s ${esc(t.k8sVersion)} · ${esc(t.racks)} racks · GPU ${esc(t.gpus.toLocaleString())} · NS ${esc(t.nsList.join('/'))} ${apiIcon('grafana-embed')}</div></div>
       <div class="right"><button class="btn" onclick="App.navigate('#/k8s/monitoring')">← 테넌트</button></div></div>
-    <div class="tabs">${tabs.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="App.navigate('#/k8s/monitoring/${t.id}?tab=${k}')">${l}</button>`).join('')}</div>
+    <div class="tabs">${tabs.map(([k,l])=>`<button class="${tab===k?'on':''}" onclick="App.navigate('#/k8s/monitoring/${jsa(encodeURIComponent(t.id))}?tab=${k}')">${l}</button>`).join('')}</div>
     <div id="mon-tab"></div>`;
   const box=document.getElementById('mon-tab');
   if(tab==='k8s') monTabK8s(box, t);
@@ -4028,10 +4031,10 @@ function monTabK8s(box, t){
     <div class="card" style="background:var(--accent-soft);border-color:transparent;margin-bottom:12px"><div class="card-b small">
       🖼 아래 영역은 <b>Grafana 대시보드 embed 시뮬레이션</b>입니다 — 실개발 시 이 자리에 Grafana iframe(kiosk 모드)이 들어갑니다. ${apiIcon('grafana-embed')}</div></div>
     <div class="gwrap">
-      <div class="gbar">📊 <b>Grafana</b> · neocloud-${t.id} / <b>K8s Cluster Overview</b>
+      <div class="gbar">📊 <b>Grafana</b> · neocloud-${esc(t.id)} / <b>K8s Cluster Overview</b>
         <span class="gchip">⏱ Last 6h</span><span class="gchip">↻ 30s</span>
         <span class="gchip"><span id="g-live" style="color:#73BF69">●</span> live</span>
-        <span class="gchip" style="margin-left:auto;cursor:pointer" onclick="toast('Grafana 새 창 열기 (mock) — /d/k8s-overview?orgId=${t.id}')">Open in Grafana ↗</span></div>
+        <span class="gchip" style="margin-left:auto;cursor:pointer" onclick="toast('Grafana 새 창 열기 (mock) — /d/k8s-overview?orgId=${jsa(t.id)}')">Open in Grafana ↗</span></div>
 
       <div class="ggrid" style="grid-template-columns:repeat(6,1fr)">
         ${gPanel('API Server 가용성 (30d)','<div class="gstat">99.99%</div><div class="gsub">SLO 99.9% ✓</div>','apiserver_request:availability30d')}
@@ -4052,7 +4055,7 @@ function monTabK8s(box, t){
       <div class="ggrid" style="grid-template-columns:1.5fr 1fr;margin-top:8px">
         ${gPanel('Namespace 워크로드', `<table class="gtable">
           <tr><th>NS</th><th>Running</th><th>Pend</th><th>Fail</th><th>Restarts(1h)</th><th>CPU</th><th>Mem</th><th>GPU req</th></tr>
-          ${nsRows.map(r=>`<tr><td><b>${r.ns}</b></td><td>${r.run.toLocaleString()}</td>
+          ${nsRows.map(r=>`<tr><td><b>${esc(r.ns)}</b></td><td>${r.run.toLocaleString()}</td>
             <td>${r.pen?`<span class="gbadge gb-warn">${r.pen}</span>`:'0'}</td>
             <td>${r.fail?`<span class="gbadge gb-red">${r.fail}</span>`:'0'}</td>
             <td>${r.rst}</td><td>${r.cpu}</td><td>${r.mem}</td><td>${r.gpu}</td></tr>`).join('')}
@@ -4064,14 +4067,14 @@ function monTabK8s(box, t){
           ${gPanel('PVC 사용량 (CSI)', pvcs.length?pvcs.map(v=>{
             const pct=[78,64,41,88,72][pvcs.indexOf(v)%5];
             return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:11px">
-              <span style="width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.ns}/${v.pvc}</span>
+              <span style="width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.ns)}/${esc(v.pvc)}</span>
               <div style="flex:1;height:7px;background:#22252B;border-radius:4px"><div style="width:${pct}%;height:100%;border-radius:4px;background:${pct>85?'#F2495C':(pct>70?'#FADE2A':'#73BF69')}"></div></div>
               <span style="color:#7B8087">${pct}%</span></div>`;}).join('')
             :'<div class="gsub">PVC 없음</div>','kubelet_volume_stats_used_bytes / capacity_bytes')}
         </div>
       </div>
     </div>
-    <p class="small muted" style="margin-top:10px">GPU 하드웨어 헬스(XID·격리·복구)는 <a href="#/k8s/sentinel">장애관리(NVSentinel)</a>, GPU 사용률/랙 히트맵은 <a href="#/k8s/monitoring/${t.id}?tab=racks">GPU/랙 탭</a> — 이 대시보드는 K8s 컨트롤플레인·워크로드 관점.</p>`;
+    <p class="small muted" style="margin-top:10px">GPU 하드웨어 헬스(XID·격리·복구)는 <a href="#/k8s/sentinel">장애관리(NVSentinel)</a>, GPU 사용률/랙 히트맵은 <a href="#/k8s/monitoring/${esc(encodeURIComponent(t.id))}?tab=racks">GPU/랙 탭</a> — 이 대시보드는 K8s 컨트롤플레인·워크로드 관점.</p>`;
 
   /* ── 라이브 틱: 2s마다 시계열 이동 + 스탯 갱신 (라우트 이탈 시 App.render가 정리) ── */
   if(window._monDashTimer) clearInterval(window._monDashTimer);
@@ -4118,13 +4121,13 @@ function monTabK8sLive(box, t){
       <div class="gbar">📊 <b>Grafana</b> · neocloud-${esc(cl.name||cl.id)} / <b>K8s Cluster Overview</b>
         <span class="gchip">⏱ Live (NOCP)</span><span class="gchip">↻ 2s</span>
         <span class="gchip"><span id="g-live" style="color:#73BF69">●</span> live</span>
-        <span class="gchip" style="margin-left:auto;cursor:pointer" onclick="toast('Grafana 새 창 열기 (live 데모) — /d/k8s-overview?cluster=${esc(cl.id)}')">Open in Grafana ↗</span></div>
+        <span class="gchip" style="margin-left:auto;cursor:pointer" onclick="toast('Grafana 새 창 열기 (live 데모) — /d/k8s-overview?cluster=${jsa(cl.id)}')">Open in Grafana ↗</span></div>
 
       <div class="ggrid" style="grid-template-columns:repeat(6,1fr)">
-        ${gPanel('GPU Util (클러스터 평균)','<div class="gstat" id="gs-util">'+(lastTick.util!=null?lastTick.util.toFixed(1):'—')+'%</div><div class="gsub">GPU '+(m.gpus_total||t.gpus).toLocaleString()+'기 · DCGM '+esc(m.dcgm_mode||'—')+'</div>','avg(DCGM_FI_DEV_GPU_UTIL)')}
+        ${gPanel('GPU Util (클러스터 평균)','<div class="gstat" id="gs-util">'+(lastTick.util!=null?lastTick.util.toFixed(1):'—')+'%</div><div class="gsub">GPU '+esc((m.gpus_total||t.gpus).toLocaleString())+'기 · DCGM '+esc(m.dcgm_mode||'—')+'</div>','avg(DCGM_FI_DEV_GPU_UTIL)')}
         ${gPanel('GPU Temp (max)','<div class="gstat '+((lastTick.temp||0)>84?'warn':'')+'" id="gs-temp">'+(lastTick.temp!=null?lastTick.temp.toFixed(1):'—')+'°C</div><div class="gsub">throttle 임계 90°C</div>','max(DCGM_FI_DEV_GPU_TEMP)')}
         ${gPanel('Nodes Ready','<div class="gstat '+(quar?'warn':'')+'">'+ready+' / '+workers.length+'</div><div class="gsub">'+(quar?quar+' quarantined (NVSentinel)':'all ready')+'</div>','sum(kube_node_status_condition{condition="Ready",status="true"})')}
-        ${gPanel('ECC Correctable (누적)','<div class="gstat blue" id="gs-ecc">'+(m.ecc_correctable!=null?m.ecc_correctable.toLocaleString():'—')+'</div><div class="gsub">uncorrectable 0 · 임계 내</div>','DCGM_FI_DEV_ECC_SBE_VOL_TOTAL')}
+        ${gPanel('ECC Correctable (누적)','<div class="gstat blue" id="gs-ecc">'+esc(m.ecc_correctable!=null?m.ecc_correctable.toLocaleString():'—')+'</div><div class="gsub">uncorrectable 0 · 임계 내</div>','DCGM_FI_DEV_ECC_SBE_VOL_TOTAL')}
         ${gPanel('IB / NVLink BW','<div class="gstat" id="gs-ib">'+(m.ib_bw_tbs!=null?m.ib_bw_tbs.toFixed(1):'—')+' TB/s</div><div class="gsub">Converged Network (RoCE)</div>','rate(dcgm_nvlink_bandwidth_total[5m])')}
         ${gPanel('API Server','<div class="gstat">UP</div><div class="gsub">VIP '+esc(cl.api_vip||'—')+':6443 (kube-vip)</div>','up{job="apiserver"}')}
       </div>
@@ -4155,7 +4158,7 @@ function monTabK8sLive(box, t){
         </div>
       </div>
     </div>
-    <p class="small muted" style="margin-top:10px">GPU 하드웨어 헬스(XID·격리·복구)는 <a href="#/k8s/sentinel">장애관리(NVSentinel)</a>, 랙 히트맵은 <a href="#/k8s/monitoring/${t.id}?tab=racks">GPU/랙 탭</a> — 데이터 소스: NOCP <code>metrics</code>·<code>nodes</code>·<code>storage</code> (live)</p>`;
+    <p class="small muted" style="margin-top:10px">GPU 하드웨어 헬스(XID·격리·복구)는 <a href="#/k8s/sentinel">장애관리(NVSentinel)</a>, 랙 히트맵은 <a href="#/k8s/monitoring/${esc(encodeURIComponent(t.id))}?tab=racks">GPU/랙 탭</a> — 데이터 소스: NOCP <code>metrics</code>·<code>nodes</code>·<code>storage</code> (live)</p>`;
   };
   draw();
   /* 2s 폴링 — 라우트 이탈(#glive-mark 소멸) 시 자동 정리 */
@@ -4174,8 +4177,8 @@ function monTabRacks(box, t){
   const cells=racks.map(r=>{
     const bg=r.status==='active'?utilColor(r.util):(r.status==='provisioning'?'var(--hm-prov)':'var(--u0)');
     return `<div class="hm-cell ${r.alarm?'alarm':''}" style="background:${r.alarm?'var(--red)':bg}"
-      title="${r.rack} — util ${r.util}% · ${r.temp}°C · ${r.status}${r.alarm?' · XID!':''}"
-      onclick="App.navigate('#/k8s/monitoring/${t.id}/${r.rack}')">${r.idx}</div>`;
+      title="${esc(r.rack+' — util '+r.util+'% · '+r.temp+'°C · '+r.status+(r.alarm?' · XID!':''))}"
+      onclick="App.navigate('#/k8s/monitoring/${jsa(encodeURIComponent(t.id))}/${jsa(encodeURIComponent(r.rack))}')">${esc(r.idx)}</div>`;
   }).join('');
   const legend=[['0%','var(--u0)'],['<30','var(--u1)'],['<55','var(--u2)'],['<75','var(--u3)'],['<90','var(--u4)'],['90+','var(--u5)'],['알람','var(--red)']]
     .map(([l,c])=>`<span style="display:inline-flex;align-items:center;gap:4px" class="small muted"><i style="width:11px;height:11px;border-radius:3px;background:${c};display:inline-block"></i>${l}</span>`).join(' ');
@@ -4192,13 +4195,13 @@ function monTabRacks(box, t){
           <table class="table">
             <tr><td class="muted">가동 랙</td><td><b>${act.length}</b> / 100</td></tr>
             <tr><td class="muted">평균 Util / 온도</td><td>${Math.round(act.reduce((s,r)=>s+r.util,0)/Math.max(1,act.length))}% · ${Math.round(act.reduce((s,r)=>s+r.temp,0)/Math.max(1,act.length))}°C</td></tr>
-            <tr><td class="muted">알람 랙</td><td>${racks.filter(r=>r.alarm).map(r=>`<a href="#/k8s/monitoring/${t.id}/${r.rack}" style="color:var(--red);font-weight:700">${r.rack}</a>`).join(', ')||'없음'}</td></tr>
+            <tr><td class="muted">알람 랙</td><td>${racks.filter(r=>r.alarm).map(r=>`<a href="#/k8s/monitoring/${esc(encodeURIComponent(t.id))}/${esc(encodeURIComponent(r.rack))}" style="color:var(--red);font-weight:700">${esc(r.rack)}</a>`).join(', ')||'없음'}</td></tr>
             <tr><td class="muted">NVLink 도메인</td><td>랙 단위 NVL72 (tray 간 NVLink switch)</td></tr>
           </table></div></div>
         <div class="card"><div class="card-h">PromQL (이 화면의 쿼리) ${apiIcon('promql')}</div><div class="card-b">
-          <code class="small" style="display:block;padding:6px 0;color:var(--ink-2)">avg by (rack) (DCGM_FI_DEV_GPU_UTIL{tenant="${t.id}"})</code>
-          <code class="small" style="display:block;padding:6px 0;color:var(--ink-2)">max by (rack) (DCGM_FI_DEV_GPU_TEMP{tenant="${t.id}"})</code>
-          <code class="small" style="display:block;padding:6px 0;color:var(--ink-2)">sum(kube_node_spec_unschedulable{tenant="${t.id}"})</code>
+          <code class="small" style="display:block;padding:6px 0;color:var(--ink-2)">avg by (rack) (DCGM_FI_DEV_GPU_UTIL{tenant="${esc(t.id)}"})</code>
+          <code class="small" style="display:block;padding:6px 0;color:var(--ink-2)">max by (rack) (DCGM_FI_DEV_GPU_TEMP{tenant="${esc(t.id)}"})</code>
+          <code class="small" style="display:block;padding:6px 0;color:var(--ink-2)">sum(kube_node_spec_unschedulable{tenant="${esc(t.id)}"})</code>
         </div></div>
       </div>
     </div>`;
@@ -4210,19 +4213,19 @@ App.register('#/k8s/monitoring/:tenantId/:rack', function(elm, p){
   const rack=DS.racks(t.id).find(r=>r.rack===p.rack);
   if(!rack){ elm.innerHTML='<div class="empty">랙 없음</div>'; return; }
   const trayRow=(tr)=>{
-    const gpuBars=tr.gpus.map(g=>`<div class="tip" data-tip="GPU ${g.idx}: ${g.xid?g.xid:g.util+'% · '+g.temp+'°C'}"
+    const gpuBars=tr.gpus.map(g=>`<div class="tip" data-tip="${esc('GPU '+g.idx+': '+(g.xid?g.xid:g.util+'% · '+g.temp+'°C'))}"
       style="width:26px;height:16px;border-radius:3px;background:${g.xid?'var(--red)':utilColor(g.util)}"></div>`).join('');
     const bad=tr.status.includes('NotReady');
-    return `<tr class="click" onclick="monTray('${t.id}','${rack.rack}',${tr.tray})" ${bad?'style="background:var(--red-soft)"':''}>
-      <td class="mono small"><b>${tr.node}</b></td>
+    return `<tr class="click" onclick="monTray('${jsa(t.id)}','${jsa(rack.rack)}',${+tr.tray})" ${bad?'style="background:var(--red-soft)"':''}>
+      <td class="mono small"><b>${esc(tr.node)}</b></td>
       <td>${bad?'<span class="badge b-red">NotReady,SchedulingDisabled</span>':badge(tr.status==='Ready'?'Ready':tr.status)}</td>
       <td><div style="display:flex;gap:4px">${gpuBars}</div></td>
-      <td class="small muted">${tr.pods.length} pods</td></tr>`;
+      <td class="small muted">${esc(tr.pods.length)} pods</td></tr>`;
   };
   elm.innerHTML=`
-    <div class="page-h"><div><h1>${rack.rack} ${rack.alarm?'<span class="badge b-red">XID 79</span>':badge('Ready')}</h1>
-      <div class="sub">${esc(t.company)} · Vera Rubin NVL72 — 18 compute tray × 4 GPU · util ${rack.util}% ${apiIcon('pods-list')}</div></div>
-      <div class="right"><button class="btn" onclick="App.navigate('#/k8s/monitoring/${t.id}?tab=racks')">← 히트맵</button></div></div>
+    <div class="page-h"><div><h1>${esc(rack.rack)} ${rack.alarm?'<span class="badge b-red">XID 79</span>':badge('Ready')}</h1>
+      <div class="sub">${esc(t.company)} · Vera Rubin NVL72 — 18 compute tray × 4 GPU · util ${esc(rack.util)}% ${apiIcon('pods-list')}</div></div>
+      <div class="right"><button class="btn" onclick="App.navigate('#/k8s/monitoring/${jsa(encodeURIComponent(t.id))}?tab=racks')">← 히트맵</button></div></div>
     <div class="grid" style="grid-template-columns:1fr 1.1fr;align-items:start">
       <div class="card"><div class="card-h">트레이 (노드)</div>
         <table class="table"><tr><th>노드</th><th>상태</th><th>GPU (4)</th><th>Pods</th></tr>
@@ -4236,13 +4239,13 @@ function monTray(tenantId, rackId, trayNo){
   const rack=DS.racks(tenantId).find(r=>r.rack===rackId);
   const tr=rack.trays[trayNo-1];
   const podRow=(pd,i)=>`
-    <tr class="click" onclick="monLog('${tenantId}','${rackId}',${trayNo},${i})">
-      <td class="mono small"><b>${pd.name}</b></td><td class="mono small">${pd.ns}</td>
+    <tr class="click" onclick="monLog('${jsa(tenantId)}','${jsa(rackId)}',${+trayNo},${i})">
+      <td class="mono small"><b>${esc(pd.name)}</b></td><td class="mono small">${esc(pd.ns)}</td>
       <td class="small">${tr.status.includes('NotReady')&&pd.kind!=='system'?'<span class="badge b-amber">Terminating</span>':'<span class="badge b-green">Running</span>'}</td>
-      <td class="small">${pd.restarts}</td><td class="small muted">${pd.age}</td>
+      <td class="small">${esc(pd.restarts)}</td><td class="small muted">${esc(pd.age)}</td>
       <td><button class="btn btn-sm">로그 ▸</button></td></tr>`;
   document.getElementById('mon-side').innerHTML=`
-    <div class="card"><div class="card-h">${tr.node} — Pods <span class="muted small">(${tr.pods.length})</span>
+    <div class="card"><div class="card-h">${esc(tr.node)} — Pods <span class="muted small">(${esc(tr.pods.length)})</span>
       <div class="right">${apiIcon('pods-list')}</div></div>
       ${tr.pods.length?`<table class="table"><tr><th>Pod</th><th>NS</th><th>상태</th><th>재시작</th><th>Age</th><th></th></tr>
         ${tr.pods.map(podRow).join('')}</table>`
@@ -4273,7 +4276,7 @@ function monLogRender(){
       <div class="logctl">
         <b>${esc(pd.name)}</b>
         <select id="ml-c" onchange="MONLOG.container=this.value;monLogRender()">
-          ${containers.map(c=>`<option ${MONLOG.container===c?'selected':''}>${c}</option>`).join('')}</select>
+          ${containers.map(c=>`<option ${MONLOG.container===c?'selected':''}>${esc(c)}</option>`).join('')}</select>
         <span class="switch ${MONLOG.follow?'on':''}" onclick="MONLOG.follow=!MONLOG.follow;monLogRender()"><span class="tr"></span> follow</span>
         <select id="ml-t" onchange="MONLOG.tail=+this.value;monLogRender()">
           ${[100,200,500].map(v=>`<option value="${v}" ${MONLOG.tail===v?'selected':''}>tail ${v}</option>`).join('')}</select>
@@ -4447,7 +4450,7 @@ function gMulti(seriesArr, opts={}){
 }
 function gLegend(seriesArr, fmt){
   return `<div class="gsub" style="display:flex;gap:12px;flex-wrap:wrap">${seriesArr.map(s=>
-    `<span><span style="color:${s.color}">●</span> ${s.label} <b style="color:#D8D9DA">${(fmt||(v=>v.toFixed(0)))(s.vals[s.vals.length-1])}</b></span>`).join('')}</div>`;
+    `<span><span style="color:${esc(s.color)}">●</span> ${esc(s.label)} <b style="color:#D8D9DA">${esc((fmt||(v=>v.toFixed(0)))(s.vals[s.vals.length-1]))}</b></span>`).join('')}</div>`;
 }
 function gHeat(seed, buckets, peakIdx, cols=22){
   const rnd=mulberry32(hashStr(seed));
@@ -4502,7 +4505,7 @@ function monTabDynamo(box, t){
       🖼 <b>Inferium | Platform Overview</b> — 고객 제공 Grafana 대시보드(ConfigMap <code>grafana_dashboard: '1'</code> 사이드카 프로비저닝) 재현.
       Dynamo(DGD)를 사용하는 테넌트에만 노출됩니다. ${apiIcon('dynamo-dashboard')}</div></div>
     <div class="gwrap">
-      <div class="gbar">📊 <b>Grafana</b> · neocloud-${t.id} / <b>Inferium | Platform Overview</b>
+      <div class="gbar">📊 <b>Grafana</b> · neocloud-${esc(t.id)} / <b>Inferium | Platform Overview</b>
         <span class="gchip">ns: dynamo</span><span class="gchip">⏱ Last 1h</span><span class="gchip">↻ 30s</span>
         <span class="gchip"><span id="g-live" style="color:#73BF69">●</span> live</span>
         <span class="gchip" style="margin-left:auto;cursor:pointer" onclick="toast('Grafana 새 창 (mock) — /d/inferium-platform-overview')">Open in Grafana ↗</span></div>
@@ -4551,7 +4554,7 @@ function monTabDynamo(box, t){
         ${chart('proc','Worker Processing Time — weighted avg by DGD (ms) · 특정 컴포넌트 급등 = 해당 워커 병목', D.proc, v=>v.toFixed(0)+'ms','rate(dynamo_component_request_duration_seconds_sum{dynamo_component=~"prefill|hybrid|backend",dynamo_endpoint="generate"}[5m]) / rate(..._count[5m])')}
       </div>
     </div>
-    <p class="small muted" style="margin-top:10px">DGD 구성: ${t.dynamoDGDs.map(d=>`<span class="chip">${d.name} — ${d.mode}</span>`).join(' ')} · DGDR <span class="chip">rag-qwen (Pending — 네트워킹 탭의 dynamo-frontend VIP 할당과 연동)</span></p>`;
+    <p class="small muted" style="margin-top:10px">DGD 구성: ${t.dynamoDGDs.map(d=>`<span class="chip">${esc(d.name)} — ${esc(d.mode)}</span>`).join(' ')} · DGDR <span class="chip">rag-qwen (Pending — 네트워킹 탭의 dynamo-frontend VIP 할당과 연동)</span></p>`;
 
   /* ── 라이브 틱 ── */
   if(window._monDashTimer) clearInterval(window._monDashTimer);
@@ -4740,9 +4743,9 @@ App.register('#/k8s/settings', function(elm){
     return `<span class="mono">●●●●●●</span> <span class="muted small">${esc(ref||'(보관됨)')}</span>`;
   };
   const card=(s,idx)=>`
-    <div class="card"><div class="card-h"><span class="chip" style="min-width:24px;text-align:center">${s.seq}</span> ${s.ico} ${esc(s.title)}
+    <div class="card"><div class="card-h"><span class="chip" style="min-width:24px;text-align:center">${esc(s.seq)}</span> ${esc(s.ico)} ${esc(s.title)}
       ${s.modified?'<span class="badge b-amber">수정됨</span>':''}
-      <div class="right">${s.link?`<a href="${s.link}" class="small">보기 →</a>`:''}
+      <div class="right">${s.link?`<a href="${esc(s.link)}" class="small">보기 →</a>`:''}
         ${actionBtn('✎ 편집','settings',`day0Edit(${idx})`,{sm:true,secondary:true})}</div></div>
       <div class="card-b small muted" style="padding-bottom:4px">${esc(s.desc)}</div>
       <table class="table">${s.fields.map(f=>`
@@ -4750,7 +4753,7 @@ App.register('#/k8s/settings', function(elm){
         <td class="small">${f.type==='secret'?secretView(f.v):esc(f.v)}</td></tr>`).join('')}</table>
       <div class="card-b small" style="display:flex;gap:8px;align-items:center">
         <span class="badge b-green">✓ 검증</span><span class="muted">${esc(s.verified)}</span>
-        ${s.modified?`<span class="muted" style="margin-left:auto">최종 수정 ${s.modified}</span>`:''}
+        ${s.modified?`<span class="muted" style="margin-left:auto">최종 수정 ${esc(s.modified)}</span>`:''}
       </div></div>`;
   elm.innerHTML=`
     <div class="page-h"><div><h1>설정 (Day0)</h1>
@@ -4775,7 +4778,7 @@ function day0Edit(idx){
         :`<input id="d0-${i}" type="text" value="${esc(f.v)}"
             style="width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:6px;font-size:12.5px">`}
     </div>`;
-  openModal(`${s.ico} ${esc(s.title)} — 편집 <span class="chip">Day0 · seq ${s.seq}</span>`,
+  openModal(`${esc(s.ico)} ${esc(s.title)} — 편집 <span class="chip">Day0 · seq ${esc(s.seq)}</span>`,
     `<p class="small muted" style="margin-bottom:14px">${esc(s.desc)}. 저장 시 변경 이력이 감사 로그에 기록되고, 관련 컨트롤러에 반영됩니다 (mock).</p>
      ${s.fields.map(inp).join('')}
      <p class="small muted">secret 필드는 값이 포탈에 저장되지 않고 Vault에 기록됩니다 — 입력 즉시 <code>vault kv put</code> 후 참조만 유지.</p>`,

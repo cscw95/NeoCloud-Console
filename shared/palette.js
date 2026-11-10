@@ -4,6 +4,8 @@
    콘솔별 엔티티→라우트 매핑은 window.NC_PALETTE_ROUTES로 재정의 가능. */
 (function () {
   const NC = (window.NC = window.NC || {});
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const R = Object.assign(
     { tenant: "dashboard", order: "provisioning", ticket: "support",
       host: "assets" }, window.NC_PALETTE_ROUTES || {});
@@ -94,10 +96,10 @@
     let grp = "", html = "";
     items.forEach((it, i) => {
       if (it.grp !== grp) { grp = it.grp;
-        html += `<div class="ncp-grp">${grp}</div>`; }
+        html += `<div class="ncp-grp">${esc(grp)}</div>`; }
       html += `<div class="ncp-it${i === 0 ? " sel" : ""}" data-i="${i}">
-        <span class="dot ${i === 0 ? "green" : "gray"}"></span>${it.label}
-        <span class="sub">${it.sub || ""}</span></div>`;
+        <span class="dot ${i === 0 ? "green" : "gray"}"></span>${esc(it.label)}
+        <span class="sub">${esc(it.sub || "")}</span></div>`;
     });
     box.innerHTML = html ||
       '<div class="ncp-grp">결과 없음</div>';
@@ -156,7 +158,7 @@
       (alerts || []).map(a => `<div class="it">
         <span class="dot ${a.sev === "warn" ? "amber" : "blue"}"
           style="margin-top:4px"></span>
-        <span>${a.msg}</span><span class="at">${a.at || ""}</span></div>`)
+        <span>${esc(a.msg)}</span><span class="at">${esc(a.at || "")}</span></div>`)
         .join("") || "";
     const r = btn.getBoundingClientRect();
     nb.style.top = (r.bottom + 8) + "px";

@@ -265,7 +265,7 @@
     if (act && !can(act)) {
       e.preventDefault();
       e.stopPropagation();
-      NC.toast(gateTitle(getSession().role) + " — 관리자에게 요청하세요",
+      NC.toast(esc(gateTitle(getSession().role)) + " — 관리자에게 요청하세요",
         "warn");
     }
   }, true);
@@ -340,7 +340,7 @@
     NC.closeModal();
     setSession({ tenant_id: u.tenant_id, tenant_name: u.tenant_name,
       user: u.user, role: role });
-    NC.toast("로그인: " + u.user + " (" + u.tenant_name + " · " + role + ")");
+    NC.toast("로그인: " + esc(u.user) + " (" + esc(u.tenant_name) + " · " + esc(role) + ")");
   }
   document.addEventListener("change", function (e) {
     if (e.target && (e.target.name === "dl-user" ||
@@ -600,8 +600,8 @@
      운영 콘솔의 INC-0412 해결(incident.resolved) 전파 시 갱신 (mock 폴백 데모). */
   function statusChip(color, label) {
     return '<span style="display:inline-flex;align-items:center;gap:5px">' +
-      '<span class="dot ' + color + '" style="width:6px;height:6px"></span>' +
-      '<span class="st ' + color + '">' + label + "</span></span>";
+      '<span class="dot ' + esc(color) + '" style="width:6px;height:6px"></span>' +
+      '<span class="st ' + esc(color) + '">' + esc(label) + "</span></span>";
   }
 
   function applyTickets(tickets) {
@@ -700,20 +700,20 @@
       '<b class="nm">' + esc(c.tenant_id) + "-" +
       esc(c.profile || "cluster") + "</b>" +
       '<span class="ty">bare-metal · ' + esc(c.profile || "—") + "</span>" +
-      '<span class="lo">트레이 ' + (c.trays || 0) + "</span>" +
+      '<span class="lo">트레이 ' + esc(c.trays || 0) + "</span>" +
       '<span style="margin-left:auto;color:var(--muted);font-size:11px">' +
       "Control-Plane 실시간</span></div>" +
       '<div class="stats" style="margin-top:10px">' +
-      "<span>GPU <b>" + (c.gpus || 0).toLocaleString("en-US") + "</b></span>" +
+      "<span>GPU <b>" + esc((c.gpus || 0).toLocaleString("en-US")) + "</b></span>" +
       "<span>util <b>" + util + "%</b></span>" +
-      "<span>전력 <b>" + (c.power_kw || 0).toLocaleString("en-US") +
+      "<span>전력 <b>" + esc((c.power_kw || 0).toLocaleString("en-US")) +
       " kW</b></span>" +
-      "<span>최고 온도 <b>" + (c.max_gpu_temp_c || 0) + "°C</b></span>" +
-      "<span>NVLink <b>" + (c.nvlink_tbps || 0) + " TB/s</b></span>" +
+      "<span>최고 온도 <b>" + esc(c.max_gpu_temp_c || 0) + "°C</b></span>" +
+      "<span>NVLink <b>" + esc(c.nvlink_tbps || 0) + " TB/s</b></span>" +
       '<span>P_Key <b class="mono" style="color:var(--soft);font-size:10.5px">' +
       esc((t && t.pkey) || "—") + "</b></span>" +
       (faults
-        ? '<span style="color:var(--amber)">fault GPU ' + faults + "</span>"
+        ? '<span style="color:var(--amber)">fault GPU ' + esc(faults) + "</span>"
         : '<span style="color:var(--green-text)">모든 GPU 정상</span>') +
       "</div></div>";
   }
@@ -846,7 +846,7 @@
           return '<span style="color:var(--' +
             (pass ? "green-text" : "red") + ')" title="' + esc(x.message) +
             '">' + esc(x.layer) + " " +
-            (pass ? "PASS" : String(x.severity).toUpperCase()) + "</span>";
+            (pass ? "PASS" : esc(String(x.severity).toUpperCase())) + "</span>";
         }).join(" · ");
     }
   }
@@ -961,7 +961,7 @@
       return '<tr><td class="id">' + esc(n.id) + "</td>" +
         '<td class="id">' + esc(n.ip || "—") + "</td>" +
         '<td style="color:var(--muted)">CPU 노드 · ' + esc(n.arch || "") +
-        " " + (n.cores || "—") + "c · " + (n.mem || "—") + "TB</td>" +
+        " " + esc(n.cores || "—") + "c · " + esc(n.mem || "—") + "TB</td>" +
         "<td>" + stateChipHtml(n.state) + "</td>" +
         '<td class="num" style="color:var(--muted)">—</td>' +
         '<td><button class="tbtn" data-open="console_access">콘솔' +
@@ -1267,12 +1267,12 @@
      비용 라인은 pagedTable(10행) — 합계 행은 항상 하단 고정 */
   function billLineRow(l) {
     return "<tr><td>컴퓨트 — " + esc(l.order_id) + " (" +
-      esc(l.blueprint_key) + " " + l.racks + "랙" +
+      esc(l.blueprint_key) + " " + esc(l.racks) + "랙" +
       (l.active ? "" : " · 종료") + ")</td>" +
       '<td class="num id">' + usd(l.amount_usd) + "</td>" +
       '<td class="num" style="color:var(--muted);width:150px">' +
       (l.rack_hours || 0).toFixed(1) + " rack-h × $" +
-      (l.rate_usd || 0) + "</td></tr>";
+      esc(l.rate_usd || 0) + "</td></tr>";
   }
 
   var billPager = null, billTotals = null;
@@ -1334,7 +1334,7 @@
         if (!box || !rows) return;
         rows.innerHTML = Object.keys(r.rates).map(function (bp) {
           return "<tr><td>" + esc(bp) + '</td><td class="id">$' +
-            Number(r.rates[bp]).toLocaleString("en-US") + " / " +
+            esc(Number(r.rates[bp]).toLocaleString("en-US")) + " / " +
             esc(r.unit || "rack-hour") + "</td></tr>";
         }).join("");
         var note = $("#bill-rates-note");
@@ -1366,7 +1366,7 @@
       band.style.display = "";
       var av = $("#ak-avail");
       if (av) {
-        av.innerHTML = f.availability_pct + "<small>%</small>";
+        av.innerHTML = esc(f.availability_pct) + "<small>%</small>";
         av.classList.toggle("green", f.availability_pct >= 99.9);
         av.classList.toggle("amber", f.availability_pct < 99.9);
       }
@@ -1537,8 +1537,8 @@
       if (!el || !f || f.availability_pct == null) return; // 폴백 — 정적 유지
       el.innerHTML = '99.9% — 이번 달 <b style="color:var(--' +
         (f.availability_pct >= 99.9 ? "green-text" : "amber") + ')">' +
-        f.availability_pct + "%</b> (GPU " +
-        (f.gpus_total || 0).toLocaleString("en-US") +
+        esc(f.availability_pct) + "%</b> (GPU " +
+        esc((f.gpus_total || 0).toLocaleString("en-US")) +
         " · Control-Plane 실측정) · 크레딧 발생 없음";
     }).catch(function () {});
     if (NC.api.orders) NC.api.orders().then(function (os) {
@@ -1618,16 +1618,16 @@
       '<div class="stats">' +
       "<span>랙 <b>" + racks + "</b></span>" +
       "<span>노드 <b>" + trays + "</b></span>" +
-      "<span>GPU <b>" + (c.gpus || 0).toLocaleString("en-US") + "</b></span>" +
+      "<span>GPU <b>" + esc((c.gpus || 0).toLocaleString("en-US")) + "</b></span>" +
       "<span>util <b>" + Math.round(c.avg_util_pct || 0) + "%</b></span>" +
-      "<span>전력 <b>" + (c.power_kw || 0).toLocaleString("en-US") +
+      "<span>전력 <b>" + esc((c.power_kw || 0).toLocaleString("en-US")) +
       " kW</b>" + (c.power_cap_kw
-        ? ' <span style="color:var(--muted2)">/ cap ' + c.power_cap_kw +
+        ? ' <span style="color:var(--muted2)">/ cap ' + esc(c.power_cap_kw) +
           "</span>" : "") + "</span>" +
-      "<span>최고 온도 <b>" + (c.max_gpu_temp_c || 0) + "°C</b></span>" +
-      "<span>NVLink <b>" + (c.nvlink_tbps || 0) + " TB/s</b></span>" +
+      "<span>최고 온도 <b>" + esc(c.max_gpu_temp_c || 0) + "°C</b></span>" +
+      "<span>NVLink <b>" + esc(c.nvlink_tbps || 0) + " TB/s</b></span>" +
       (faults
-        ? '<span style="color:var(--amber)">fault GPU ' + faults + "</span>"
+        ? '<span style="color:var(--amber)">fault GPU ' + esc(faults) + "</span>"
         : '<span style="color:var(--green-text)">모든 GPU 정상</span>') +
       "</div>" +
       '<div class="mini">Control-Plane emu 실시간 텔레메트리 — 워크로드 프로파일을 ' +
@@ -1714,7 +1714,7 @@
       '">CP 노드 <b>' + (c.cp_node_ids || []).length + "</b> (HA)</span>" +
       "<span>워커 <b>" + (c.worker_node_ids || []).length + "</b></span>" +
       "<span>GPU <b>" +
-      (c.gpus_total || 0).toLocaleString("en-US") + "</b></span>" +
+      esc((c.gpus_total || 0).toLocaleString("en-US")) + "</b></span>" +
       "<span>DCGM <b>" + esc(c.dcgm_mode || "in-band") + "</b></span>" +
       (conds.length
         ? '<span style="color:var(--' + (pass === conds.length
@@ -1739,7 +1739,7 @@
       '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
       '<select id="k8s-alloc">' + allocs.map(function (a) {
         return '<option value="' + esc(a.alloc) + '">' + esc(a.alloc) +
-          " — " + esc(a.order) + " · " + a.racks + "랙</option>";
+          " — " + esc(a.order) + " · " + esc(a.racks) + "랙</option>";
       }).join("") + "</select>" +
       '<select id="k8s-ver">' + vers.map(function (v, i) {
         return '<option value="' + esc(v) + '"' + (i ? "" : " selected") +
@@ -1748,7 +1748,7 @@
       '<button class="btn" id="k8s-install-btn">Managed K8s 설치</button>' +
       "</div>" +
       '<div class="mini">NKD ' + esc((sp && sp.nkd_version) || "25.06") +
-      " · CP " + ((sp && sp.cp_nodes_per_cluster) || 3) +
+      " · CP " + esc((sp && sp.cp_nodes_per_cluster) || 3) +
       "노드 자동 증설 · SLA " + esc((sp && sp.cp_sla) || "99.9%") +
       " · 애드온 " + ((sp && sp.managed_addons) || []).length +
       "종 자동 구성 · DCGM in-band</div></div>";
@@ -1798,11 +1798,11 @@
         return;
       }
       if (o.error) {                       // 409(이미 설치) 등 — 사유 표시
-        NC.toast("K8s 설치 실패 — " + o.error, "warn");
+        NC.toast("K8s 설치 실패 — " + esc(o.error), "warn");
         return;
       }
-      NC.toast("Managed K8s 설치 시작 — " + (o.k8s_cluster_id || "") + " (" +
-        ver + " · " + aid + ") · CP 3노드 자동 증설 · 애드온 자동 구성");
+      NC.toast("Managed K8s 설치 시작 — " + esc(o.k8s_cluster_id || "") + " (" +
+        esc(ver) + " · " + esc(aid) + ") · CP 3노드 자동 증설 · 애드온 자동 구성");
       loadTenant().then(renderK8sPanel);   // 카드 갱신
     }).catch(function () {
       if (btn) btn.disabled = false;
@@ -1835,15 +1835,15 @@
       "</td>";
     if (!b) return "<tr>" + name +
       '<td style="color:var(--muted)">블루프린트' +
-      (perSu ? " · SU " + perSu + "랙" : "") + "</td>" +
+      (perSu ? " · SU " + esc(perSu) + "랙" : "") + "</td>" +
       '<td class="num" style="color:var(--muted)">—</td>' +
       '<td class="num st green">stable</td></tr>';
     return "<tr>" + name +
       '<td style="color:var(--muted)">' + esc(b.model) + " · " +
-      esc(b.generation) + " · GPU " + (b.gpu_per_rack || 72) + "/랙" +
-      (perSu ? " · SU " + perSu + "랙" : "") + "</td>" +
+      esc(b.generation) + " · GPU " + esc(b.gpu_per_rack || 72) + "/랙" +
+      (perSu ? " · SU " + esc(perSu) + "랙" : "") + "</td>" +
       '<td class="num" style="color:var(--muted)">MaxQ ' +
-      (b.maxq_rack_kw || "—") + "kW · MaxP " + (b.maxp_rack_kw || "—") +
+      esc(b.maxq_rack_kw || "—") + "kW · MaxP " + esc(b.maxp_rack_kw || "—") +
       "kW</td>" +
       '<td class="num st ' + (b.preliminary ? "blue" : "green") + '">' +
       (b.preliminary ? "preview" : "stable") + "</td></tr>";
@@ -1943,7 +1943,7 @@
             '<td style="color:var(--muted)">' + esc(c.kind || "—") + "</td>" +
             "<td>" + (c.mfa ? '<span class="st green">필수</span>'
               : '<span style="color:var(--muted2)">—</span>') + "</td>" +
-            '<td class="num">' + (c.tokens_issued || 0) +
+            '<td class="num">' + esc(c.tokens_issued || 0) +
             (localCnt[c.client_id]
               ? ' <span style="color:var(--blue-text)">+' +
                 localCnt[c.client_id] + " (이 브라우저)</span>" : "") +
@@ -2005,7 +2005,7 @@
     return '<div class="panel" style="border-color:var(--amber-line)">' +
       '<div class="ph" style="margin-bottom:8px"><span class="tick amber"></span>' +
       '<span class="t">인수 검증 대기 — ' + esc(o.id) + "</span>" +
-      '<span class="c">' + (o.racks || "—") + "랙 · " +
+      '<span class="c">' + esc(o.racks || "—") + "랙 · " +
       esc(o.blueprint_key || "vr-nvl72") + " · Performance Test 완료</span>" +
       stateNote +
       '<span style="margin-left:auto;display:flex;gap:8px;align-items:center">' +
@@ -2015,7 +2015,7 @@
       '<div class="stats">' +
       "<span>검증 항목 <b>" + pass + "/" + checks.length + " PASS</b></span>" +
       "<span>노드 <b>" +
-      ((rep.report && rep.report.nodes_tested) || "—") + "</b></span>" +
+      esc((rep.report && rep.report.nodes_tested) || "—") + "</b></span>" +
       "<span>리포트 <b>" +
       esc(String((rep.report && rep.report.report_ts) || "—")
         .slice(0, 16).replace("T", " ")) + "</b></span>" +
@@ -2065,9 +2065,9 @@
     var meta = $("#accept-meta");
     if (meta) meta.innerHTML =
       "<tr><td>주문</td><td class=\"id\">" + esc(o.id) + " · " +
-      esc(o.blueprint_key || "vr-nvl72") + " × " + (o.racks || "—") +
+      esc(o.blueprint_key || "vr-nvl72") + " × " + esc(o.racks || "—") +
       "랙</td></tr>" +
-      "<tr><td>테스트 노드</td><td>" + (r.nodes_tested || "—") +
+      "<tr><td>테스트 노드</td><td>" + esc(r.nodes_tested || "—") +
       "노드 · NCCL / fio / Burn-in 자동 스위트</td></tr>" +
       "<tr><td>리포트 시각</td><td>" +
       esc(String(r.report_ts || "—").slice(0, 16).replace("T", " ")) +
@@ -2083,7 +2083,7 @@
         '<td class="num id">' + esc(c.value || "—") + "</td>" +
         '<td style="color:var(--muted)">' + esc(c.detail || "") + "</td>" +
         '<td><span class="st ' + (ok ? "green" : "red") + '">' +
-        (ok ? "PASS" : String(c.status || "").toUpperCase()) +
+        (ok ? "PASS" : esc(String(c.status || "").toUpperCase())) +
         "</span></td></tr>";
     }).join("")) || '<tr><td colspan="4" style="color:var(--muted2)">체크 데이터 없음</td></tr>';
     var dm = $("#accept-deemed");
@@ -2117,12 +2117,12 @@
       .then(function (r) {
         NC.closeModal();
         if (r && r.error) {
-          NC.toast("승인 실패 — " + r.error, "warn");
+          NC.toast("승인 실패 — " + esc(r.error), "warn");
           return;
         }
         var bsd = (r && r.billing_start_date) ||
           new Date().toISOString().slice(0, 10);
-        NC.toast("인수 승인 완료 — 과금 개통 (청구 기준일 " + bsd + ") · " +
+        NC.toast("인수 승인 완료 — 과금 개통 (청구 기준일 " + esc(bsd) + ") · " +
           "접속 정보는 보안 화면 '접속 패키지'에서 확인하세요");
         renderAcceptance();
         afterOrderChange();
@@ -2141,7 +2141,7 @@
     NC.api.acceptanceDecision(acceptCtx.order.id,
       { decision: "reject", reason: reason }).then(function (r) {
       NC.closeModal();
-      if (r && r.error) { NC.toast("반려 실패 — " + r.error, "warn"); return; }
+      if (r && r.error) { NC.toast("반려 실패 — " + esc(r.error), "warn"); return; }
       NC.toast("인수 반려 접수 — 사유가 운영팀에 전달되었습니다. 재설정 · " +
         "Performance Test 재실행 후 재인수를 요청드립니다");
       if (el) el.value = "";
@@ -2188,7 +2188,7 @@
     return '<div class="panel">' +
       '<div class="ph" style="margin-bottom:6px"><span class="tick blue"></span>' +
       '<span class="t">개통 진행 — ' + esc(flow.order_id || o.id) + "</span>" +
-      '<span class="c">' + (flow.racks || o.racks || "—") + "랙 · " +
+      '<span class="c">' + esc(flow.racks || o.racks || "—") + "랙 · " +
       esc(o.blueprint_key || "vr-nvl72") +
       (o.managed_k8s ? " · Managed K8s" : "") + " · 실시간 3s 갱신</span>" +
       '<span class="st ' + (delivered ? "green" : "blue") +
@@ -2282,7 +2282,7 @@
     var pct = Math.round(st.progress || 0);
     var phase = st.phase === "drain" ? "① 워크로드 드레인"
       : st.phase === "release" ? "② 자원 회수 (release)"
-      : "③ Secure Erase " + (st.wipe_step || 0) + "/7단계" +
+      : "③ Secure Erase " + esc(st.wipe_step || 0) + "/7단계" +
         (st.wipe_step ? " — " + (WIPE_STEPS[st.wipe_step - 1] || "") : "");
     return '<div class="ph" style="margin-bottom:8px"><span class="tick red"></span>' +
       '<span class="t">종료 진행 중 — Secure Erase</span>' +
@@ -2353,7 +2353,7 @@
       NC.api.terminationStart(tid, { reason: reason, backup_plan: backup,
         allocation_id: aid || null }).then(function (r) {
         if (!r) { NC.toast("종료 요청 실패 — 응답 없음", "warn"); return; }
-        if (r.error) { NC.toast("종료 요청 실패 — " + r.error, "warn"); return; }
+        if (r.error) { NC.toast("종료 요청 실패 — " + esc(r.error), "warn"); return; }
         termChk = { extracted: false, migrated: false, verified: false };
         NC.toast("종료 요청서 접수 — 백업 체크리스트 확인 후 Secure Erase가 " +
           "진행됩니다 (완료 시 Wipe 증명서 발급)");
@@ -2383,7 +2383,7 @@
               (r.status === 409 ? " (409 Conflict)" : "") + "</b> — " +
               esc(r.error) + "</span>";
           }
-          NC.toast("종료 차단 — " + r.error, "warn");
+          NC.toast("종료 차단 — " + esc(r.error), "warn");
           return;
         }
         NC.toast("백업 확인 완료 — Secure Erase 개시 (drain → release → 7단계 소거)");
@@ -2439,7 +2439,7 @@
         var m = COMP_ST[st] || ["gray", st];
         return "<tr><td><b>" + esc(c.name) + "</b></td>" +
           "<td>" + statusChip(m[0], m[1]) + "</td>" +
-          '<td class="num">' + (c.uptime_90d != null ? c.uptime_90d + "%" : "—") +
+          '<td class="num">' + (c.uptime_90d != null ? esc(c.uptime_90d) + "%" : "—") +
           "</td>" +
           '<td style="color:var(--muted)">' + esc(c.note || "—") + "</td></tr>";
       }).join("");
@@ -2471,7 +2471,7 @@
         : (h.uptime_pct != null ? h.uptime_pct : null);    // live: uptime_pct
       var a = $("#stp-avail");
       if (a) {
-        a.innerHTML = (hAvail != null ? hAvail : "—") + "<small>%</small>";
+        a.innerHTML = esc(hAvail != null ? hAvail : "—") + "<small>%</small>";
         a.classList.toggle("green", hAvail != null && hAvail >= 99.9);
         a.classList.toggle("amber", hAvail != null && hAvail < 99.9);
       }
@@ -2562,10 +2562,10 @@
           (ok ? "SLA 충족" : "SLA 위반 — 크레딧 발생") + "</span></div>" +
           '<div class="stats" style="margin-top:8px">' +
           '<span>실측 <b style="color:var(--' + (ok ? "green-text" : "red") +
-          ')">' + r.availability_pct + "%</b></span>" +
-          "<span>목표 <b>" + (r.target_pct || 99.9) + "%</b></span>" +
+          ')">' + esc(r.availability_pct) + "%</b></span>" +
+          "<span>목표 <b>" + esc(r.target_pct || 99.9) + "%</b></span>" +
           "<span>다운타임 <b>" +
-          (r.downtime_min != null ? r.downtime_min + "분" : "—") +
+          (r.downtime_min != null ? esc(r.downtime_min) + "분" : "—") +
           "</b></span></div>" +
           '<div style="height:6px;border-radius:3px;background:#233043;margin-top:8px;overflow:hidden">' +
           '<div style="width:' +
@@ -2574,14 +2574,14 @@
           "%;height:100%;background:var(--" + (ok ? "green" : "red") +
           ')"></div></div>' +
           '<div class="mini">눈금 99.5% → 100% · 목표선 ' +
-          (r.target_pct || 99.9) + "%</div></div>";
+          esc(r.target_pct || 99.9) + "%</div></div>";
         var incRows = (r.incidents || []).map(function (i) {
           return '<tr><td class="id">' + esc(i.id) + "</td>" +
             "<td>" + esc(i.desc || "") + "</td>" +
             '<td class="num">' +
-            (i.downtime_min != null ? i.downtime_min + "분" : "—") + "</td>" +
+            (i.downtime_min != null ? esc(i.downtime_min) + "분" : "—") + "</td>" +
             '<td class="num">' +
-            (i.mttr_min != null ? i.mttr_min + "분" : "—") + "</td></tr>";
+            (i.mttr_min != null ? esc(i.mttr_min) + "분" : "—") + "</td></tr>";
         }).join("");
         var incTbl = '<div><div class="ph" style="margin-bottom:6px">' +
           '<span class="tick amber"></span>' +
@@ -2658,7 +2658,7 @@
             "</td>" +
             "<td>" + statusChip(m[0], m[1]) + "</td>" +
             '<td style="color:var(--muted)">' +
-            (v.state === "sent" ? "D-" + (v.d != null ? v.d : 7)
+            (v.state === "sent" ? "D-" + esc(v.d != null ? v.d : 7)
               : v.state === "expired" ? "만료" : "—") + "</td>" +
             '<td class="num">' +
             (v.state === "accepted" ? "—"
@@ -2673,7 +2673,7 @@
       if (v.email === email) { v.state = "sent"; v.d = 7; }
     });
     saveInvites(l);
-    NC.toast("초대 재발급 (모의) — " + email + " 새 링크 발송 · 7일 유효 " +
+    NC.toast("초대 재발급 (모의) — " + esc(email) + " 새 링크 발송 · 7일 유효 " +
       "(수락 → MFA 등록 → 로그인 순서)");
     renderInvites();
   }
@@ -2693,13 +2693,13 @@
       saveInvites(l);
       resetModalInputs("invite");
       renderInvites();
-      NC.toast("멤버 초대 — " + email + " (" + role + ")" + tag +
+      NC.toast("멤버 초대 — " + esc(email) + " (" + esc(role) + ")" + esc(tag) +
         " · 수락 후 MFA 등록을 완료해야 로그인할 수 있습니다");
     }
     if (!NC.api.memberInvite) { localReflect(" (모의)"); return; }
     NC.api.memberInvite({ email: email, role: role }).then(function (m) {
       if (!m) return;                        // 403
-      if (m.error) { NC.toast("초대 실패 — " + m.error, "warn"); return; }
+      if (m.error) { NC.toast("초대 실패 — " + esc(m.error), "warn"); return; }
       localReflect(m._mock ? " (데모)" : " · state " + (m.state || "invited"));
       renderMembers();
     });
@@ -2716,18 +2716,18 @@
         type: "change", routed_to: "ops", change_scope: "in_contract",
       }).then(function (t) {
         if (t && t.id) {
-          NC.toast("변경 요청 " + t.id + " 접수 — 운영팀 검토 후 무중단 실행 " +
+          NC.toast("변경 요청 " + esc(t.id) + " 접수 — 운영팀 검토 후 무중단 실행 " +
             "(계약 범위 내 · Amendment 불필요)");
           refreshTickets();
         } else {
-          NC.toast("변경 요청 접수 (데모) — " + item +
+          NC.toast("변경 요청 접수 (데모) — " + esc(item) +
             " · 운영팀 검토 후 무중단 실행");
         }
       }).catch(function () {
         NC.toast("변경 요청 접수 실패 — 잠시 후 다시 시도해주세요", "warn");
       });
     } else {
-      NC.toast("변경 요청 접수 (데모) — " + item +
+      NC.toast("변경 요청 접수 (데모) — " + esc(item) +
         " · 운영팀 검토 후 무중단 실행 (계약 범위 내 · Amendment 불필요)");
     }
   }
@@ -2817,7 +2817,7 @@
 
   /* ── 주문 공통: 에러 표시 + 주문 후 화면 갱신 ─────────────── */
   function orderErr(o) {
-    return (o && o.error) || "주문 처리 실패 — 잠시 후 다시 시도해주세요";
+    return esc((o && o.error) || "주문 처리 실패 — 잠시 후 다시 시도해주세요");
   }
   function afterOrderChange() {
     renderTenantScope();
@@ -2907,13 +2907,13 @@
       if (op == null) return;                // 403 — surface403가 이미 표면화
       if (op.error) {                        // 409(진행 중) 등 — mock으로 새지 않음
         NC.toast((opKind === "replace" ? "HW 교체" : "재부팅") +
-          " 시작 실패 — " + op.error, "warn");
+          " 시작 실패 — " + esc(op.error), "warn");
         return;
       }
       rebootOpId = op.op_id || null;
       renderRebootPanel(op, false);
       NC.toast((opKind === "replace" ? "HW 교체" : "노드 재부팅") +
-        " 시작 — " + host + " (" + (op.op_id || "") + ")" +
+        " 시작 — " + esc(host) + " (" + esc(op.op_id || "") + ")" +
         (op._mock ? " · 데모" : "") + " · 라이프사이클 진행 중");
       rebootPoll = setInterval(function () { pollReboot(host); }, 2200);
     });
@@ -2945,7 +2945,7 @@
         renderRebootPanel({ op: doneOp.op, stage_idx: st.length - 1,
           stages: st }, true);
       }
-      NC.toast("노드 " + host + " 라이프사이클 완료 — 서비스 복귀 (tenant rejoin)");
+      NC.toast("노드 " + esc(host) + " 라이프사이클 완료 — 서비스 복귀 (tenant rejoin)");
       renderNodes();
     }).catch(function () {});
   }
@@ -2967,8 +2967,8 @@
     NC.api.storageCreateVolume({ name: name, capacity_tb: capTb,
       protocol: proto, qos_bw_gbps: bw, qos_iops_k: iopsK }).then(function (v) {
       if (!v) return;                        // 403
-      if (v.error) { NC.toast("볼륨 생성 실패 — " + v.error, "warn"); return; }
-      NC.toast("볼륨 생성 — " + (v.path || name) + " · " +
+      if (v.error) { NC.toast("볼륨 생성 실패 — " + esc(v.error), "warn"); return; }
+      NC.toast("볼륨 생성 — " + esc(v.path || name) + " · " +
         fmtCap(v.capacity_tb) + " · " +
         Math.round((v.qos && v.qos.bw_gbps) || bw) + "GB/s" +
         (v._mock ? " (데모)" : ""));
@@ -2985,9 +2985,9 @@
     }
     NC.api.storageCreateSnapshot({ volume_id: vid, note: name }).then(function (s) {
       if (!s) return;
-      if (s.error) { NC.toast("스냅샷 생성 실패 — " + s.error, "warn"); return; }
-      NC.toast("스냅샷 생성 — " + (s.snapshot_id || "") + " · " +
-        ((snapCtx && snapCtx.path) || "") + " (" + fmtCap(s.size_tb || 0) + ")" +
+      if (s.error) { NC.toast("스냅샷 생성 실패 — " + esc(s.error), "warn"); return; }
+      NC.toast("스냅샷 생성 — " + esc(s.snapshot_id || "") + " · " +
+        esc((snapCtx && snapCtx.path) || "") + " (" + fmtCap(s.size_tb || 0) + ")" +
         (s._mock ? " (데모)" : ""));
       renderStorage();
     });
@@ -3000,8 +3000,8 @@
     if (!vid || !NC.api.storageSetQos) { NC.toast(ACTION_TOAST.qos); return; }
     NC.api.storageSetQos(vid, { bw_gbps: bw, iops_k: iopsK }).then(function (v) {
       if (!v) return;
-      if (v.error) { NC.toast("QoS 변경 실패 — " + v.error, "warn"); return; }
-      NC.toast("QoS 변경 — " + ((qosCtx && qosCtx.path) || "") + " → " +
+      if (v.error) { NC.toast("QoS 변경 실패 — " + esc(v.error), "warn"); return; }
+      NC.toast("QoS 변경 — " + esc((qosCtx && qosCtx.path) || "") + " → " +
         Math.round((v.qos && v.qos.bw_gbps) || bw) + "GB/s · " +
         Math.round((v.qos && v.qos.iops_k) || iopsK) + "K IOPS" +
         (v._mock ? " (데모)" : ""));
@@ -3018,8 +3018,8 @@
     }
     NC.api.storageDeleteVolume(vid).then(function (r) {
       if (!r) return;
-      if (r.error) { NC.toast("볼륨 삭제 실패 — " + r.error, "warn"); return; }
-      NC.toast("볼륨 삭제 완료 — " + vid + (r._mock ? " (데모)" : ""));
+      if (r.error) { NC.toast("볼륨 삭제 실패 — " + esc(r.error), "warn"); return; }
+      NC.toast("볼륨 삭제 완료 — " + esc(vid) + (r._mock ? " (데모)" : ""));
       renderStorage();
     });
   }
@@ -3090,8 +3090,8 @@
     if (!NC.api.apiKeyRevoke) return;
     NC.api.apiKeyRevoke(kid).then(function (r) {
       if (!r) return;
-      if (r.error) { NC.toast("키 회수 실패 — " + r.error, "warn"); return; }
-      NC.toast("API 키 회수 완료 — " + kid + (r._mock ? " (데모)" : ""));
+      if (r.error) { NC.toast("키 회수 실패 — " + esc(r.error), "warn"); return; }
+      NC.toast("API 키 회수 완료 — " + esc(kid) + (r._mock ? " (데모)" : ""));
       renderApiKeys();
     });
   }
@@ -3139,9 +3139,9 @@
     NC.api.memberUpdate(mid, { email: email, role: role }).then(function (m) {
       if (!m) { renderMembers(); return; }   // 403
       if (m.error) {
-        NC.toast("역할 변경 실패 — " + m.error, "warn"); renderMembers(); return;
+        NC.toast("역할 변경 실패 — " + esc(m.error), "warn"); renderMembers(); return;
       }
-      NC.toast("멤버 역할 변경 — " + email + " → " + role +
+      NC.toast("멤버 역할 변경 — " + esc(email) + " → " + esc(role) +
         (m._mock ? " (데모)" : ""));
       renderMembers();
     });
@@ -3155,8 +3155,8 @@
     }
     NC.api.memberRemove(mid).then(function (r) {
       if (!r) return;
-      if (r.error) { NC.toast("멤버 제거 실패 — " + r.error, "warn"); return; }
-      NC.toast("멤버 제거 완료 — " + email + (r._mock ? " (데모)" : ""));
+      if (r.error) { NC.toast("멤버 제거 실패 — " + esc(r.error), "warn"); return; }
+      NC.toast("멤버 제거 완료 — " + esc(email) + (r._mock ? " (데모)" : ""));
       renderMembers();
     });
   }
@@ -3185,17 +3185,17 @@
         return;
       }
       if (o.state === "delivered") {
-        NC.toast(o.id + " → delivered · GPU " +
-          (racks * 72).toLocaleString("en-US") + "개 할당 (" + bp + " " +
-          racks + "랙 · " + ((o.allocation_ids || [])[0] || "") + ")" +
-          (o.managed_k8s ? " · Managed K8s " + (o.k8s_version || "") +
-            " (" + (o.k8s_cluster_id || "설치 중") + ")" : ""));
+        NC.toast(esc(o.id) + " → delivered · GPU " +
+          (racks * 72).toLocaleString("en-US") + "개 할당 (" + esc(bp) + " " +
+          racks + "랙 · " + esc((o.allocation_ids || [])[0] || "") + ")" +
+          (o.managed_k8s ? " · Managed K8s " + esc(o.k8s_version || "") +
+            " (" + esc(o.k8s_cluster_id || "설치 중") + ")" : ""));
         afterOrderChange();
       } else if (o.state === "rejected" || o.state === "failed") {
-        NC.toast("주문 " + o.id + " " + o.state + " — " + orderErr(o), "warn");
+        NC.toast("주문 " + esc(o.id) + " " + esc(o.state) + " — " + orderErr(o), "warn");
       } else {
-        NC.toast("주문 " + o.id + " 상태: " + o.state +
-          (o.pending_stage ? " · 승인 대기(" + o.pending_stage + ")" : ""));
+        NC.toast("주문 " + esc(o.id) + " 상태: " + esc(o.state) +
+          (o.pending_stage ? " · 승인 대기(" + esc(o.pending_stage) + ")" : ""));
         afterOrderChange();
       }
     });
@@ -3215,13 +3215,13 @@
     }).then(function (o) {
       if (!o) { NC.toast("확장 실패 — Control-Plane 응답 없음", "warn"); return; }
       if (o.state === "delivered") {
-        NC.toast("확장 " + o.id + " → delivered · +" + n + "랙 (+" +
+        NC.toast("확장 " + esc(o.id) + " → delivered · +" + n + "랙 (+" +
           (n * 72).toLocaleString("en-US") + " GPU)");
         afterOrderChange();
       } else if (o.state === "rejected" || o.state === "failed") {
-        NC.toast("확장 " + o.id + " " + o.state + " — " + orderErr(o), "warn");
+        NC.toast("확장 " + esc(o.id) + " " + esc(o.state) + " — " + orderErr(o), "warn");
       } else {
-        NC.toast("확장 " + o.id + " 상태: " + o.state +
+        NC.toast("확장 " + esc(o.id) + " 상태: " + esc(o.state) +
           " — 재견적·Amendment 반영 후 Fulfillment 진행");
         afterOrderChange();
       }
@@ -3257,7 +3257,7 @@
       sel.innerHTML = list.length
         ? list.map(function (a) {
             return '<option value="' + esc(a.alloc) + '">' + esc(a.alloc) +
-              " — " + esc(a.order) + " · " + a.racks + "랙 전체 회수" +
+              " — " + esc(a.order) + " · " + esc(a.racks) + "랙 전체 회수" +
               "</option>";
           }).join("")
         : '<option value="">회수 가능한 allocation 없음</option>';
@@ -3284,9 +3284,9 @@
     NC.api.terminateOrder(curTenant.id, aid).then(function (o) {
       if (!o) { NC.toast("회수 실패 — Control-Plane 응답 없음", "warn"); return; }
       if (o.state === "rejected" || o.state === "failed") {
-        NC.toast("회수 " + o.id + " " + o.state + " — " + orderErr(o), "warn");
+        NC.toast("회수 " + esc(o.id) + " " + esc(o.state) + " — " + orderErr(o), "warn");
       } else {
-        NC.toast("회수 " + o.id + " → " + o.state + " · " + aid +
+        NC.toast("회수 " + esc(o.id) + " → " + esc(o.state) + " · " + esc(aid) +
           " — Sanitization 후 풀 반환·증명서 발급");
         afterOrderChange();
       }
@@ -3315,13 +3315,13 @@
     if (!NC.api.apiKeyCreate) { NC.toast(ACTION_TOAST.apikey); return; }
     NC.api.apiKeyCreate({ name: name, scope: scope }).then(function (k) {
       if (!k) return;                        // 403
-      if (k.error) { NC.toast("키 발급 실패 — " + k.error, "warn"); return; }
+      if (k.error) { NC.toast("키 발급 실패 — " + esc(k.error), "warn"); return; }
       showSecretOnce(k);                     // 시크릿 1회 노출 (복사)
       pushTokenLog({
         at: new Date().toISOString().slice(5, 16).replace("T", " "),
         client: k.key_id, name: name,
         token: k.prefix || "nc_sk", scope: scope });
-      NC.toast("API 키 발급 완료 — " + (k.key_id || "") + " (" +
+      NC.toast("API 키 발급 완료 — " + esc(k.key_id || "") + " (" +
         (API_SCOPE_LBL[scope] || scope) + ")" + (k._mock ? " · 데모" : "") +
         " · 시크릿은 지금 1회만 복사하세요");
       resetModalInputs("apikey");
@@ -3352,9 +3352,9 @@
       change_scope: meta.change_scope,
     }).then(function (t) {
       if (t && t.id) {
-        NC.toast("지원 티켓 " + t.id + " 접수 완료 — " +
+        NC.toast("지원 티켓 " + esc(t.id) + " 접수 완료 — " +
           (TKT_ROUTE_LBL[meta.routed_to] || "운영팀") + " 라우팅 (" +
-          (TKT_TYPE_LBL[meta.type] || meta.type) + " · " + severity + ")");
+          esc(TKT_TYPE_LBL[meta.type] || meta.type) + " · " + severity + ")");
         resetModalInputs("ticket");          // 모달·퀵폼 입력 초기화
         refreshTickets();
       } else {
@@ -3479,14 +3479,14 @@
           .then(function (h) {
             if (h && h.length) {
               updateMonCharts(scr, h);
-              NC.toast("차트 기간 " + label + " — emu 히스토리 " +
+              NC.toast("차트 기간 " + esc(label) + " — emu 히스토리 " +
                 h.length + "포인트 반영 (Control-Plane)");
-            } else NC.toast("기간 " + label +
+            } else NC.toast("기간 " + esc(label) +
               " 전환 — 표시할 히스토리가 없습니다", "warn");
           }).catch(function () {});
       });
     } else {
-      NC.toast("기간 " + label +
+      NC.toast("기간 " + esc(label) +
         " 전환 (데모 · PoC 미연동) — Control-Plane 연동 시 실데이터 리샘플");
     }
   }
@@ -3506,7 +3506,7 @@
     /* 명시적 데모 버튼 — data-demo="동작 설명" */
     var demo = e.target.closest("[data-demo]");
     if (demo) {
-      NC.toast(demo.dataset.demo + " (데모 · PoC 미연동)");
+      NC.toast(esc(demo.dataset.demo) + " (데모 · PoC 미연동)");
       return;
     }
     /* 클립보드 복사 — data-copy="텍스트" */
@@ -3551,7 +3551,7 @@
               NC.toast("워크로드 전환 실패 — Control-Plane 응답 없음", "warn");
               return;
             }
-            NC.toast("워크로드 프로파일 전환: " + (r.profile || wlProf) +
+            NC.toast("워크로드 프로파일 전환: " + esc(r.profile || wlProf) +
               " — emu 텔레메트리 패턴이 실제로 변경됩니다 (Control-Plane 실전환)");
             loadTenant().then(renderClusterCards);
           }).catch(function () {
@@ -3626,7 +3626,7 @@
     var san = e.target.closest(".san-pdf");
     if (san && !san.disabled) {
       var pdf = sanState ? sanState.pdf : "SAN-0691-cert.pdf";
-      NC.toast("Sanitization 증명서 " + pdf + " 다운로드를 시작합니다 (데모)");
+      NC.toast("Sanitization 증명서 " + esc(pdf) + " 다운로드를 시작합니다 (데모)");
     }
   });
 

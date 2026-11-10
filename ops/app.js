@@ -26,7 +26,9 @@
   };
   var fmt = function (n) { return Number(n || 0).toLocaleString("en-US"); };
   var esc = function (s) {
-    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
   };
   var setHtml = function (id, h) { var e = document.getElementById(id); if (e) e.innerHTML = h; };
   var setTxt = function (id, t) { var e = document.getElementById(id); if (e) e.textContent = t; };
@@ -241,7 +243,7 @@
           (ttl ? ' title="' + esc(ttl) + '"' : "") + ">" + txt + "</span>";
       }).join("");
       var note = row[2]
-        ? '<span style="color:var(--muted2);font-size:10px;padding-left:4px">' + row[2] + "</span>"
+        ? '<span style="color:var(--muted2);font-size:10px;padding-left:4px">' + esc(row[2]) + "</span>"
         : "";
       /* 셀 그리드 오른쪽 테넌트 칩 — 복수 테넌트면 각 랙수 병기 (색-이름 연결) */
       var tc = rowTenantCounts(tens);
@@ -255,7 +257,7 @@
           }).join("") + "</span>"
         : '<span class="rk-tenants"><span class="rk-unalloc">미할당</span></span>';
       return '<div class="rackrow"' + (primary ? ' data-su-tenant="' + esc(primary) + '"' : "") +
-        '><span class="lb">' + row[0] + '</span><span class="cells">' + cells + note + "</span>" +
+        '><span class="lb">' + esc(row[0]) + '</span><span class="cells">' + cells + note + "</span>" +
         rightHtml + "</div>";
     }).join("");
     if (ovHlTenant) ovHighlight(ovHlTenant);   // 폴링 재렌더 시 하이라이트 유지
@@ -595,14 +597,14 @@
       var firstOpen = incs.filter(function (i) { return i.state !== "resolved"; })[0];
       var incCell = kpiCell("열린 인시던트 (" + nm + ")", String(open),
         open ? "red" : "green",
-        kpiSub(open ? "P2 " + open + (firstOpen ? " · " + firstOpen.id : "")
+        kpiSub(open ? "P2 " + open + (firstOpen ? " · " + esc(firstOpen.id) : "")
                     : "해당 사이트 이상 없음"));
       var alCell = kpiCell("알림 (24h · " + nm + ")", String(alerts),
         alerts ? "amber" : "green", kpiSub("SU→사이트 매핑 필터"));
       if (site) {                            /* 라이브 — inventory/sites 실집계 */
         el.innerHTML =
           kpiCell("노드 (" + nm + ")", fmt((site.racks_total || 0) * 18), "",
-            kpiSub((site.name || nm) + " · " + fmt(site.racks_total || 0) + "랙")) +
+            kpiSub(esc(site.name || nm) + " · " + fmt(site.racks_total || 0) + "랙")) +
           kpiCell("GPU", fmt(site.gpus_total || 0), "",
             kpiSub("할당 " + fmt(site.gpus_allocated || 0) +
                    " · 판매 가능 " + fmt(site.gpus_sellable || 0))) +
@@ -624,7 +626,7 @@
       })[0] || { racks: 0 };
       el.innerHTML =
         kpiCell("노드 (" + nm + ")", fmt(c.racks * 18), "",
-          kpiSub(nm + " " + c.racks + "랙")) +
+          kpiSub(esc(nm) + " " + c.racks + "랙")) +
         kpiCell("GPU", fmt(c.racks * (NC.CONST.gpu_per_rack || 72)), "",
           kpiSub("랙당 " + (NC.CONST.gpu_per_rack || 72))) +
         kpiCell("판매 가능 용량", "—", "",
@@ -658,7 +660,7 @@
           var contr = sites.reduce(function (a, x) { return a + (x.contractable || 0); }, 0);
           var gbs = s.gpus_by_state || {};
           var gbsTxt = Object.keys(gbs).map(function (k) {
-            return k.replace(/_/g, "-") + " " + fmt(gbs[k]);
+            return esc(k.replace(/_/g, "-")) + " " + fmt(gbs[k]);
           }).join(" · ") || "상태 집계 없음";
           var tot = eq && eq.totals ? eq.totals : null;
           var unhealthy = tot && tot.unhealthy_equipment != null ? tot.unhealthy_equipment : null;
@@ -673,7 +675,8 @@
             kpiCell("전력 캡", (s.capped_mw != null ? Number(s.capped_mw).toFixed(1) : "—") +
               "<small> MW</small>", "", kpiSub("MaxQ 캡 운전 기준")) +
             kpiCell("열린 인시던트", String(open), open ? "red" : "green",
-              kpiSub(open ? "P2 " + open + (firstOpen ? " · " + firstOpen.id : "") : "전건 해결 · P1 0")) +
+              kpiSub(open ? "P2 " + open + (firstOpen ? " · " + esc(firstOpen.id) : "") : "전건 해결 · P1 0")) +
+
             kpiCell("장비 이상", unhealthy != null ? String(unhealthy) : "—",
               unhealthy ? "amber" : "green",
               kpiSub(breakfix != null ? "breakfix 노드 " + fmt(breakfix) : "equipment 집계 없음")) +
@@ -751,28 +754,28 @@
         ? '<span class="st green">인도 완료 — 테넌트 인도됨</span>' +
           (useK8s
             ? ' <button class="btn" onclick="location.hash=\'#/mk8s?v=clusters&cluster=' +
-              (p.k8s_cluster_id || p.tenant || "") + '\'">☸ Managed K8S 클러스터 →</button>'
+              esc(encodeURIComponent(p.k8s_cluster_id || p.tenant || "")) + '\'">☸ Managed K8S 클러스터 →</button>'
             : "")
         : p.state === "approval_pending"
           ? (pendStage
-              ? '<button class="btn" data-act="approve">게이트 승인 — ' + pendStage + "</button>"
+              ? '<button class="btn" data-act="approve">게이트 승인 — ' + esc(pendStage) + "</button>"
               : '<button class="btn" data-open="approve">예약 승인</button>') +
             '<button class="btn-danger" data-open="reject">거절</button>'
           : rejected
             ? '<span class="st red">거절됨 — P_Key · 예약 자원 해제</span>'
-            : '<span class="st green">' + (p.gate || "") + "</span>";
+            : '<span class="st green">' + esc(p.gate || "") + "</span>";
       var chips = "";
-      if (pendStage) chips += '<span class="st blue">다음 단계: ' + pendStage + "</span>";
+      if (pendStage) chips += '<span class="st blue">다음 단계: ' + esc(pendStage) + "</span>";
       if (p.state === "approval_pending" && p.queue != null)
-        chips += '<span class="st amber">대기 ' + Math.max(p.queue, 1) + "건</span>";
+        chips += '<span class="st amber">대기 ' + esc(Math.max(p.queue, 1)) + "건</span>";
       var head =
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
         '<span class="dot ' + (rejected ? "red" :
           delivered || p.state === "provisioning" ? "green" : "amber") + '"></span>' +
-        '<b class="mono" style="font-size:12px;color:#fff">' + p.id + "</b>" +
-        '<span style="font-size:12.5px">' + (p.tenant || "—") + " · VR NVL72 × <b>" +
-        p.racks + "랙</b> " +
-        '<span style="color:var(--muted)">(' + nodes + "노드 · " + place + ")</span></span>" +
+        '<b class="mono" style="font-size:12px;color:#fff">' + esc(p.id) + "</b>" +
+        '<span style="font-size:12.5px">' + esc(p.tenant || "—") + " · VR NVL72 × <b>" +
+        esc(p.racks) + "랙</b> " +
+        '<span style="color:var(--muted)">(' + nodes + "노드 · " + esc(place) + ")</span></span>" +
         chips +
         '<span style="margin-left:auto;display:flex;gap:8px">' + actions + "</span></div>";
       var steps = '<div style="overflow-x:auto;margin-top:14px"><div class="steps">' +
@@ -787,14 +790,14 @@
         '<div style="color:var(--muted);font-size:11.5px;margin-top:8px;' +
         'border-top:1px dashed var(--line);padding-top:8px">' +
         (NC.live
-          ? "nocp 승인 게이트 — 1회 승인 = 1단계 전진 · P_Key " + (p.pkey_reserved || "—") +
-            " · 접수 " + (p.requested_at || "—") +
+          ? "nocp 승인 게이트 — 1회 승인 = 1단계 전진 · P_Key " + esc(p.pkey_reserved || "—") +
+            " · 접수 " + esc(p.requested_at || "—") +
             (delivered ? " · 전체 게이트 통과 (인도 완료)"
               : pendStage ? " · 잔여 게이트 " +
                 (STEPS.length - Math.max(STAGES.indexOf(pendStage), 0)) + "단계" +
                 (pendStage === "k8s_installing" ? " (다음: K8s 설치)" : "")
               : "")
-          : "M4 배치 OK — DPU 모드 dpu_zero_trust · P_Key " + (p.pkey_reserved || "—") +
+          : "M4 배치 OK — DPU 모드 dpu_zero_trust · P_Key " + esc(p.pkey_reserved || "—") +
             " 예약 · 스토리지 자동 (랙당 500TB·40GB/s) · 승인 시 " + nodes + "노드 자동 진행") +
         "</div>";
       card.innerHTML = head + steps + meta;
@@ -841,7 +844,7 @@
       var pct = total ? Math.round(alloc / total * 100) : 0;
       var locked = s.racks_locked_by_isolation;
       return "<tr>" +
-        td("<b>" + (s.name || s.site || "—") + "</b> (" + fmt(total) + "랙)") +
+        td("<b>" + esc(s.name || s.site || "—") + "</b> (" + fmt(total) + "랙)") +
         td('<span class="pb"><span style="width:' + pct + '%"></span></span> ' + pct + "%") +
         td(s.racks_sellable != null
           ? '<span style="color:var(--green-text);font-weight:700">' + fmt(s.racks_sellable) + "랙</span>" +
@@ -880,26 +883,26 @@
         if (tb) {
           var provState = p.state === "approval_pending"
             ? '<span class="st amber">예약 — 승인 대기' +
-              (p.pending_stage ? " (" + p.pending_stage + ")" : "") + "</span>"
+              (p.pending_stage ? " (" + esc(p.pending_stage) + ")" : "") + "</span>"
             : provDelivered(p)
               ? '<span class="st green">인도 완료</span>'
               : p.state === "provisioning"
                 ? '<span class="st green">승인 완료 — 배포 중</span>'
                 : p.state === "rejected"
                   ? '<span class="st red">거절 — 자원 해제</span>'
-                  : muted(p.state || "—");
+                  : muted(esc(p.state || "—"));
           var place = /^su-\d/.test(p.su || "")
             ? "안산 " + p.su + " (M4 best-fit)" : (p.su || "—");
           tb.innerHTML =
-            "<tr>" + td("<b>" + (p.tenant || "—") + "</b> " + p.id) + td(p.racks, "num") +
-            td('<span class="id">' + place + "</span>") +
+            "<tr>" + td("<b>" + esc(p.tenant || "—") + "</b> " + esc(p.id)) + td(esc(p.racks), "num") +
+            td('<span class="id">' + esc(place) + "</span>") +
             td(provState) + td(muted("07-15")) + "</tr>" +
-            "<tr>" + td("<b>" + d.id + "</b> (파이프라인 " + d.prob + "%)") + td(d.racks, "num") +
-            td('<span class="id">안산 ' + d.hold.sus.join("·") + " (가배치)</span>") +
-            td('<span class="st blue">소프트 홀드 D-' + d.hold.expires_d + "</span>") +
+            "<tr>" + td("<b>" + esc(d.id) + "</b> (파이프라인 " + esc(d.prob) + "%)") + td(esc(d.racks), "num") +
+            td('<span class="id">안산 ' + esc(d.hold.sus.join("·")) + " (가배치)</span>") +
+            td('<span class="st blue">소프트 홀드 D-' + esc(d.hold.expires_d) + "</span>") +
             td(muted("09-01")) + "</tr>" +
             "<tr>" + td("<b>RFQ-031</b> 공공 (60%)") + td(32, "num") +
-            td('<span class="id">' + exp.sus.join("·") + " (증설 조건부)</span>") +
+            td('<span class="id">' + esc(exp.sus.join("·")) + " (증설 조건부)</span>") +
             td(muted("견적 응답 중")) + td(muted("'27 Q2")) + "</tr>";
         }
         var sim = $("#cap-sim");
@@ -914,21 +917,21 @@
             var pct = Math.max(0, Math.round(left / 104 * 100));
             var bar = left <= 8 ? "var(--fault)" : left < 40 ? "var(--amber-dim)" : "var(--ready)";
             var col = left <= 8 ? "var(--red)" : left < 40 ? "var(--amber)" : "var(--green-text)";
-            return '<div class="simrow"><span class="lb">' + s[0] +
+            return '<div class="simrow"><span class="lb">' + esc(s[0]) +
               '</span><span class="bar"><span style="width:' + pct + "%;background:" + bar +
               '"></span></span><span class="val" style="color:' + col + '">' + left + "랙</span></div>";
           }).join("");
           var note = $("#cap-sim-note");
           if (note) note.innerHTML = "RFQ-031 수주 시 잔여 <b>" + left +
-            "랙</b> — 안전 버퍼 미달 · " + exp.sus.join("·") + " (" + exp.racks +
-            "랙) 발주를 D-" + exp.order_d + " 내 확정해야 Q2 '27 개통 가능 (리드타임 " +
-            exp.leadtime_w + "주) · 대안: 가산 12랙 분산 배치";
+            "랙</b> — 안전 버퍼 미달 · " + esc(exp.sus.join("·")) + " (" + esc(exp.racks) +
+            "랙) 발주를 D-" + esc(exp.order_d) + " 내 확정해야 Q2 '27 개통 가능 (리드타임 " +
+            esc(exp.leadtime_w) + "주) · 대안: 가산 12랙 분산 배치";
           var scn = $("#cap-sim-scn");
           if (scn) scn.textContent = "시나리오: " + (p.tenant || "gamma") + " " + p.racks +
             " + delta " + d.racks + " + RFQ-031 32랙 ▾";
         }
         var lead = $("#kpi-lead");
-        if (lead) lead.innerHTML = exp.leadtime_w + "<small>주</small>";
+        if (lead) lead.innerHTML = esc(exp.leadtime_w) + "<small>주</small>";
         var leadS = $("#kpi-lead-s");
         if (leadS) leadS.textContent = exp.sus.join("·") + " 발주 D-" + exp.order_d;
       });
@@ -949,9 +952,9 @@
     if (NC.live && fabData) { renderFabricLive(); return; }   // 라이브: 실토폴로지 우선
     var resvName = prov && prov.tenant ? prov.tenant : "gamma";
     var resvCap = prov && (prov.state === "provisioning" || provDelivered(prov))
-      ? "<b>" + resvName + " 배포 중</b>" :
+      ? "<b>" + esc(resvName) + " 배포 중</b>" :
       prov && prov.state === "rejected" ? '<span style="color:var(--muted2)">풀 (해제)</span>' :
-      "<b>" + resvName + " 예약</b>";
+      "<b>" + esc(resvName) + " 예약</b>";
     g.innerHTML = FAB.map(function (f) {
       var cls = f[1];
       if (f[0] === "su-8" && prov && prov.state === "rejected") cls = "pool";
@@ -977,13 +980,13 @@
       ? i.timeline[i.timeline.length - 1][0] : "—";
     return '<div class="acard' + (resolved ? " ok" : "") + '"><div class="hd">' +
       '<b class="mono" style="font-size:11px;color:' +
-      (resolved ? "var(--muted)" : "#fff") + '">' + i.id + "</b>" +
+      (resolved ? "var(--muted)" : "#fff") + '">' + esc(i.id) + "</b>" +
       '<span class="sv" style="color:var(--' + (resolved ? "green-text" : "red") + ')">' +
-      (i.sev || "—") + (resolved ? " · 해결" : " · 진행 중") + "</span>" +
-      '<span style="font-size:12px;color:var(--soft)">' + (i.target || "—") + " " +
-      (i.kind || "") + '</span><span class="tm">' + last + "</span></div>" +
-      '<div class="meta">테넌트 ' + (i.tenant || "—") + " · 티켓 " + (i.ticket || "—") +
-      " · RMA " + (i.rma || "—") + " · 정비 창 " + (i.window || "—") + "</div></div>";
+      esc(i.sev || "—") + (resolved ? " · 해결" : " · 진행 중") + "</span>" +
+      '<span style="font-size:12px;color:var(--soft)">' + esc(i.target || "—") + " " +
+      esc(i.kind || "") + '</span><span class="tm">' + esc(last) + "</span></div>" +
+      '<div class="meta">테넌트 ' + esc(i.tenant || "—") + " · 티켓 " + esc(i.ticket || "—") +
+      " · RMA " + esc(i.rma || "—") + " · 정비 창 " + esc(i.window || "—") + "</div></div>";
   }
 
   function renderIncidents() {
@@ -998,15 +1001,15 @@
           ? (list.map(liveIncCard).join("") ||
              '<div style="color:var(--muted);font-size:12px">인시던트 없음</div>')
           : '<div class="acard' + (resolved ? " ok" : "") + '"><div class="hd">' +
-            '<b class="mono" style="font-size:11px;color:#fff">' + inc.id + "</b>" +
+            '<b class="mono" style="font-size:11px;color:#fff">' + esc(inc.id) + "</b>" +
             '<span class="sv" style="color:var(--' + (resolved ? "green-text" : "red") + ')">' +
-            inc.sev + (resolved ? " · 해결" : " · 진행 중") + "</span>" +
-            '<span style="font-size:12px;color:var(--soft)">' + inc.target + " " + inc.kind +
+            esc(inc.sev) + (resolved ? " · 해결" : " · 진행 중") + "</span>" +
+            '<span style="font-size:12px;color:var(--soft)">' + esc(inc.target) + " " + esc(inc.kind) +
             '</span><span class="tm">' + (resolved ? "07-09 · RCA 초안" : "4h 22m · oncall-kim") +
             "</span></div>" +
-            '<div class="meta">고객 영향 ' + (inc.tenant || "—") + " &lt;0.1% · " +
-            (inc.ticket || "—") + " 연계 · " + (inc.rma || "—") + " · 정비 창 " +
-            (inc.window || "—") + "</div></div>" +
+            '<div class="meta">고객 영향 ' + esc(inc.tenant || "—") + " &lt;0.1% · " +
+            esc(inc.ticket || "—") + " 연계 · " + esc(inc.rma || "—") + " · 정비 창 " +
+            esc(inc.window || "—") + "</div></div>" +
             '<div class="acard ok"><div class="hd"><b class="mono" style="font-size:11px;color:var(--muted)">INC-0409</b>' +
             '<span class="sv" style="color:var(--green-text)">해결 · RCA 게시</span>' +
             '<span style="font-size:12px;color:var(--soft)">su-6-r01-t09 XID 31 — 자동 복구</span>' +
@@ -1020,13 +1023,13 @@
       if (tt) tt.textContent = inc.id + " 타임라인 · RCA";
       var tl = $("#inc-timeline");
       if (tl) tl.innerHTML = (inc.timeline || []).map(function (row) {
-        return '<div><span class="ts">' + (row[0] || "—") + "</span> " + (row[1] || "") + "</div>";
+        return '<div><span class="ts">' + esc(row[0] || "—") + "</span> " + esc(row[1] || "") + "</div>";
       }).join("") || '<div style="color:var(--muted)">타임라인 이벤트 없음</div>';
       var acts = $("#inc-actions");
       if (acts) acts.innerHTML = resolved
         ? '<span class="st green">해결 완료' +
           (inc.ticket && inc.ticket !== "—"
-            ? " — " + inc.ticket + " 답변 발송 · RCA 초안 게시" : " — RCA 초안 게시") + "</span>"
+            ? " — " + esc(inc.ticket) + " 답변 발송 · RCA 초안 게시" : " — RCA 초안 게시") + "</span>"
         : '<button class="btn" data-open="resolve">해결 처리</button>' +
           '<button class="btn-warn" data-open="rma">RMA 발행</button>' +
           '<button class="btn-cancel" style="padding:6px 12px;font-size:11.5px" data-open="warroom">에스컬레이션</button>';
@@ -1045,9 +1048,9 @@
   function renderIncidentKpis() {
     apiOr("faultMetrics").then(function (f) {
       if (!f) return;
-      setHtml("kpi-mtta", (f.mtta_s != null ? f.mtta_s : "—") + "<small>s</small>");
+      setHtml("kpi-mtta", esc(f.mtta_s != null ? f.mtta_s : "—") + "<small>s</small>");
       setTxt("kpi-mtta-s", "NVSentinel 자동 대응 · 실측");
-      setHtml("kpi-mttr", (f.mttr_s != null ? f.mttr_s : "—") + "<small>s</small>");
+      setHtml("kpi-mttr", esc(f.mttr_s != null ? f.mttr_s : "—") + "<small>s</small>");
       setTxt("kpi-mttr-s", "HW 교체 제외 · 실측");
       var tot = (f.faults_open || 0) + (f.faults_resolved || 0);
       setHtml("kpi-inc30", fmt(tot));
@@ -1065,19 +1068,20 @@
       var done = s.step_now;
       var status = s.cert_ready
         ? '<span class="st green">완료 ' + done + "/" + total + " — 증명서 발급 가능</span>"
-        : '<span class="st blue">진행 ' + done + "/" + total + " — " + s.steps[done] + "</span>";
+        : '<span class="st blue">진행 ' + esc(done) + "/" + total + " — " + esc(s.steps[done]) + "</span>";
       var segs = s.steps.map(function (_, i) {
         return '<span class="' + (i < done ? "d" : i === done ? "c" : "") + '"></span>';
       }).join("");
       var btns = s.cert_ready
-        ? '<button class="btn" data-act="san-cert">증명서 발급 (' + s.pdf + ")</button>"
-        : '<button class="btn-ghost" data-act="san-advance">단계 진행 — ' + s.steps[done] + "</button>" +
+        ? '<button class="btn" data-act="san-cert">증명서 발급 (' + esc(s.pdf) + ")</button>"
+        : '<button class="btn-ghost" data-act="san-advance">단계 진행 — ' + esc(s.steps[done]) + "</button>" +
           '<button class="btn" disabled>증명서 발급</button>';
       card.innerHTML =
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
         '<span class="dot ' + (s.cert_ready ? "green" : "amber") + '"></span>' +
-        '<b class="mono" style="font-size:11px;color:#fff">' + s.id + "</b>" +
-        '<span style="font-size:12px">' + s.tenant + " 회수분 · " + s.racks + "랙</span>" + status +
+        '<b class="mono" style="font-size:11px;color:#fff">' + esc(s.id) + "</b>" +
+        '<span style="font-size:12px">' + esc(s.tenant) + " 회수분 · " + esc(s.racks) + "랙</span>" + status +
+
         '<span style="margin-left:auto;color:var(--muted);font-size:10.5px">' +
         (s.cert_ready ? "PASS " + total + "/" + total : "ETA " + (total - done) * 11 + "분") +
         "</span></div>" +
@@ -1149,8 +1153,8 @@
         return ['<span class="st gray" title="트레이 전원 Off (twin · Redfish) — in-band 텔레메트리 없음">전원 Off (트레이)</span>', "off"];
       }
       return ['<span class="st amber" title="랙 부분 Off (twin) — 트레이 ' +
-        (rk.trays_off || 0) + "/" + (rk.trays_total || 18) + ' Off">partial (' +
-        (rk.trays_off || 0) + "/" + (rk.trays_total || 18) + " Off)</span>", "partial"];
+        esc(rk.trays_off || 0) + "/" + esc(rk.trays_total || 18) + ' Off">partial (' +
+        esc(rk.trays_off || 0) + "/" + esc(rk.trays_total || 18) + " Off)</span>", "partial"];
     }
     if (ps === "off") {
       return ['<span class="st gray" title="랙 전원 Off (twin) — 소속 랙 상태 상속">전원 Off</span>', "off"];
@@ -1281,7 +1285,7 @@
     }
     var by = (sum && sum.by_state) || {};
     var byTxt = Object.keys(by).map(function (k) {
-      return k.replace(/_/g, "-") + " " + fmt(by[k]);
+      return esc(k.replace(/_/g, "-")) + " " + fmt(by[k]);
     }).join(" · ") || "—";
     var cord = assetsCache.filter(function (h) { return h.cordoned; }).length;
     var fwBad = assetsCache.filter(function (h) { return h.firmware_ok === false; }).length;
@@ -1348,12 +1352,12 @@
         '<table class="kv tabnum">' +
         "<tr><td>SKU / MAC (S/N)</td><td class='id'>" + esc(h.sku || "—") + " · " + esc(h.mac || "—") + "</td></tr>" +
         "<tr><td>GPU</td><td>" + (h.gpus || []).length + "× " +
-          (g0 ? esc(g0.arch) + " " + g0.hbm_gb + "GB " + esc(g0.hbm_type || "") + " (die " + g0.dies + ")" : "—") + "</td></tr>" +
+          (g0 ? esc(g0.arch) + " " + esc(g0.hbm_gb) + "GB " + esc(g0.hbm_type || "") + " (die " + esc(g0.dies) + ")" : "—") + "</td></tr>" +
         "<tr><td>CPU</td><td>" + (h.cpus || []).length + "× " +
-          (c0 ? esc(c0.arch) + " " + c0.cores + "코어 · " + c0.mem_tb + "TB" : "—") + "</td></tr>" +
+          (c0 ? esc(c0.arch) + " " + esc(c0.cores) + "코어 · " + esc(c0.mem_tb) + "TB" : "—") + "</td></tr>" +
         "<tr><td>DPU / SuperNIC</td><td class='id'>" +
-          (h.dpu ? esc(h.dpu.sku) + " " + h.dpu.bw_gbps + "G (" + esc(h.dpu.mode) + ")" : "—") +
-          " · ConnectX ×" + (h.connectx_supernics != null ? h.connectx_supernics : "—") + "</td></tr>" +
+          (h.dpu ? esc(h.dpu.sku) + " " + esc(h.dpu.bw_gbps) + "G (" + esc(h.dpu.mode) + ")" : "—") +
+          " · ConnectX ×" + esc(h.connectx_supernics != null ? h.connectx_supernics : "—") + "</td></tr>" +
         "<tr><td>펌웨어</td><td class='id'>BIOS " + esc(fw.bios || "—") + " · BMC " + esc(fw.bmc || "—") +
           " · CPLD " + esc(fw.cpld || "—") + "<br>DPU BFB " + esc(fw.dpu_bfb || "—") +
           " · GPU VBIOS " + esc(fw.gpu_vbios || "—") + "</td></tr>" +
@@ -1401,7 +1405,7 @@
         ? "<b>" + tids.map(function (id) { return esc((tmap[id] || {}).name || id); }).join("·") + "</b>"
         : '<span style="color:var(--muted2)">풀</span>';
       return '<div class="fab-su ' + (tids.length ? "fin" : "pool") + '">' +
-        '<div class="fab-leaf">leaf ×' + (su.leaves_per_network || "?") + " · rail " + (su.rails || 8) + "</div>" +
+        '<div class="fab-leaf">leaf ×' + esc(su.leaves_per_network || "?") + " · rail " + esc(su.rails || 8) + "</div>" +
         '<div class="fab-cells">' + cells + "</div>" +
         '<div class="cap">' + esc(su.su_id) + " " + cap + " (" + racks.length + "랙)</div></div>";
     }).join("");
@@ -1417,11 +1421,11 @@
         return (t.site || "") === sName;
       }).map(function (t) {
         return '<span style="color:var(--leaf-green)">■ ' + esc(t.name) + " (" + esc(t.pkey) +
-          " · " + t.racks + "랙)</span>";
+          " · " + esc(t.racks) + "랙)</span>";
       }).join("") +
         '<span style="color:var(--muted2)">■ 미할당 풀</span>' +
         '<span style="margin-left:auto">' + esc(s.ib_tier || "") + " · UFM HA ×" +
-        (s.ufm_ha_sets != null ? s.ufm_ha_sets : "—") + " · 셀 = 랙 4개 묶음</span>";
+        esc(s.ufm_ha_sets != null ? s.ufm_ha_sets : "—") + " · 셀 = 랙 4개 묶음</span>";
     }
   }
 
@@ -1509,7 +1513,7 @@
         var maxP = rk && rk.tdp_kw ? rk.tdp_kw : 227;
         var allocRacks = (inv.totals && inv.totals.racks_allocated) || 0;
         setHtml("pw-kpi-rack", (allocRacks ? fmt(Math.round(usedKw / allocRacks)) : "—") +
-          "<small> / " + maxQ + " kW</small>");
+          "<small> / " + esc(maxQ) + " kW</small>");
         setTxt("pw-kpi-rack-s", "MaxQ 캡 " + maxQ + "kW · MaxP(TDP) " + maxP + "kW — vr-nvl72 블루프린트");
         /* 사이트 표 — 사용 전력은 GPU 할당 비례 배분(추정) */
         var head = $("#pw-sites-head"), body = $("#pw-sites-body");
@@ -1531,7 +1535,7 @@
               td(fmt(s.gpus_allocated || 0) + " / " + fmt(s.gpus_total || 0), "num") + "</tr>";
             rows += (s.floors || []).map(function (fl) {
               return '<tr><td style="color:var(--muted2);padding-left:22px">└ ' + esc(fl.name || "—") +
-                "</td>" + td('<span style="color:var(--muted2)">캡 ' + (fl.power_mw != null ? fl.power_mw : "—") +
+                "</td>" + td('<span style="color:var(--muted2)">캡 ' + esc(fl.power_mw != null ? fl.power_mw : "—") +
                 "MW</span>") + td(muted("가동 " + esc(fl.ready || "—")), "num") +
                 td(muted("—"), "num") + "</tr>";
             }).join("");
@@ -1567,7 +1571,7 @@
           chip.style.display = "";
           chip.innerHTML = '<span class="dot green"></span><b>EMU</b> ' +
             '<span style="color:var(--muted)">step ' + fmt(st.step || 0) + " · tick " +
-            (st.tick_seconds != null ? st.tick_seconds : "—") + "s · active " +
+            esc(st.tick_seconds != null ? st.tick_seconds : "—") + "s · active " +
             fmt(st.trays_active || 0) + "/" + fmt(st.trays_total || 0) + " 트레이</span>";
         }
       }
@@ -1596,7 +1600,7 @@
           '<span style="color:var(--muted2);margin-left:auto">EMU 최근 ' + hist.length + "틱</span>");
       }
       if (f) {
-        setHtml("perf-sla", (f.availability_pct != null ? f.availability_pct : "—") + "<small>%</small>");
+        setHtml("perf-sla", esc(f.availability_pct != null ? f.availability_pct : "—") + "<small>%</small>");
         setTxt("perf-sla-s", "GPU 가용성 실측 · 열린 장애 " + fmt(f.faults_open || 0) + "건");
         var open = (f.recent || []).filter(function (x) { return x.state !== "resolved"; });
         var pv = $("#perf-strag");
@@ -1614,11 +1618,11 @@
               '<b class="mono" style="font-size:11px;color:' + (res ? "var(--muted)" : "#fff") + '">' +
               esc(x.tray_id || "—") + "</b>" +
               '<span class="sv" style="color:var(--' + (res ? "green-text" : "red") + ')">XID ' +
-              (x.xid != null ? x.xid : "?") + (res ? " · 해결" : " · 진행 중") + "</span>" +
-              '<span style="font-size:12px;color:var(--soft)">GPU' + (x.gpu != null ? x.gpu : "?") +
+              esc(x.xid != null ? x.xid : "?") + (res ? " · 해결" : " · 진행 중") + "</span>" +
+              '<span style="font-size:12px;color:var(--soft)">GPU' + esc(x.gpu != null ? x.gpu : "?") +
               " · " + esc(x.tenant_id || "—") + "</span>" +
               '<span class="tm">' + esc((x.started_at || "").slice(5, 16)) +
-              (res ? " · TTR " + (x.ttr_s != null ? x.ttr_s : "?") + "s" : "") + "</span></div>" +
+              (res ? " · TTR " + esc(x.ttr_s != null ? x.ttr_s : "?") + "s" : "") + "</span></div>" +
               '<div class="meta">' + esc(x.action || "") + "</div></div>";
           }).join("") || '<div style="color:var(--muted);font-size:12px">장애 이벤트 없음 — 전 노드 정상</div>';
         }
@@ -2246,12 +2250,12 @@
     if (p == null) return muted("—");
     var col = p >= 80 ? "var(--green)" : p >= 40 ? "#5a8f0e" : p > 0 ? "var(--amber-dim)" : "var(--track)";
     return '<span class="ubar"><i><b style="width:' + Math.max(2, Math.min(100, p)) +
-      '%;background:' + col + '"></b></i><em>' + p + "%</em></span>";
+      '%;background:' + col + '"></b></i><em>' + esc(p) + "%</em></span>";
   }
   function obsTempCell(t) {
     if (t == null || !t) return muted("—");
     var col = t >= 85 ? "var(--red)" : t >= 78 ? "var(--amber)" : "var(--soft)";
-    return '<span class="tchip" style="color:' + col + '">' + t + "°C</span>";
+    return '<span class="tchip" style="color:' + col + '">' + esc(t) + "°C</span>";
   }
   function obsStateChip(st) {
     return st === "faulted" ? '<span class="st red">faulted</span>'
@@ -2262,7 +2266,7 @@
   }
   function obsGpuLoc(x) {
     return '<span class="id" style="color:#fff">' + esc(x.tray_id || (x.rack_id || "—")) +
-      " · g" + (x.idx != null ? x.idx : "?") + "</span>" +
+      " · g" + esc(x.idx != null ? x.idx : "?") + "</span>" +
       '<div style="color:var(--muted2);font-size:9.5px">' + esc(x.gpu_uuid) + " · " +
       esc(x.site || "—") + " " + esc(x.su_id || "") + "</div>";
   }
@@ -2278,7 +2282,7 @@
       td(obsTempCell(x.temp_c), "num") +
       td(x.power_w != null ? fmt(x.power_w) + "W" : "—", "num") +
       td(x.sm_clock_mhz != null ? fmt(x.sm_clock_mhz) : "—", "num") +
-      td((x.ecc_uncorr || 0) + " / " + (x.ecc_corr || 0), "num") +
+      td(esc(x.ecc_uncorr || 0) + " / " + esc(x.ecc_corr || 0), "num") +
       td(obsHealthSt(x.health)) + "</tr>";
   }
 
@@ -2385,8 +2389,8 @@
       '<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:10px;color:var(--muted);margin-bottom:10px">' +
         '<span><span class="leg" style="background:var(--green)"></span> active ' + fmt(g.active || 0) + "</span>" +
         '<span><span class="leg" style="background:var(--ready)"></span> idle ' + fmt(g.idle || 0) + "</span>" +
-        '<span><span class="leg" style="background:var(--amber)"></span> throttled ' + (g.throttled || 0) + " <em style=\"font-style:normal;color:var(--muted2)\">(확대 표시)</em></span>" +
-        '<span><span class="leg" style="background:var(--red)"></span> faulted ' + (g.faulted || 0) + "</span></div>" +
+        '<span><span class="leg" style="background:var(--amber)"></span> throttled ' + esc(g.throttled || 0) + " <em style=\"font-style:normal;color:var(--muted2)\">(확대 표시)</em></span>" +
+        '<span><span class="leg" style="background:var(--red)"></span> faulted ' + esc(g.faulted || 0) + "</span></div>" +
       '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em">' + uLbl + '</div>' +
       '<div class="hist">' + ub.map(function (n) {
         return '<i style="height:' + Math.max(4, n / um * 100) + '%"></i>';
@@ -2444,7 +2448,7 @@
         td(obsUtilCell(x.util_pct)) +
         td(obsTempCell(x.temp_c), "num") +
         td(x.power_w != null ? fmt(x.power_w) + "W" : "—", "num") +
-        td((x.ecc_uncorr || 0) + " / " + (x.ecc_corr || 0), "num") +
+        td(esc(x.ecc_uncorr || 0) + " / " + esc(x.ecc_corr || 0), "num") +
         td('<span class="id" style="color:var(--muted)">' + esc(x.tenant_id || "—") + "</span>") +
         td('<span style="color:var(--muted2);font-size:10.5px">' + advice + "</span>") + "</tr>";
     }).join("") || '<tr><td colspan="8" style="color:var(--green-text)">예외 없음 — 전 GPU 정상 범위</td></tr>');
@@ -2479,7 +2483,7 @@
           : "") +
         '<table class="kv tabnum">' +
         "<tr><td>위치</td><td class='id'>" + esc(g.site || "—") + " · " + esc(g.su_id || "—") +
-          " · " + esc(g.tray_id || "—") + " · idx " + (g.idx != null ? g.idx : "—") + "</td></tr>" +
+          " · " + esc(g.tray_id || "—") + " · idx " + esc(g.idx != null ? g.idx : "—") + "</td></tr>" +
         "<tr><td>테넌트 / health</td><td>" + esc(g.tenant_id || "—") + " · " + obsHealthSt(g.health) + "</td></tr>" +
         "<tr><td>util / SM util</td><td>" + obsN1(g.util_pct) + "% · " + obsN1(g.sm_util_pct) + "%</td></tr>" +
         "<tr><td>메모리 (HBM4)</td><td>" + obsNum(g.mem_used_gb) + " / " + obsNum(g.mem_total_gb) + " GB</td></tr>" +
@@ -2490,7 +2494,7 @@
           '<span style="color:var(--green-text)">없음</span>') + "</td></tr>" +
         "<tr><td>ECC corr / uncorr</td><td>" + obsNum(g.ecc_corr) + " · <span style='color:" +
           ((g.ecc_uncorr || 0) ? "var(--red)" : "inherit") + "'>" + obsNum(g.ecc_uncorr) + "</span></td></tr>" +
-        "<tr><td>XID (최근)</td><td>" + ((g.xid_recent || []).join(", ") ||
+        "<tr><td>XID (최근)</td><td>" + ((g.xid_recent || []).map(esc).join(", ") ||
           '<span style="color:var(--green-text)">없음</span>') + "</td></tr>" +
         "<tr><td>NVLink tx/rx · PCIe</td><td>" + obsNum(g.nvlink_tx_gbps) + " / " +
           obsNum(g.nvlink_rx_gbps) + " Gbps · replay " + obsNum(g.pcie_replay) + "</td></tr>" +
@@ -2669,7 +2673,7 @@
         ids.forEach(function (id) { delete obsRackLocal[id]; });
         delete obsCacheMap["/racks"];
         delete obsCacheMap["/summary"];
-        NC.toast(tgt + " " + OBS_CTL_LBL[action] + pLbl + " — " +
+        NC.toast(esc(tgt) + " " + OBS_CTL_LBL[action] + esc(pLbl) + " — " +
           (rid ? (r.applied === false ? "미적용 (twin 거부)" : "적용 완료")
                : fmt(r.applied != null ? r.applied : ids.length - failed.length) + "/" +
                  fmt(r.matched != null ? r.matched : ids.length) + " 적용" +
@@ -2677,7 +2681,7 @@
           " (twin 반영 · 데모)", kind);
       } else {
         obsCtlApplyLocal(ids, action, params);
-        NC.toast(tgt + " " + OBS_CTL_LBL[action] + pLbl + " — " + fmt(ids.length) +
+        NC.toast(esc(tgt) + " " + OBS_CTL_LBL[action] + esc(pLbl) + " — " + fmt(ids.length) +
           "랙 로컬 반영 (twin 미연동 · 로컬 데모)", "warn");
       }
       renderObsRack();
@@ -3022,7 +3026,7 @@
       delete obsCacheMap["/dlc/cdus"];
       delete obsCacheMap["/dlc/cdus/" + encodeURIComponent(id)];
       delete obsCacheMap["/summary"];
-      NC.toast((isRec ? id + " recover — 정상 상태 복귀" : id + " " + kind + " 주입") +
+      NC.toast((isRec ? esc(id) + " recover — 정상 상태 복귀" : esc(id) + " " + esc(kind) + " 주입") +
         " · 데모 시나리오" + (live ? " (twin 반영)" : " (mock — twin 미연동)"),
         isRec ? undefined : "warn");
       renderObsDlc();
@@ -3138,7 +3142,7 @@
         kpiSub(anN + "랙 · 평균 " + (anN ? Math.round(an / anN) : 0) + "kW/랙")) +
       kpiCell("최고 랙", maxR ? fmt(Math.round(maxR.p)) + "<small> kW</small>" : "—",
         maxR && maxR.p >= 170 ? "amber" : "",
-        kpiSub(maxR ? maxR.id + " · MaxQ 캡 187kW" : "—")) +
+        kpiSub(maxR ? esc(maxR.id) + " · MaxQ 캡 187kW" : "—")) +
       kpiCell("할당 랙 평균", allocN ? Math.round(allocSum / allocN) + "<small> kW</small>" : "—", "",
         kpiSub("할당 " + allocN + "랙 기준")) +
       kpiCell("냉각 헤드룸 합", fmt(Math.round(head)) + "<small> kW</small>", "green",
@@ -3240,7 +3244,7 @@
         kpiSub("unhealthy 포트 " + fmt((health.unhealthy_ports || []).length))) +
       kpiCell("P_Key", fmt(tenantPk.length), "",
         kpiSub(tenantPk.map(function (p) {
-          return String(p.tenant_id || "").replace(/^tnt-/, "");
+          return esc(String(p.tenant_id || "").replace(/^tnt-/, ""));
         }).join(" · ") || "실 테넌트 없음")) +
       kpiCell("패브릭 스코어", obsN1(health.score),
         health.score != null && health.score < 90 ? "amber" : "green",
@@ -3473,7 +3477,7 @@
   function obsSwFaultRow(kind, target) {
     function b(cls, act, lbl) {
       return '<button class="' + cls + ' obs-rcb" data-obs-swfault="' + act +
-        '" data-swkind="' + kind + '" data-target="' + esc(target) +
+        '" data-swkind="' + esc(kind) + '" data-target="' + esc(target) +
         '" data-key="' + esc(kind + ":" + target + ":" + act) + '">' + lbl + "</button>";
     }
     var btns = kind === "ufm"
@@ -3497,8 +3501,8 @@
     obsPost(base + (isRec ? "recover" : "inject"),
       isRec ? { target: target } : { kind: action, target: target }).then(function (r) {
       var live = r != null;
-      NC.toast((isRec ? target + " recover — 정상 상태 복귀"
-          : target + " " + action + " (" + (OBS_SWF_LBL[action] || action) + ") 주입") +
+      NC.toast((isRec ? esc(target) + " recover — 정상 상태 복귀"
+          : esc(target) + " " + esc(action) + " (" + esc(OBS_SWF_LBL[action] || action) + ") 주입") +
         " · 데모 시나리오" +
         (live ? " (" + (kind === "netq" ? "NetQ" : "UFM") + " twin 반영)"
               : " (mock — twin 미연동 · 실주입 없음)"),
@@ -3576,7 +3580,7 @@
         var c = p.counters || {};
         var isBad = obsFtPortBad(p.state);
         return '<tr style="' + (isBad ? "background:rgba(240,163,176,.06)" : "") + '">' +
-          td('<span class="id" style="color:#fff">p' + obsPad2(p.number || 0) + "</span>" +
+          td('<span class="id" style="color:#fff">p' + esc(obsPad2(p.number || 0)) + "</span>" +
             '<div style="color:var(--muted2);font-size:9.5px">' + esc(p.speed || "—") + "</div>") +
           td(obsFtPortSt(p.state)) +
           td('<span class="id" style="color:var(--muted)">' + esc(p.peer || "—") + "</span>") +
@@ -4103,11 +4107,11 @@
       .then(function (r) {
         var live = r != null && !(r && r.detail === "Not Found");
         if (live) {
-          NC.toast(tid + " " + obsToOpLbl(op) + " 시작 — 테넌트 워크로드 중단 · 데모 (twin 반영)", "warn");
+          NC.toast(esc(tid) + " " + obsToOpLbl(op) + " 시작 — 테넌트 워크로드 중단 · 데모 (twin 반영)", "warn");
         } else {
           obsToMockInflight.push({ tray_id: tid, op: op,
             tenant_id: obsToMockTenant(tid), t0: Date.now() });
-          NC.toast(tid + " " + obsToOpLbl(op) + " 시작 — 데모 (twin 미연동 · mock 로컬 진행)", "warn");
+          NC.toast(esc(tid) + " " + obsToOpLbl(op) + " 시작 — 데모 (twin 미연동 · mock 로컬 진행)", "warn");
         }
         renderObsTrayOps();
       });
@@ -4408,7 +4412,7 @@
       NC.api.approveProvision().then(function (res) {
         NC.closeModal("approve");
         res = res || {};
-        if (res.ok === false) { NC.toast(res.msg || "승인 대기 주문 없음", "warn"); return; }
+        if (res.ok === false) { NC.toast(esc(res.msg || "승인 대기 주문 없음"), "warn"); return; }
         if ("next" in res || res.state) {       // 라이브 게이트 결과 {ok,id,next,state}
           if (prov && prov.id === res.id) {     // 결과.next로 카드·스텝 즉시 갱신
             prov.pending_stage = res.next || null;
@@ -4422,8 +4426,8 @@
             renderProvisioning();
           }
           NC.toast(res.state === "delivered"
-            ? res.id + " 인도 완료 — 전체 게이트 통과 (클러스터 인도)"
-            : res.id + " 게이트 승인 — 다음 단계: " + (res.next || res.state));
+            ? esc(res.id) + " 인도 완료 — 전체 게이트 통과 (클러스터 인도)"
+            : esc(res.id) + " 게이트 승인 — 다음 단계: " + esc(res.next || res.state));
         } else {                                // mock: ord-9 단일 승인
           NC.toast("ord-9 승인 완료 — 베어메탈 배포 중 (" +
             (prov ? prov.racks * 18 : 144) + "노드 자동 진행)");
@@ -4435,8 +4439,8 @@
       var reason = ($("#reject-reason") || {}).value || "";
       NC.api.rejectProvision(reason).then(function (res) {
         NC.closeModal("reject");
-        if (res && res.ok === false) { NC.toast(res.msg || "승인 대기 주문 없음", "warn"); return; }
-        NC.toast(((res && res.id) || (prov && prov.id) || "ord-9") +
+        if (res && res.ok === false) { NC.toast(esc(res.msg || "승인 대기 주문 없음"), "warn"); return; }
+        NC.toast(esc((res && res.id) || (prov && prov.id) || "ord-9") +
           " 거절 확정 — 예약 자원(P_Key·소프트 홀드) 해제", "warn");
         renderProvisioning(); renderCapacity();
       });
@@ -4445,15 +4449,15 @@
       var iid = openInc ? openInc.id : "INC-0412";
       NC.api.resolveIncident(iid).then(function () {
         NC.closeModal("resolve");
-        NC.toast(iid + " 해결 처리 — " +
+        NC.toast(esc(iid) + " 해결 처리 — " +
           (openInc && openInc.ticket && openInc.ticket !== "—"
-            ? openInc.ticket + " 동시 해결 · " : "") + "RCA 초안 게시");
+            ? esc(openInc.ticket) + " 동시 해결 · " : "") + "RCA 초안 게시");
         renderIncidents(); renderOverviewKpi();
       });
     } else if (act === "san-advance") {         // SAN-0691 단계 진행
       NC.api.advanceSanitization().then(function (s) {
         if (s.cert_ready) NC.toast("SAN-0691 전 단계 완료 (7/7) — 증명서 발급 가능");
-        else NC.toast("SAN-0691 단계 완료 — 진행 " + s.step_now + "/" + s.steps.length);
+        else NC.toast("SAN-0691 단계 완료 — 진행 " + esc(s.step_now) + "/" + s.steps.length);
         renderSecurity();
       });
     } else if (act === "san-cert") {            // 증명서 발급 (7/7 도달 시)
@@ -4491,7 +4495,7 @@
         apiOr("equipmentSet", "tray", rmaTarget, "maintenance").then(function (r) {
           NC.closeModal("rma");
           if (!r) { NC.toast("장비 전환 실패 — nocp 응답 없음", "warn"); return; }
-          NC.toast("RMA 발행 — " + rmaTarget + " → maintenance 전환 (실장비) · 반출 전 Sanitization 자동", "warn");
+          NC.toast("RMA 발행 — " + esc(rmaTarget) + " → maintenance 전환 (실장비) · 반출 전 Sanitization 자동", "warn");
           rmaTarget = null;
           renderAssets(); renderChange(); renderOverviewKpi();
         });
@@ -4514,8 +4518,8 @@
       if (NC.live && mtId) {
         apiOr("equipmentSet", mtKind, mtId, mtState).then(function (r) {
           NC.closeModal("maintenance");
-          if (!r) { NC.toast("장비 전환 실패 — 종류·ID 확인 (" + mtKind + " " + mtId + ")", "warn"); return; }
-          NC.toast(mtKind + " " + mtId + " → " + (r.state || mtState) + " 전환 완료 (실장비" +
+          if (!r) { NC.toast("장비 전환 실패 — 종류·ID 확인 (" + esc(mtKind) + " " + esc(mtId) + ")", "warn"); return; }
+          NC.toast(esc(mtKind) + " " + esc(mtId) + " → " + esc(r.state || mtState) + " 전환 완료 (실장비" +
             (mtState === "ready" && r.state === "allocated" ? " · 할당 원복" : "") + ")",
             mtState === "maintenance" ? "warn" : undefined);
           renderChange(); renderAssets(); renderOverviewKpi();
@@ -4528,7 +4532,7 @@
     } else if (act === "equip-restore") {       // 정비 대상 목록 → 복구
       apiOr("equipmentSet", el.dataset.kind || "tray", el.dataset.id, "ready").then(function (r) {
         if (!r) { NC.toast("복구 실패 — nocp 응답 없음", "warn"); return; }
-        NC.toast((el.dataset.id || "") + " → " + (r.state || "ready") + " 복구 완료 (실장비)");
+        NC.toast(esc(el.dataset.id || "") + " → " + esc(r.state || "ready") + " 복구 완료 (실장비)");
         renderChange(); renderAssets(); renderOverviewKpi();
       });
     } else if (act === "pam-open") {            // PAM 세션 실 생성
@@ -4537,14 +4541,14 @@
       apiOr("pamOpen", { operator: "oncall-kim", target: pTgt, reason: pRsn }).then(function (r) {
         NC.closeModal("pam_new");
         if (!r) { NC.toast("PAM 세션 생성 (데모) — nocp 미기동 시뮬레이션", "warn"); return; }
-        NC.toast(r.id + " 세션 열림 — " + pTgt + " · TTL " +
+        NC.toast(esc(r.id) + " 세션 열림 — " + esc(pTgt) + " · TTL " +
           Math.round((r.ttl_s || 900) / 60) + "분 · 녹화 시작", "warn");
         apiOr("pamSessions").then(function (p) { if (p) renderPamList(p); });
       });
     } else if (act === "pam-close") {           // PAM 세션 실 종료
       apiOr("pamClose", el.dataset.id).then(function (r) {
         if (!r) { NC.toast("세션 종료 실패 — nocp 응답 없음", "warn"); return; }
-        NC.toast(el.dataset.id + " 세션 종료 — 녹화 봉인 · 감사 로그 기록");
+        NC.toast(esc(el.dataset.id) + " 세션 종료 — 녹화 봉인 · 감사 로그 기록");
         apiOr("pamSessions").then(function (p) { if (p) renderPamList(p); });
       });
     } else if (act === "iso-recheck") {         // 격리 재검증
@@ -4574,8 +4578,8 @@
         var ti = $("#incnew-title");
         if (ti) ti.value = "";
         if (res) {
-          NC.toast(res.tk.id + " 실 티켓 생성 — " + (res.tenant.name || res.tenant.id) +
-            " · " + sevP + "→" + (res.tk.severity || "") + " (nocp)");
+          NC.toast(esc(res.tk.id) + " 실 티켓 생성 — " + esc(res.tenant.name || res.tenant.id) +
+            " · " + esc(sevP) + "→" + esc(res.tk.severity || "") + " (nocp)");
           renderIncidents();
         } else {
           NC.toast("인시던트 생성 (데모) — 온콜 자동 배정 · 알림 룰 연동", "warn");
@@ -4589,7 +4593,7 @@
         reason: "워룸 소집" }).then(function (r) {
         NC.closeModal("warroom");
         if (!r) { NC.toast(el.dataset.msg || "워룸 참여 (데모)", "warn"); return; }
-        NC.toast(r.id + " 워룸 세션 개설 — warroom:" + wid + " · TTL " +
+        NC.toast(esc(r.id) + " 워룸 세션 개설 — warroom:" + esc(wid) + " · TTL " +
           Math.round((r.ttl_s || 900) / 60) + "분 (PAM 녹화 · 감사 기록)", "warn");
         apiOr("pamSessions").then(function (p) { if (p) renderPamList(p); });
       });
@@ -4616,7 +4620,7 @@
             apiOr("equipmentSet", "tray", cand.tray_id, "maintenance").then(function (r) {
               NC.closeModal("cab");
               if (!r) { NC.toast("즉시 적용 실패 — nocp 응답 없음 (데모 접수)", "warn"); return; }
-              NC.toast("CAB-88 승인 + 즉시 적용 — " + cand.tray_id +
+              NC.toast("CAB-88 승인 + 즉시 적용 — " + esc(cand.tray_id) +
                 " → maintenance 실전환 (변경 창 07-21 유지)", "warn");
               renderChange(); renderAssets(); renderOverviewKpi();
             });

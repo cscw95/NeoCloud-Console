@@ -38,8 +38,8 @@
     return "$" + Math.round(v || 0).toLocaleString("en-US");
   };
   var esc = function (s) {
-    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   };
 
@@ -91,7 +91,7 @@
       if (v) el.textContent = v;
     });
     var ds = $("#dash-sum");                      // 대시보드 하단 요약 문구
-    if (ds) ds.innerHTML = '표시 기준: <b class="soft">' + period +
+    if (ds) ds.innerHTML = '표시 기준: <b class="soft">' + esc(period) +
       "</b> — 금액 컬럼은 " + p.col + " 환산" +
       (usageMonthly != null
         ? ' · 실사용 과금 ' + p.col + ' 예상 <b class="soft">' +
@@ -146,7 +146,7 @@
       if (hold) hold.innerHTML = won
         ? '안산 su-9·10 — <span class="st green">소프트 홀드 → 확정 배치 전환</span> (운영 콘솔 연동)'
         : '안산 su-9·10 가배치 — <span class="st amber">용량 소프트 홀드 D-' +
-          d.hold.expires_d + "</span> (운영 콘솔 연동)";
+          esc(d.hold.expires_d) + "</span> (운영 콘솔 연동)";
       var next = $("#delta-next");
       if (next) next.innerHTML = won
         ? '수주 확정 — 계약 CT-2026-007 등록 · 개통 요청(ord) 발행 → <b class="soft">운영 승인 게이트</b> 대기'
@@ -229,7 +229,7 @@
           "<b>" + esc(d.name) + "</b>" +
           (d.state === "won" ? ' <span class="st green">수주</span>' : "") +
           '<div class="s"' + (d.id === "delta-corp" ? ' id="delta-card-sub"' : "") +
-          ">" + d.racks + "랙 · 확률 " + d.prob + "% · " + esc(nextAction(d)) +
+          ">" + esc(d.racks) + "랙 · 확률 " + esc(d.prob) + "% · " + esc(nextAction(d)) +
           "</div>" +
           '<div class="pbar"><i style="width:' + pct + '%"></i></div>' +
           '<div class="mut2" style="font-size:10px;margin-top:3px">진행 ' + pct +
@@ -291,17 +291,17 @@
           NC.bus.emit("deal.converted",
             { id: d.id, order: res.order.id, tenant: res.tenant.id });
           renderBoard(); renderLeads(); renderDealModal();
-          NC.toast(d.name + " 계약 전환 — 테넌트 " + res.tenant.id + " · 주문 " +
-            res.order.id + " (" + d.racks + "랙) 생성 · " +
+          NC.toast(esc(d.name) + " 계약 전환 — 테넌트 " + esc(res.tenant.id) + " · 주문 " +
+            esc(res.order.id) + " (" + esc(d.racks) + "랙) 생성 · " +
             '<b class="soft">운영 콘솔 승인 후 개통</b> (대기: ' +
-            (res.order.pending_stage || "validated") + ")");
+            esc(res.order.pending_stage || "validated") + ")");
           return res;
         });
     }
     markWon(d);                        // 폴백: 세션 로컬 수주 (계약 미생성)
     NC.bus.emit("deal.converted", { id: d.id });
     renderBoard(); renderLeads(); renderDealModal();
-    NC.toast(d.name + " 수주 전환 — 세션 로컬 처리 (Control-Plane 미기동 · " +
+    NC.toast(esc(d.name) + " 수주 전환 — 세션 로컬 처리 (Control-Plane 미기동 · " +
       "계약 미생성 · 재기동 후 운영 승인 게이트로 개통)", "warn");
     return Promise.resolve(null);
   }
@@ -349,17 +349,17 @@
       '<div class="mut2" style="font-size:10.5px;margin:4px 0 12px">전체 진행률 ' +
         pct + "% — 5스테이지 × 3세부 단계 기준</div>" +
       '<table class="kv2"><tbody>' +
-      "<tr><td>고객 / 조건</td><td><b>" + esc(d.name) + "</b> — " + d.racks +
+      "<tr><td>고객 / 조건</td><td><b>" + esc(d.name) + "</b> — " + esc(d.racks) +
         "랙 · " + esc(d.term) + (d.sub ? ' · <span class="mut">' + esc(d.sub) +
         "</span>" : "") + "</td></tr>" +
       '<tr><td>예상 ARR</td><td class="id">' + fmtM(d.arr) + " · 성사 확률 " +
-        d.prob + "%</td></tr>" +
+        esc(d.prob) + "%</td></tr>" +
       "<tr><td>담당</td><td>" + esc(d.owner) + "</td></tr>" +
       '<tr><td>다음 액션</td><td class="soft">' + esc(nextAction(d)) +
         "</td></tr></tbody></table>" +
       (d.stage === STAGES.length - 1 && d.state !== "won"
         ? '<div class="callout" style="margin-top:10px">계약 전환 확정 시 ' +
-          "Control-Plane 에 <b class=\"soft\">테넌트 + " + d.racks +
+          "Control-Plane 에 <b class=\"soft\">테넌트 + " + esc(d.racks) +
           '랙 주문(approval_mode)</b>이 생성되며, <b class="soft">운영 콘솔 승인 후 ' +
           "개통</b>됩니다 (승인 전 상태: received · 대기: validated)</div>"
         : d.state === "won"
@@ -395,9 +395,9 @@
   }
   function ctTerm(c) {
     if (c.renewal_d != null) return '<span class="st amber">' +
-      (CT_TERM[c.id] || "") + " · D-" + c.renewal_d + "</span>";
+      esc(CT_TERM[c.id] || "") + " · D-" + esc(c.renewal_d) + "</span>";
     if (NC.live)                        // 라이브: renewal_d null — note(개통 중 등) 표시
-      return '<span class="mut">' + (c.note || "—") + "</span>";
+      return '<span class="mut">' + esc(c.note || "—") + "</span>";
     return '<span class="mut">' + (CT_TERM[c.id] || "—") + "</span>";
   }
   function ctState(c) {
@@ -410,8 +410,8 @@
         if (provisionEvt.state === "delivered") {
           label = "개통 완료"; tone = "green";
         } else {
-          label = provisionEvt.id + " 승인 진행 — 다음: " +
-            (provisionEvt.pending || "—");
+          label = esc(provisionEvt.id) + " 승인 진행 — 다음: " +
+            esc(provisionEvt.pending || "—");
         }
       } else if (!NC.live && c.tenant === "gamma-labs") {
         label = provisionApproved ? "개통 중 — 승인 완료 · 배포" : "개통 중 (ord-9)";
@@ -420,19 +420,19 @@
       }
       return '<span class="st ' + tone + '">' + label + "</span>";
     }
-    return '<span class="st gray">' + (c.state || "—") + "</span>";
+    return '<span class="st gray">' + esc(c.state || "—") + "</span>";
   }
   function renderContracts() {
     return NC.api.contracts().then(function (list) {
       var six = "", five = "", sum = 0;
       list.forEach(function (c) {
         sum += c.mrr_usd || 0;
-        var name = "<td><b>" + c.tenant + "</b>" +
+        var name = "<td><b>" + esc(c.tenant) + "</b>" +
           (c.k8s ? ' <span class="st blue" style="font-size:9.5px" title="Managed K8s ' +
             esc(c.k8s_version || "") + '">K8s</span>' : "") +
-          ' <span class="mut2" style="font-size:10px">' + (c.kind || "") + "</span></td>";
-        var base = '<td class="num">' + (c.racks || 0) + '랙</td>' +
-          '<td class="num id js-scale" data-usd="' + (c.mrr_usd || 0) + '">' +
+          ' <span class="mut2" style="font-size:10px">' + esc(c.kind || "") + "</span></td>";
+        var base = '<td class="num">' + esc(c.racks || 0) + '랙</td>' +
+          '<td class="num id js-scale" data-usd="' + esc(c.mrr_usd || 0) + '">' +
           fmtM((c.mrr_usd || 0) * PERIODS[period].mult) + "</td>";
         var tail = "<td>" + ctTerm(c) + "</td><td>" + ctState(c) + "</td>";
         six += "<tr>" + name + base +
@@ -514,7 +514,7 @@
         "건 · " + (res[1] ? "billing/usage 라이브 합산" : "mock 데이터 (사용량 없음)"));
       return rows;
     }).catch(function (e) {
-      NC.toast("리포트 생성 실패 — " + ((e && e.message) || "다시 시도"), "warn");
+      NC.toast("리포트 생성 실패 — " + esc((e && e.message) || "다시 시도"), "warn");
     });
   }
 
@@ -544,7 +544,7 @@
     var mo = racks * rate * 720;
     var calc = $("#q-calc");
     if (calc) calc.innerHTML = "월 " + fmtM(mo) + " · 연 " + fmtM(mo * 12) +
-      ' <span class="mut2" style="font-size:10px">(' + racks + "랙 × $" + rate +
+      ' <span class="mut2" style="font-size:10px">(' + racks + "랙 × $" + esc(rate) +
       "/rack-h × 720h)</span>";
     var lbl = $("#q-rate");
     if (lbl) lbl.textContent = quoteRate
@@ -609,9 +609,9 @@
           esc(l.tenant_id || "—") + "</b>" +
           (l.active === false ? ' <span class="st gray">종료</span>' : "") +
           '</td><td class="mut">' + esc(l.blueprint_key || "—") +
-          '</td><td class="num">' + (l.racks || 0) + "랙" +
+          '</td><td class="num">' + esc(l.racks || 0) + "랙" +
           '</td><td class="num">' + (l.rack_hours || 0).toFixed(1) +
-          '</td><td class="num">$' + (l.rate_usd || 0) +
+          '</td><td class="num">$' + esc(l.rate_usd || 0) +
           '</td><td class="num id">' + fmtUsd(l.amount_usd) +
           '</td><td class="num id">' + fmtM(l.projected_monthly_usd || 0) +
           "</td></tr>";
@@ -643,7 +643,7 @@
       if (Array.isArray(r.rates)) {
         r.rates.forEach(function (x, i) {
           rows += "<tr><td><b>" + esc(x.sku || x.blueprint_key || "rate-" + i) +
-            '</b></td><td class="num id">$' + (x.usd_per_rack_hour || x.rate || 0) +
+            '</b></td><td class="num id">$' + esc(x.usd_per_rack_hour || x.rate || 0) +
             ' /rack-h</td><td class="num mut">' + (i === 0 ? "기준가" : "—") +
             "</td></tr>";
         });
@@ -652,7 +652,7 @@
           var main = k === "vr-nvl72";
           rows += "<tr><td><b>" + esc(k) + "</b>" +
             (main ? ' <span class="st green">주력</span>' : "") +
-            '</td><td class="num id">$' + r.rates[k] + " /" + esc(unit) +
+            '</td><td class="num id">$' + esc(r.rates[k]) + " /" + esc(unit) +
             '</td><td class="num mut">' + (main ? "On-demand 기준가" : "—") +
             "</td></tr>";
         });
@@ -676,8 +676,8 @@
       if (o) o.textContent = "D-" + x.order_d;
       var c = $("#exp-callout");
       if (c) c.innerHTML = "Q1 '27 수요가 공급의 <b class=\"amber\">86%</b> — " +
-        '파트너 리드타임 <b class="soft">' + x.leadtime_w + "주</b> 기준 " +
-        '<b class="soft">10월 초 ' + su + " 발주 확정</b> 필요 · 공급 파트너 " + x.partner;
+        '파트너 리드타임 <b class="soft">' + esc(x.leadtime_w) + "주</b> 기준 " +
+        '<b class="soft">10월 초 ' + esc(su) + " 발주 확정</b> 필요 · 공급 파트너 " + esc(x.partner);
     });
   }
 
@@ -689,10 +689,10 @@
         icon.textContent = s.cert_ready ? "✓" : "…";
         icon.className = "st " + (s.cert_ready ? "green" : "amber");
       }
-      if (line) line.innerHTML = "Sanitization 증명 (" + s.id + ") — 7단계 소거 " +
-        s.step_now + "/" + s.steps.length +
+      if (line) line.innerHTML = "Sanitization 증명 (" + esc(s.id) + ") — 7단계 소거 " +
+        esc(s.step_now) + "/" + esc(s.steps.length) +
         (s.cert_ready
-          ? ' · <b class="soft">증명서 발급 완료 (' + s.pdf + ")</b>"
+          ? ' · <b class="soft">증명서 발급 완료 (' + esc(s.pdf) + ")</b>"
           : " · 증명서 대기 (운영 콘솔 진행)");
       // CSAP 제출자료 진척(증명서 완료 시 +1) → 사이드바 배지에 미완 건수 반영
       var done = 7 + (s.cert_ready ? 1 : 0);
@@ -742,9 +742,9 @@
       var chip = done
         ? '<span class="fr st green">응답 완료</span>'
         : '<span class="fr st ' + (r.deadline_d <= 3 ? "amber" : "blue") +
-          '">응답 D-' + r.deadline_d + "</span>";
+          '">응답 D-' + esc(r.deadline_d) + "</span>";
       var meta = r.racks
-        ? r.racks + "랙 · " + esc(r.term) + " · 예상 TCV " + rfqTcv(r)
+        ? esc(r.racks) + "랙 · " + esc(r.term) + " · 예상 TCV " + rfqTcv(r)
         : esc(r.term);
       var body = done ? "" :
         '<div class="sub">' + esc(r.note || "") + "</div>" +
@@ -800,9 +800,9 @@
     return NC.api.expansion().then(function (x) {
       var su = x.sus.join("·").replace(/·su-/g, "·");
       var el = $("#partner-lead");
-      if (el) el.innerHTML = '증설 <b class="soft">' + esc(su) + " (" + x.racks +
-        '랙 · VR)</b> — 발주 결정 <b class="amber">D-' + x.order_d +
-        '</b> · 파트너 리드타임 <b class="soft">' + x.leadtime_w +
+      if (el) el.innerHTML = '증설 <b class="soft">' + esc(su) + " (" + esc(x.racks) +
+        '랙 · VR)</b> — 발주 결정 <b class="amber">D-' + esc(x.order_d) +
+        '</b> · 파트너 리드타임 <b class="soft">' + esc(x.leadtime_w) +
         "주</b> 기준 10월 초 발주 확정 필요 · 공급 파트너 " + esc(x.partner);
       var lt = $("#partner-lt-rack");
       if (lt) lt.textContent = x.leadtime_w + "주";
@@ -880,28 +880,28 @@
         racks: 8, mult: 0.85, term: "reserved 1y", deadline_d: 5,
         status: "pending", note: "자동 접수 — 요건 확인 대기" });
       renderRfqInbox();
-      NC.toast(nid + " 접수 등록 — 응답 대기 (세션 로컬 · CRM 미연동)");
+      NC.toast(esc(nid) + " 접수 등록 — 응답 대기 (세션 로컬 · CRM 미연동)");
     } else if (a === "rfq-calc") {
       r = byId(rfqList, id); if (!r) return;
       var rk = $("#rfq-racks"), tm = $("#rfq-term");
       if (rk) rk.value = r.racks || 32;
       if (tm) tm.value = String(r.mult);
       renderRfqCalc();
-      NC.toast(r.id + " 자동산정 로드 — " + (r.racks || 0) + "랙 · " + r.term);
+      NC.toast(esc(r.id) + " 자동산정 로드 — " + esc(r.racks || 0) + "랙 · " + esc(r.term));
     } else if (a === "rfq-respond") {
       r = byId(rfqList, id); if (!r) return;
       var q = $("#q-racks"); if (q && r.racks) q.value = r.racks;
       NC.openModal("quote");
-      NC.toast(r.id + " 견적 응답 — " + (r.racks || 0) +
+      NC.toast(esc(r.id) + " 견적 응답 — " + esc(r.racks || 0) +
         "랙 견적서 편집 (발송 시 응답 완료 처리)");
     } else if (a === "rfq-done") {
       r = byId(rfqList, id); if (!r) return;
       r.status = "responded"; r.deadline_d = 0;
       renderRfqInbox();
-      NC.toast(r.id + " 응답 완료 처리 — 접수함 갱신");
+      NC.toast(esc(r.id) + " 응답 완료 처리 — 접수함 갱신");
     } else if (a === "rfq-calc-run") {
       renderRfqCalc();
-      NC.toast("견적 자동산정 완료 — " + ($("#rfq-compute") || {}).textContent +
+      NC.toast("견적 자동산정 완료 — " + esc(($("#rfq-compute") || {}).textContent) +
         " (단가 " + (rfqRate ? "Control-Plane 라이브" : "정적 v2.4") + ")");
     } else if (a === "mkt-sort") {
       mktSortAsc = !mktSortAsc;
@@ -927,22 +927,22 @@
       if (chanRows[i]) {
         chanRows[i].status = "검증 완료";
         renderChannel();
-        NC.toast(chanRows[i].partner + " 채널 리드 검증 완료 (P2 · mock)");
+        NC.toast(esc(chanRows[i].partner) + " 채널 리드 검증 완료 (P2 · mock)");
       }
     } else if (a === "deal-quote") {             // 딜 상세 → 견적 재발행 연계
       var dq = byId(DEALS, curDealId); if (!dq) return;
       var qr = $("#q-racks"); if (qr) qr.value = dq.racks || 24;
       NC.closeModal("deal");
       NC.openModal("quote");
-      NC.toast(dq.name + " 견적 재발행 — " + dq.racks + "랙 프리필");
+      NC.toast(esc(dq.name) + " 견적 재발행 — " + esc(dq.racks) + "랙 프리필");
     } else if (a === "deal-convert") {           // 딜 상세 → 계약 전환
       var dv = byId(DEALS, curDealId); if (!dv) return;
       if (dv.state === "won") {
-        NC.toast("이미 수주 전환된 딜입니다 — " + dv.name); return;
+        NC.toast("이미 수주 전환된 딜입니다 — " + esc(dv.name)); return;
       }
       if (dv.stage < STAGES.length - 1) {        // 계약 스테이지 가드 (모달 유지)
         NC.toast("계약 전환은 '계약 전환' 스테이지에서만 가능합니다 — 현재: " +
-          STAGES[dv.stage] + " (스텝퍼에서 이동 후 재시도)", "warn");
+          esc(STAGES[dv.stage]) + " (스텝퍼에서 이동 후 재시도)", "warn");
         return;
       }
       if (dv.id === "delta-corp") {              // 라이브 딜 — convert 모달 연계
@@ -952,7 +952,7 @@
       }
       el.disabled = true;                        // 그 외 딜 — 실제 테넌트+랙 주문 생성
       convertLocalDeal(dv).catch(function (err) {
-        NC.toast("계약 전환 실패 — " + ((err && err.message) || "다시 시도해 주세요"),
+        NC.toast("계약 전환 실패 — " + esc((err && err.message) || "다시 시도해 주세요"),
           "warn");
       }).then(function () { el.disabled = false; });
     } else if (a === "deal-lost") {              // 실주 — 사유 필수
@@ -967,7 +967,7 @@
       DEALS.splice(DEALS.indexOf(dl), 1);
       NC.closeModal("deal");
       renderBoard(); renderLeads();
-      NC.toast(dl.name + " 실주 처리 — 사유: " + esc(reason) +
+      NC.toast(esc(dl.name) + " 실주 처리 — 사유: " + esc(reason) +
         " (세션 로컬 · 보드에서 제외)", "warn");
     } else {
       NC.toast("요청이 접수되었습니다 (데모 · PoC 미연동)");
@@ -978,7 +978,7 @@
   function bindClicks() {
     document.addEventListener("click", function (e) {
       var demo = e.target.closest("[data-demo]");
-      if (demo) { NC.toast(demo.dataset.demo + " (데모 · PoC 미연동)"); return; }
+      if (demo) { NC.toast(esc(demo.dataset.demo) + " (데모 · PoC 미연동)"); return; }
       var act = e.target.closest("[data-act]");
       if (act) { onAct(act); return; }
       var rf = e.target.closest("[data-rfqf]");
@@ -996,10 +996,10 @@
         if (sd) {
           var si = parseInt(stg.dataset.dstage, 10);
           if (si === sd.stage) {
-            NC.toast("현재 스테이지 — " + STAGES[si]);
+            NC.toast("현재 스테이지 — " + esc(STAGES[si]));
           } else {
             sd.stage = si;                             // 앞/뒤 모두 이동 가능
-            NC.toast(sd.name + " 스테이지 이동 — " + STAGES[si] + " (세션 로컬)");
+            NC.toast(esc(sd.name) + " 스테이지 이동 — " + esc(STAGES[si]) + " (세션 로컬)");
           }
           renderDealModal(); renderBoard(); renderLeads();
         }
@@ -1053,16 +1053,16 @@
       NC.api.convertDeal("delta-corp", k8sOpts).then(function (res) {
         NC.closeModal("convert");
         if (res && res.order)                      // 라이브: {ok,order,tenant,state,pending}
-          NC.toast("delta-corp 전환 — " + res.order + " 생성 · 운영 승인 대기(" +
-            (res.pending || "—") + ")" +
-            (k8sOn ? " · Managed K8s " + k8sOpts.k8s_version : ""));
+          NC.toast("delta-corp 전환 — " + esc(res.order) + " 생성 · 운영 승인 대기(" +
+            esc(res.pending || "—") + ")" +
+            (k8sOn ? " · Managed K8s " + esc(k8sOpts.k8s_version) : ""));
         else                                       // mock 폴백: 기존 시나리오 문구
           NC.toast("delta-corp 수주 전환 — 계약 CT-2026-007 등록 · 개통 요청(ord) 발행 → 운영 승인 게이트");
         syncDeal();
         renderContracts();                         // 라이브면 실 테넌트 delta-corp 행 등장
       }).catch(function (e) {
         cv.disabled = false;                       // 실패 시에만 재시도 허용
-        NC.toast("계약 전환 실패 — " + ((e && e.message) || "다시 시도해 주세요"), "warn");
+        NC.toast("계약 전환 실패 — " + esc((e && e.message) || "다시 시도해 주세요"), "warn");
       });
     });
 
@@ -1103,7 +1103,7 @@
       var mo = racks * rate * 720;
       NC.closeModal("quote");
       NC.toast("견적서 생성 — delta-corp v3 · " + racks + "랙 · 월 " + fmtM(mo) +
-        " · 연 " + fmtM(mo * 12) + " (단가 $" + rate + "/rack-h " +
+        " · 연 " + fmtM(mo * 12) + " (단가 $" + esc(rate) + "/rack-h " +
         (quoteRate ? "Control-Plane 라이브" : "정적 v2.4") + " · 유효 30일)");
     });
 
@@ -1141,8 +1141,8 @@
       if (NC.live && data && data.id) {            // 라이브 페이로드 {id,pending,state}
         provisionEvt = data;
         NC.toast(data.state === "delivered"
-          ? data.id + " 개통 완료 — 베어메탈 인도"
-          : data.id + " 승인 진행 — 다음: " + (data.pending || "—"));
+          ? esc(data.id) + " 개통 완료 — 베어메탈 인도"
+          : esc(data.id) + " 승인 진행 — 다음: " + esc(data.pending || "—"));
       } else {                                     // mock: ord-9 시나리오 유지
         NC.toast("gamma-labs ord-9 승인 완료 — 베어메탈 배포 시작 (운영 콘솔 연동)");
       }
