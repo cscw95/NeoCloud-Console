@@ -300,6 +300,15 @@ section[data-screen="mk8s"]{margin:0}
       <a class="mi" href="#/dsx-rma" data-route="dsx-rma"><span class="dot"></span>RMA · 펌웨어</a>
       <a class="mi" href="#/dsx-metering" data-route="dsx-metering"><span class="dot"></span>미터링 · 격리</a>
       <a class="mi" href="#/dsx-versions" data-route="dsx-versions"><span class="dot"></span>DSX OS 버전 매트릭스</a>
+      <!-- Phase 2 운영 견고화 · 그리드 — ops/phase2.js -->
+      <div class="sb-grp">운영 견고화 · 그리드</div>
+      <a class="mi" href="#/p2-grid" data-route="p2-grid"><span class="dot"></span>그리드 이벤트 · 감축</a>
+      <a class="mi" href="#/p2-pipeline" data-route="p2-pipeline"><span class="dot"></span>bring-up 파이프라인</a>
+      <a class="mi" href="#/p2-firmware" data-route="p2-firmware"><span class="dot"></span>펌웨어 번들</a>
+      <a class="mi" href="#/p2-attest" data-route="p2-attest"><span class="dot"></span>증명 (measured boot)</a>
+      <a class="mi" href="#/p2-finops" data-route="p2-finops"><span class="dot"></span>FinOps 원가 · 정산</a>
+      <a class="mi" href="#/p2-notices" data-route="p2-notices"><span class="dot"></span>상태 페이지 공지</a>
+      <a class="mi" href="#/p2-metrics" data-route="p2-metrics"><span class="dot"></span>관측 지표 (Prometheus)</a>
       <!-- Managed K8S — portal-mockup 통합 (독립 그룹 · 목업 프리뷰) -->
       <div class="sb-grp" style="display:flex;align-items:center;gap:6px">Managed K8S
         <button id="mk8s-mode-btn" class="mk8s-mode" type="button"
@@ -1188,6 +1197,14 @@ section[data-screen="mk8s"]{margin:0}
       <section data-screen="dsx-rma"><div id="dsx-rma-root"></div></section>
       <section data-screen="dsx-metering"><div id="dsx-metering-root"></div></section>
       <section data-screen="dsx-versions"><div id="dsx-versions-root"></div></section>
+      <!-- Phase 2 — ops/phase2.js (NOCP /api/v1/power · dcim · firmware · finops · status/notices · /metrics) -->
+      <section data-screen="p2-grid"><div id="p2-grid-root"></div></section>
+      <section data-screen="p2-pipeline"><div id="p2-pipeline-root"></div></section>
+      <section data-screen="p2-firmware"><div id="p2-firmware-root"></div></section>
+      <section data-screen="p2-attest"><div id="p2-attest-root"></div></section>
+      <section data-screen="p2-finops"><div id="p2-finops-root"></div></section>
+      <section data-screen="p2-notices"><div id="p2-notices-root"></div></section>
+      <section data-screen="p2-metrics"><div id="p2-metrics-root"></div></section>
 
       <!-- ════════ ⑯ OBS — 냉각 · DLC (Dell PowerCool CDU) ════════ -->
       <section data-screen="obs-dlc">
@@ -1590,6 +1607,7 @@ section[data-screen="mk8s"]{margin:0}
 <script src="../shared/dsx-api.js"></script>
 <script src="../shared/palette.js"></script>
 <script src="dsx.js"></script>
+<script src="phase2.js"></script>
 <script src="app.js"></script>
 <script src="mk8s.js"></script><!-- Managed K8S 목업 (인라인 · iframe 없음 · 내부 라우터) -->
 <script>
