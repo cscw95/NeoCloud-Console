@@ -20,6 +20,7 @@
   /* ══ ① 토큰 API ═══════════════════════════════════════════════ */
   var TK = { key: "", model: "", tier: "interactive", stream: true, max: 128, prompt: "", busy: false, secret: null };
   async function renderToken() {
+    if (NC.tokenUI) return NC.tokenUI.render(TK); /* v2 쇼케이스 화면 — customer/token.js */
     var root = $("v2-token-root"); if (!root) return;
     var tid = tenant();
     var r = await Promise.all([A.apiKeys(), A.models(TK.key || null), A.quotas(tid), A.usage(tid)]);
@@ -100,6 +101,7 @@
   }
   async function sendPlay() {
     readPlay();
+    if (NC.tokenUI) return NC.tokenUI.send(TK);
     if (!TK.prompt.trim()) return U.toast(L("메시지를 입력하세요", "Enter a message"), "warn");
     var out = $("v2-pg-out"), meta = $("v2-pg-meta"), btn = $("v2-pg-send");
     TK.busy = true;

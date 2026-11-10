@@ -1,0 +1,46 @@
+/* v2 토큰 API 쇼케이스 — 고객 #/token · 운영 #/v2-token · 마켓플레이스 배포 흐름 (customer/token.js, ops/token.js).
+   색·간격·글자는 shared/tokens.css semantic 토큰만 쓴다(새 색 없음). 판정 색은 NC.kpi 의 kg-t-ok / kg-t-crit 클래스. */
+.tk-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px}
+.tk-h{font-size:var(--fs-lg);font-weight:700;margin:0;color:var(--text-1)}
+.tk-base{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--text-2);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px 6px}
+.tk-mkt{margin-left:auto;font-size:var(--fs-xs)}
+.tk-src{margin:6px 0 14px;font-size:var(--fs-xs);color:var(--text-2)}
+.tk-flow{padding:14px 16px}
+.tk-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:14px;align-items:start}
+.tk-cols>.panel{min-width:0;margin-bottom:14px}
+
+/* 플레이그라운드 — 실측 미터 · 토큰 칩 */
+.tk-send{align-items:center}
+.tk-meter{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.tk-m{display:flex;align-items:baseline;gap:4px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 8px;background:var(--surface-2);min-width:88px}
+.tk-mk{font-size:var(--fs-xs);color:var(--text-2)}
+.tk-m b{font-size:var(--fs-md);color:var(--text-1);font-variant-numeric:tabular-nums}
+.tk-mu{font-size:var(--fs-xs);color:var(--text-2)}
+.tk-out{min-height:72px;max-height:260px;overflow:auto;line-height:1.7;white-space:pre-wrap;word-break:break-word}
+.tk-tok{border-bottom:2px solid var(--track)}
+.tk-tok.tk-in{animation:tk-fade var(--dur-fast,160ms) ease-out}
+@keyframes tk-fade{from{opacity:.15;border-bottom-color:var(--accent)}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.tk-tok.tk-in{animation:none}}
+.tk-meta{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.tk-u{font-size:var(--fs-xs);color:var(--text-2)}.tk-u b{color:var(--text-1);font-variant-numeric:tabular-nums}
+.tk-secret code{word-break:break-all}
+
+/* 쿼터 · 배포별 SLO · 효율 */
+.tk-qgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}
+.tk-q{display:flex;flex-direction:column;gap:8px;border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;min-width:0}
+.tk-qt{font-size:var(--fs-sm);color:var(--text-1)}
+.tk-qs{font-size:var(--fs-xs);color:var(--text-2)}
+.tk-deps,.tk-effs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.tk-dep{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;min-width:0}
+.tk-dep.tk-breach{border-color:var(--crit)}
+.tk-dh{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;min-width:0}
+.tk-dh .id{overflow-wrap:anywhere}
+.tk-dm{font-size:var(--fs-xs);color:var(--text-2)}
+.tk-dep>.tk-qs{grid-column:1/-1}
+.tk-eff{min-width:0}
+@media (max-width:560px){.tk-dep{grid-template-columns:1fr}.tk-meter{margin-left:0}.tk-mkt{margin-left:0}}
+
+/* 마켓플레이스 → 토큰 API 흐름 */
+.tk-mflow{margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.tk-mflow-h{font-size:var(--fs-sm);font-weight:700;color:var(--text-1)}
+.tk-mflow>.kf,.tk-mflow>div:not(.tk-mflow-h){align-self:stretch}

@@ -1,0 +1,1127 @@
+{
+ "id": "demo-run-0002",
+ "scenario_id": "f33-kv-tiers",
+ "feature": "F33",
+ "title_ko": "F33 KV 캐시 계층 G1–G4(HBM·LPDDR5X·NVMe·VAST) → cached_tokens → 청구서 별도 행",
+ "title_en": "F33 KV cache tiers G1–G4 (HBM·LPDDR5X·NVMe·VAST) → cached_tokens → invoice line",
+ "mode": "all",
+ "state": "done",
+ "verdict": "pass",
+ "created_at": "2026-11-10T23:26:25.380+00:00",
+ "finished_at": "2026-11-10T23:26:25.446+00:00",
+ "cursor": 15,
+ "counts": {
+  "waiting": 0,
+  "running": 0,
+  "passed": 15,
+  "failed": 0,
+  "pending": 0,
+  "skipped": 0
+ },
+ "total_ms": 66.2,
+ "context": {
+  "run_id": "demo-run-0002",
+  "period": "2026-10",
+  "tenant_id": "tnt-f33-kv-demo",
+  "ts": "2026-10-04T09:00:00+00:00",
+  "invoice_id": "inv-202610-0002"
+ },
+ "steps": [
+  {
+   "id": "reset",
+   "title_ko": "KV 전 계층 비우기",
+   "title_en": "Clear every KV tier",
+   "expect_ko": "",
+   "expect_en": "",
+   "feature": null,
+   "links": [],
+   "state": "passed",
+   "request": {
+    "service": "ai",
+    "method": "POST",
+    "url": "http://ai-infra/clear_kv_blocks",
+    "headers": {},
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": {
+     "cleared": [
+      {
+       "deployment": "dgd-llama-70b",
+       "workers": [
+        "dgd-llama-70b-decode-2",
+        "dgd-llama-70b-decode-3",
+        "dgd-llama-70b-decode-4",
+        "dgd-llama-70b-decode-5"
+       ]
+      },
+      {
+       "deployment": "dgd-qwen3-235b",
+       "workers": [
+        "dgd-qwen3-235b-decode-1",
+        "dgd-qwen3-235b-decode-2"
+       ]
+      },
+      {
+       "deployment": "dgd-deepseek-r1",
+       "workers": [
+        "dgd-deepseek-r1-worker-0",
+        "dgd-deepseek-r1-worker-1"
+       ]
+      },
+      {
+       "deployment": "dgd-kanana-8b",
+       "workers": [
+        "dgd-kanana-8b-decode-2",
+        "dgd-kanana-8b-decode-3",
+        "dgd-kanana-8b-decode-4",
+        "dgd-kanana-8b-decode-5"
+       ]
+      }
+     ],
+     "kv_events_next": 12
+    },
+    "summary": "HTTP 200 · {cleared, kv_events_next}"
+   },
+   "assertion": {
+    "ok": true,
+    "detail_ko": "HTTP 200",
+    "detail_en": "HTTP 200"
+   },
+   "started_at": "2026-11-10T23:26:25.380+00:00",
+   "duration_ms": 5.1,
+   "fallback": false
+  },
+  {
+   "id": "config",
+   "title_ko": "시연용 계층 크기: G1·G2 = 150 블록",
+   "title_en": "Demo tier sizes: G1 and G2 = 150 blocks",
+   "expect_ko": "",
+   "expect_en": "",
+   "feature": null,
+   "links": [],
+   "state": "passed",
+   "request": {
+    "service": "ai",
+    "method": "PUT",
+    "url": "http://ai-infra/dynamo/v1/kv/tiers/config",
+    "headers": {},
+    "body": {
+     "deployment": "dgd-llama-70b",
+     "num_gpu_blocks_override": 150,
+     "DYN_KVBM_CPU_CACHE_OVERRIDE_NUM_BLOCKS": 150
+    }
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": {
+     "deployment": "dgd-llama-70b",
+     "config": {
+      "num_gpu_blocks_override": 150,
+      "DYN_KVBM_CPU_CACHE_OVERRIDE_NUM_BLOCKS": 150
+     },
+     "applied_to": [
+      "dgd-llama-70b"
+     ]
+    },
+    "summary": "HTTP 200 · {deployment, config, applied_to}"
+   },
+   "assertion": {
+    "ok": true,
+    "detail_ko": "HTTP 200",
+    "detail_en": "HTTP 200"
+   },
+   "started_at": "2026-11-10T23:26:25.385+00:00",
+   "duration_ms": 5.6,
+   "fallback": false
+  },
+  {
+   "id": "p1",
+   "title_ko": "prefix p1 (2000 토큰)",
+   "title_en": "prefix p1 (2000 tokens)",
+   "expect_ko": "",
+   "expect_en": "",
+   "feature": null,
+   "links": [],
+   "state": "passed",
+   "request": {
+    "service": "ai",
+    "method": "POST",
+    "url": "http://ai-infra/dynamo/v1/generate",
+    "headers": {},
+    "body": {
+     "deployment": "dgd-llama-70b",
+     "prompt_tokens": 2000,
+     "prefix_tokens": 2000,
+     "max_tokens": 8,
+     "prefix_hash": "f33-p1"
+    }
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": {
+     "id": "req-000001",
+     "deployment": "dgd-llama-70b",
+     "model": "llama-3.3-70b-instruct",
+     "tenant_id": null,
+     "prompt_tokens": 2000,
+     "kv_hit_tokens": 0,
+     "kv_hit_tier": null,
+     "completion_tokens": 8,
+     "total_tokens": 2008,
+     "usage": {
+      "prompt_tokens": 2000,
+      "completion_tokens": 8,
+      "total_tokens": 2008,
+      "prompt_tokens_details": {
+       "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0
+      }
+     },
+     "ttft_ms": 66.31,
+     "tpot_ms": 12.568,
+     "queue_ms": 0.0,
+     "prefill_ms": 33.33,
+     "kv_transfer_ms": 3.2,
+     "kv_onboard_ms": 0.0,
+     "e2e_ms": 154.29,
+     "worker": {
+      "prefill": "dgd-llama-70b-prefill-1",
+      "decode": "dgd-llama-70b-decode-4"
+     },
+     "racks": [
+      "su-1-rack-00"
+     ],
+     "perf": 1.0,
+     "finish_reason": "length",
+     "at": "2026-11-10T23:26:25Z",
+     "text": "fast prefill stream NeoCloud GPU serving power data"
+    },
+    "summary": "HTTP 200 · {id, deployment, model, tenant_id, prompt_tokens, kv_hit_tokens, kv_hit_tier, completion_tokens, …}"
+   },
+   "assertion": {
+    "ok": true,
+    "detail_ko": "새 prefix 저장 (tier=None, cached_tokens=0)",
+    "detail_en": "new prefix stored (tier=None)"
+   },
+   "started_at": "2026-11-10T23:26:25.390+00:00",
+   "duration_ms": 5.2,
+   "fallback": false
+  },
+  {
+   "id": "p2",
+   "title_ko": "prefix p2 → p1이 G2·G4로 내려감",
+   "title_en": "prefix p2 → p1 offloads to G2 and G4",
+   "expect_ko": "",
+   "expect_en": "",
+   "feature": null,
+   "links": [],
+   "state": "passed",
+   "request": {
+    "service": "ai",
+    "method": "POST",
+    "url": "http://ai-infra/dynamo/v1/generate",
+    "headers": {},
+    "body": {
+     "deployment": "dgd-llama-70b",
+     "prompt_tokens": 2000,
+     "prefix_tokens": 2000,
+     "max_tokens": 8,
+     "prefix_hash": "f33-p2"
+    }
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": {
+     "id": "req-000002",
+     "deployment": "dgd-llama-70b",
+     "model": "llama-3.3-70b-instruct",
+     "tenant_id": null,
+     "prompt_tokens": 2000,
+     "kv_hit_tokens": 0,
+     "kv_hit_tier": null,
+     "completion_tokens": 8,
+     "total_tokens": 2008,
+     "usage": {
+      "prompt_tokens": 2000,
+      "completion_tokens": 8,
+      "total_tokens": 2008,
+      "prompt_tokens_details": {
+       "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0
+      }
+     },
+     "ttft_ms": 62.05,
+     "tpot_ms": 11.761,
+     "queue_ms": 0.0,
+     "prefill_ms": 33.33,
+     "kv_transfer_ms": 3.2,
+     "kv_onboard_ms": 0.0,
+     "e2e_ms": 144.38,
+     "worker": {
+      "prefill": "dgd-llama-70b-prefill-0",
+      "decode": "dgd-llama-70b-decode-3"
+     },
+     "racks": [
+      "su-1-rack-00"
+     ],
+     "perf": 1.0,
+     "finish_reason": "length",
+     "at": "2026-11-10T23:26:25Z",
+     "text": "inference decode power data stream rack efficient rack"
+    },
+    "summary": "HTTP 200 · {id, deployment, model, tenant_id, prompt_tokens, kv_hit_tokens, kv_hit_tier, completion_tokens, …}"
+   },
+   "assertion": {
+    "ok": true,
+    "detail_ko": "새 prefix 저장 (tier=None, cached_tokens=0)",
+    "detail_en": "new prefix stored (tier=None)"
+   },
+   "started_at": "2026-11-10T23:26:25.396+00:00",
+   "duration_ms": 5.4,
+   "fallback": false
+  },
+  {
+   "id": "p3",
+   "title_ko": "prefix p3 → p1이 G3로, p2가 G2로",
+   "title_en": "prefix p3 → p1 to G3, p2 to G2",
+   "expect_ko": "",
+   "expect_en": "",
+   "feature": null,
+   "links": [],
+   "state": "passed",
+   "request": {
+    "service": "ai",
+    "method": "POST",
+    "url": "http://ai-infra/dynamo/v1/generate",
+    "headers": {},
+    "body": {
+     "deployment": "dgd-llama-70b",
+     "prompt_tokens": 2000,
+     "prefix_tokens": 2000,
+     "max_tokens": 8,
+     "prefix_hash": "f33-p3"
+    }
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": {
+     "id": "req-000003",
+     "deployment": "dgd-llama-70b",
+     "model": "llama-3.3-70b-instruct",
+     "tenant_id": null,
+     "prompt_tokens": 2000,
+     "kv_hit_tokens": 0,
+     "kv_hit_tier": null,
+     "completion_tokens": 8,
+     "total_tokens": 2008,
+     "usage": {
+      "prompt_tokens": 2000,
+      "completion_tokens": 8,
+      "total_tokens": 2008,
+      "prompt_tokens_details": {
+       "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0
+      }
+     },
+     "ttft_ms": 65.61,
+     "tpot_ms": 12.434,
+     "queue_ms": 0.0,
+     "prefill_ms": 33.33,
+     "kv_transfer_ms": 3.2,
+     "kv_onboard_ms": 0.0,
+     "e2e_ms": 152.65,
+     "worker": {
+      "prefill": "dgd-llama-70b-prefill-1",
+      "decode": "dgd-llama-70b-decode-2"
+     },
+     "racks": [
+      "su-1-rack-00"
+     ],
+     "perf": 1.0,
+     "finish_reason": "length",
+     "at": "2026-11-10T23:26:25Z",
+     "text": "prefill and prefill and data power model power"
+    },
+    "summary": "HTTP 200 · {id, deployment, model, tenant_id, prompt_tokens, kv_hit_tokens, kv_hit_tier, completion_tokens, …}"
+   },
+   "assertion": {
+    "ok": true,
+    "detail_ko": "새 prefix 저장 (tier=None, cached_tokens=0)",
+    "detail_en": "new prefix stored (tier=None)"
+   },
+   "started_at": "2026-11-10T23:26:25.401+00:00",
+   "duration_ms": 5.0,
+   "fallback": false
+  },
+  {
+   "id": "tiers",
+   "title_ko": "계층 상태 조회",
+   "title_en": "Tier occupancy",
+   "expect_ko": "",
+   "expect_en": "",
+   "feature": null,
+   "links": [],
+   "state": "passed",
+   "request": {
+    "service": "ai",
+    "method": "GET",
+    "url": "http://ai-infra/dynamo/v1/kv/tiers",
+    "headers": {},
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": {
+     "x-neocloud": true,
+     "tiers": [
+      "G1",
+      "G2",
+      "G3",
+      "G4"
+     ],
+     "storage_tier": {
+      "G1": "device",
+      "G2": "host_pinned",
+      "G3": "disk",
+      "G4": "external"
+     },
+     "deployments": [
+      {
+       "deployment": "dgd-llama-70b",
+       "model": "llama-3.3-70b-instruct",
+       "kv_block_size": 16,
+       "kv_bytes_per_token": 327680,
+       "tiers": [
+        {
+         "tier": "G1",
+         "storage_tier": "device",
+         "medium": "HBM4",
+         "enabled": true,
+         "physical_gb": 3867.2,
+         "capacity_blocks": 150,
+         "capacity_tokens": 2400,
+         "capacity_gb": 0.786,
+         "used_blocks": 125,
+         "used_tokens": 2000,
+         "entries": 1,
+         "utilization": 0.8333,
+         "hit_tokens": 0,
+         "hit_rate": 0.0,
+         "unit": {
+          "hbm_gb_per_gpu": 288.0,
+          "gpus": 16,
+          "gpu_memory_utilization": 0.9
+         }
+        },
+        {
+         "tier": "G2",
+         "storage_tier": "host_pinned",
+         "medium": "LPDDR5X",
+         "enabled": true,
+         "physical_gb": 6144.0,
+         "capacity_blocks": 150,
+         "capacity_tokens": 2400,
+         "capacity_gb": 0.786,
+         "used_blocks": 125,
+         "used_tokens": 2000,
+         "entries": 1,
+         "utilization": 0.8333,
+         "hit_tokens": 0,
+         "hit_rate": 0.0,
+         "unit": {
+          "lpddr5x_gb_per_vera": 1536.0,
+          "vera_per_tray": 2,
+          "kv_fraction": 0.5
+         },
+         "onboard_gbps": 900.0,
+         "onboard_setup_ms": 0.05
+        },
+        {
+         "tier": "G3",
+         "storage_tier": "disk",
+         "medium": "NVMe",
+         "enabled": true,
+         "physical_gb": 122880.0,
+         "capacity_blocks": 23437500,
+         "capacity_tokens": 375000000,
+         "capacity_gb": 122880.0,
+         "used_blocks": 125,
+         "used_tokens": 2000,
+         "entries": 1,
+         "utilization": 0.0,
+         "hit_tokens": 0,
+         "hit_rate": 0.0,
+         "unit": {
+          "nvme_tb_per_tray": 61.44,
+          "kv_fraction": 0.5
+         },
+         "onboard_gbps": 50.0,
+         "onboard_setup_ms": 0.2
+        },
+        {
+         "tier": "G4",
+         "storage_tier": "external",
+         "medium": "VAST Data",
+         "enabled": true,
+         "physical_gb": 200000.0,
+         "capacity_blocks": 38146972,
+         "capacity_tokens": 610351552,
+         "capacity_gb": 199999.997,
+         "used_blocks": 250,
+         "used_tokens": 4000,
+         "entries": 2,
+         "utilization": 0.0,
+         "hit_tokens": 0,
+         "hit_rate": 0.0,
+         "vast": {
+          "cluster": "vast-gasan",
+          "site": "gasan",
+          "view_path": "/neocloud/kvcache/dgd-llama-70b",
+          "protocol": "S3",
+          "bucket": "kv-cache-{worker_id}"
+         },
+         "onboard_gbps": 100.0,
+         "onboard_setup_ms": 2.0
+        }
+       ],
+       "matched_tokens": 0,
+       "query_tokens": 6000,
+       "cached_ratio": 0.0,
+       "counters": {
+        "offload_blocks_d2h": 250,
+        "offload_blocks_h2d": 125,
+        "offload_blocks_d2o": 250,
+        "onboard_blocks_h2d": 0,
+        "onboard_blocks_d2d": 0,
+        "onboard_blocks_o2d": 0,
+        "offload_bytes_object": 1310720000,
+        "onboard_bytes_object": 0,
+        "matched_tokens": 0
+       },
+       "config": {
+        "num_gpu_blocks_override": 150,
+        "DYN_KVBM_CPU_CACHE_OVERRIDE_NUM_BLOCKS": 150
+       }
+      }
+     ],
+     "total": {
+      "tiers": {
+       "G1": {
+        "capacity_blocks": 150,
+        "used_blocks": 125
+       },
+       "G2": {
+        "capacity_blocks": 150,
+        "used_blocks": 125
+       },
+       "G3": {
+        "capacity_blocks": 23437500,
+        "used_blocks": 125
+       },
+       "G4": {
+        "capacity_blocks": 38146972,
+        "used_blocks": 250
+       }
+      },
+      "matched_tokens": 0,
+      "query_tokens": 6000,
+      "cached_ratio": 0.0
+     },
+     "global_config": {}
+    },
+    "summary": "HTTP 200 · {x-neocloud, tiers, storage_tier, deployments, total, global_config}"
+   },
+   "assertion": {
+    "ok": true,
+    "detail_ko": "계층별 prefix 수 G1/G2/G3/G4 = (1, 1, 1, 2) · G1 HBM 288 GB/GPU · G4 VAST vast-gasan:/neocloud/kvcache/dgd-llama-70b",
+    "detail_en": "prefixes per tier G1/G2/G3/G4 = (1, 1, 1, 2) · G4 VAST vast-gasan"
+   },
+   "started_at": "2026-11-10T23:26:25.406+00:00",
+   "duration_ms": 4.6,
+   "fallback": false
+  },
+  {
+   "id": "hit-g2",
+   "title_ko": "p2 재요청 → G2(LPDDR5X)에서 적재",
+   "title_en": "re-request p2 → onboard from G2",
+   "expect_ko": "",
+   "expect_en": "",
+   "feature": null,
+   "links": [],
+   "state": "passed",
+   "request": {
+    "service": "ai",
+    "method": "POST",
+    "url": "http://ai-infra/dynamo/v1/generate",
+    "headers": {},
+    "body": {
+     "deployment": "dgd-llama-70b",
+     "prompt_tokens": 2400,
+     "prefix_tokens": 2000,
+     "max_tokens": 8,
+     "prefix_hash": "f33-p2"
+    }
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": {
+     "id": "req-000004",
+     "deployment": "dgd-llama-70b",
+     "model": "llama-3.3-70b-instruct",
+     "tenant_id": null,
+     "prompt_tokens": 2400,
+     "kv_hit_tokens": 2000,
+     "kv_hit_tier": "G2",
+     "completion_tokens": 8,
+     "total_tokens": 2408,
+     "usage": {
+      "prompt_tokens": 2400,
+      "completion_tokens": 8,
+      "total_tokens": 2408,
+      "prompt_tokens_details": {
+       "cached_tokens": 2000
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0
+      }
+     },
+     "ttft_ms": 40.08,
+     "tpot_ms": 12.609,
+     "queue_ms": 0.0,
+     "prefill_ms": 6.67,
+     "kv_transfer_ms": 3.84,
+     "kv_onboard_ms": 0.778,
+     "e2e_ms": 128.34,
+     "worker": {
+      "prefill": "dgd-llama-70b-prefill-0",
+      "decode": "dgd-llama-70b-decode-3"
+     },
+     "racks": [
+      "su-1-rack-00"
+     ],
+     "perf": 1.0,
+     "finish_reason": "length",
+     "at": "2026-11-10T23:26:25Z",
+     "text": "the inference serving inference cluster efficient prefill stream"
+    },
+    "summary": "HTTP 200 · {id, deployment, model, tenant_id, prompt_tokens, kv_hit_tokens, kv_hit_tier, completion_tokens, …}"
+   },
+   "assertion": {
+    "ok": true,
+    "detail_ko": "G2에서 KV 적재: cached_tokens 2000 / prompt 2400, prefill 6.67 ms, 적재 0.778 ms (TTFT 포함)",
+    "detail_en": "onboarded from G2: cached_tokens 2000/2400, prefill 6.67 ms, onboard 0.778 ms"
+   },
+   "started_at": "2026-11-10T23:26:25.411+00:00",
+   "duration_ms": 5.0,
+   "fallback": false
+  },
+  {
+   "id": "hit-g3",
+   "title_ko": "p1 재요청 → G3(NVMe)에서 적재",
+   "title_en": "re-request p1 → onboard from G3",
+   "expect_ko": "",
+   "expect_en": "",
+   "feature": null,
+   "links": [],
+   "state": "passed",
+   "request": {
+    "service": "ai",
+    "method": "POST",
+    "url": "http://ai-infra/dynamo/v1/generate",
+    "headers": {},
+    "body": {
+     "deployment": "dgd-llama-70b",
+     "prompt_tokens": 2400,
+     "prefix_tokens": 2000,
+     "max_tokens": 8,
+     "prefix_hash": "f33-p1"
+    }
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": {
+     "id": "req-000005",
+     "deployment": "dgd-llama-70b",
+     "model": "llama-3.3-70b-instruct",
+     "tenant_id": null,
+     "prompt_tokens": 2400,
+     "kv_hit_tokens": 2000,
+     "kv_hit_tier": "G3",
+     "completion_tokens": 8,
+     "total_tokens": 2408,
+     "usage": {
+      "prompt_tokens": 2400,
+      "completion_tokens": 8,
+      "total_tokens": 2408,
+      "prompt_tokens_details": {
+       "cached_tokens": 2000
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0
+      }
+     },
+     "ttft_ms": 49.01,
+     "tpot_ms": 11.455,
+     "queue_ms": 0.0,
+     "prefill_ms": 6.67,
+     "kv_transfer_ms": 3.84,
+     "kv_onboard_ms": 13.307,
+     "e2e_ms": 129.19,
+     "worker": {
+      "prefill": "dgd-llama-70b-prefill-1",
+      "decode": "dgd-llama-70b-decode-4"
+     },
+     "racks": [
+      "su-1-rack-00"
+     ],
+     "perf": 1.0,
+     "finish_reason": "length",
+     "at": "2026-11-10T23:26:25Z",
+     "text": "efficient cluster stream NeoCloud cache serving cache serving"
+    },
+    "summary": "HTTP 200 · {id, deployment, model, tenant_id, prompt_tokens, kv_hit_tokens, kv_hit_tier, completion_tokens, …}"
+   },
+   "assertion": {
+    "ok": true,
+    "detail_ko": "G3에서 KV 적재: cached_tokens 2000 / prompt 2400, prefill 6.67 ms, 적재 13.307 ms (TTFT 포함)",
+    "detail_en": "onboarded from G3: cached_tokens 2000/2400, prefill 6.67 ms, onboard 13.307 ms"
+   },
+   "started_at": "2026-11-10T23:26:25.416+00:00",
+   "duration_ms": 4.6,
+   "fallback": false
+  },
+  {
+   "id": "g2g3-off",
+   "title_ko": "G2·G3 끄기 (G4 VAST만 남김)",
+   "title_en": "Disable G2/G3 (only G4 VAST left)",
+   "expect_ko": "",
+   "expect_en": "",
+   "feature": null,
+   "links": [],
+   "state": "passed",
+   "request": {
+    "service": "ai",
+    "method": "PUT",
+    "url": "http://ai-infra/dynamo/v1/kv/tiers/config",
+    "headers": {},
+    "body": {
+     "deployment": "dgd-llama-70b",
+     "num_gpu_blocks_override": 150,
+     "DYN_KVBM_CPU_CACHE_OVERRIDE_NUM_BLOCKS": 0,
+     "DYN_KVBM_DISK_CACHE_OVERRIDE_NUM_BLOCKS": 0
+    }
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": {
+     "deployment": "dgd-llama-70b",
+     "config": {
+      "num_gpu_blocks_override": 150,
+      "DYN_KVBM_CPU_CACHE_OVERRIDE_NUM_BLOCKS": 0,
+      "DYN_KVBM_DISK_CACHE_OVERRIDE_NUM_BLOCKS": 0
+     },
+     "applied_to": [
+      "dgd-llama-70b"
+     ]
+    },
+    "summary": "HTTP 200 · {deployment, config, applied_to}"
+   },
+   "assertion": {
+    "ok": true,
+    "detail_ko": "HTTP 200",
+    "detail_en": "HTTP 200"
+   },
+   "started_at": "2026-11-10T23:26:25.420+00:00",
+   "duration_ms": 4.6,
+   "fallback": false
+  },
+  {
+   "id": "hit-g4",
+   "title_ko": "p3 재요청 → G4(VAST)에서 적재",
+   "title_en": "re-request p3 → onboard from G4 (VAST)",
+   "expect_ko": "",
+   "expect_en": "",
+   "feature": null,
+   "links": [],
+   "state": "passed",
+   "request": {
+    "service": "ai",
+    "method": "POST",
+    "url": "http://ai-infra/dynamo/v1/generate",
+    "headers": {},
+    "body": {
+     "deployment": "dgd-llama-70b",
+     "prompt_tokens": 2400,
+     "prefix_tokens": 2000,
+     "max_tokens": 8,
+     "prefix_hash": "f33-p3"
+    }
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": {
+     "id": "req-000006",
+     "deployment": "dgd-llama-70b",
+     "model": "llama-3.3-70b-instruct",
+     "tenant_id": null,
+     "prompt_tokens": 2400,
+     "kv_hit_tokens": 2000,
+     "kv_hit_tier": "G4",
+     "completion_tokens": 8,
+     "total_tokens": 2408,
+     "usage": {
+      "prompt_tokens": 2400,
+      "completion_tokens": 8,
+      "total_tokens": 2408,
+      "prompt_tokens_details": {
+       "cached_tokens": 2000
+      },
+      "completion_tokens_details": {
+       "reasoning_tokens": 0
+      }
+     },
+     "ttft_ms": 47.79,
+     "tpot_ms": 12.592,
+     "queue_ms": 0.0,
+     "prefill_ms": 6.67,
+     "kv_transfer_ms": 3.84,
+     "kv_onboard_ms": 8.554,
+     "e2e_ms": 135.93,
+     "worker": {
+      "prefill": "dgd-llama-70b-prefill-0",
+      "decode": "dgd-llama-70b-decode-2"
+     },
+     "racks": [
+      "su-1-rack-00"
+     ],
+     "perf": 1.0,
+     "finish_reason": "length",
+     "at": "2026-11-10T23:26:25Z",
+     "text": "cache the inference data token cluster fast is"
+    },
+    "summary": "HTTP 200 · {id, deployment, model, tenant_id, prompt_tokens, kv_hit_tokens, kv_hit_tier, completion_tokens, …}"
+   },
+   "assertion": {
+    "ok": true,
+    "detail_ko": "G4에서 KV 적재: cached_tokens 2000 / prompt 2400, prefill 6.67 ms, 적재 8.554 ms (TTFT 포함)",
+    "detail_en": "onboarded from G4: cached_tokens 2000/2400, prefill 6.67 ms, onboard 8.554 ms"
+   },
+   "started_at": "2026-11-10T23:26:25.425+00:00",
+   "duration_ms": 4.9,
+   "fallback": false
+  },
+  {
+   "id": "restore",
+   "title_ko": "계층 설정 원복",
+   "title_en": "Restore tier config",
+   "expect_ko": "",
+   "expect_en": "",
+   "feature": null,
+   "links": [],
+   "state": "passed",
+   "request": {
+    "service": "ai",
+    "method": "PUT",
+    "url": "http://ai-infra/dynamo/v1/kv/tiers/config",
+    "headers": {},
+    "body": {
+     "deployment": "dgd-llama-70b"
+    }
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": {
+     "deployment": "dgd-llama-70b",
+     "config": {},
+     "applied_to": [
+      "dgd-llama-70b"
+     ]
+    },
+    "summary": "HTTP 200 · {deployment, config, applied_to}"
+   },
+   "assertion": {
+    "ok": true,
+    "detail_ko": "HTTP 200",
+    "detail_en": "HTTP 200"
+   },
+   "started_at": "2026-11-10T23:26:25.430+00:00",
+   "duration_ms": 4.7,
+   "fallback": false
+  },
+  {
+   "id": "tenant",
+   "title_ko": "청구 테넌트",
+   "title_en": "Billing tenant",
+   "expect_ko": "",
+   "expect_en": "",
+   "feature": null,
+   "links": [],
+   "state": "passed",
+   "request": {
+    "service": "nocp",
+    "method": "POST",
+    "url": "http://nocp.demo/api/v1/tenants",
+    "headers": {
+     "Authorization": "Bearer …(redacted)",
+     "Content-Type": "application/json"
+    },
+    "body": {
+     "name": "f33-kv-demo",
+     "isolation_tier": "bare_metal_dedicated"
+    }
+   },
+   "response": {
+    "status": 201,
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": {
+     "id": "tnt-f33-kv-demo",
+     "name": "f33-kv-demo",
+     "isolation_tier": "bare_metal_dedicated",
+     "sla_tier": "standard",
+     "notes": null,
+     "status": "active",
+     "sector": null
+    },
+    "summary": "HTTP 201 · {id, name, isolation_tier, sla_tier, notes, status, sector}"
+   },
+   "assertion": {
+    "ok": true,
+    "detail_ko": "HTTP 201 (기대 201, 409)",
+    "detail_en": "HTTP 201 (expected 201, 409)"
+   },
+   "started_at": "2026-11-10T23:26:25.435+00:00",
+   "duration_ms": 5.4,
+   "fallback": false
+  },
+  {
+   "id": "meter",
+   "title_ko": "사용량 → F04 미터링 이벤트(cached 분리)",
+   "title_en": "Usage → F04 metering events (cached split)",
+   "expect_ko": "",
+   "expect_en": "",
+   "feature": null,
+   "links": [],
+   "state": "passed",
+   "request": {
+    "service": "internal",
+    "method": "CALL",
+    "url": "_meter",
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "headers": {},
+    "body": {
+     "tenant_id": "tnt-f33-kv-demo",
+     "period": "2026-10",
+     "events": [
+      {
+       "token_type": "input",
+       "quantity": 120000000
+      },
+      {
+       "token_type": "cached",
+       "quantity": 600000000
+      }
+     ]
+    },
+    "summary": "HTTP 200 · {tenant_id, period, events}"
+   },
+   "assertion": {
+    "ok": true,
+    "detail_ko": "F04 이벤트: cached 600,000,000 토큰 · input 120,000,000 토큰 (×100,000 요청)",
+    "detail_en": "F04 events: cached 600,000,000 · input 120,000,000 tokens (×100,000 requests)"
+   },
+   "started_at": "2026-11-10T23:26:25.440+00:00",
+   "duration_ms": 0.1,
+   "fallback": false
+  },
+  {
+   "id": "invoice-run",
+   "title_ko": "지난달 청구서 실행",
+   "title_en": "Run last month's invoice",
+   "expect_ko": "",
+   "expect_en": "",
+   "feature": null,
+   "links": [],
+   "state": "passed",
+   "request": {
+    "service": "nocp",
+    "method": "POST",
+    "url": "http://nocp.demo/api/v1/billing/invoices:run",
+    "headers": {
+     "Authorization": "Bearer …(redacted)",
+     "Content-Type": "application/json"
+    },
+    "body": {
+     "period": "2026-10",
+     "tenant_id": "tnt-f33-kv-demo"
+    }
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": {
+     "period": "2026-10",
+     "invoices": [
+      {
+       "id": "inv-202610-0002",
+       "tenant_id": "tnt-f33-kv-demo",
+       "period": "2026-10",
+       "status": "draft",
+       "currency": "KRW",
+       "subtotal": 216000,
+       "vat": 21600,
+       "total": 237600
+      }
+     ],
+     "created": [
+      "inv-202610-0002"
+     ],
+     "updated": [],
+     "skipped": []
+    },
+    "summary": "HTTP 200 · {period, invoices, created, updated, skipped}"
+   },
+   "assertion": {
+    "ok": true,
+    "detail_ko": "HTTP 200",
+    "detail_en": "HTTP 200"
+   },
+   "started_at": "2026-11-10T23:26:25.440+00:00",
+   "duration_ms": 3.5,
+   "fallback": false
+  },
+  {
+   "id": "invoice",
+   "title_ko": "청구서의 cached 토큰 별도 행",
+   "title_en": "Cached-token line on the invoice",
+   "expect_ko": "",
+   "expect_en": "",
+   "feature": null,
+   "links": [],
+   "state": "passed",
+   "request": {
+    "service": "nocp",
+    "method": "GET",
+    "url": "http://nocp.demo/api/v1/billing/invoices/inv-202610-0002",
+    "headers": {
+     "Authorization": "Bearer …(redacted)"
+    },
+    "body": null
+   },
+   "response": {
+    "status": 200,
+    "headers": {
+     "content-type": "application/json"
+    },
+    "body": {
+     "id": "inv-202610-0002",
+     "tenant_id": "tnt-f33-kv-demo",
+     "period": "2026-10",
+     "currency": "KRW",
+     "status": "draft",
+     "created_at": "2026-11-10T23:26:25.442434+00:00",
+     "finalized_at": null,
+     "paid_at": null,
+     "payment": null,
+     "tax_invoice": null,
+     "lines": [
+      {
+       "product": "token-api",
+       "metric": "token",
+       "quantity": 600000000.0,
+       "unit_price": 200,
+       "amount": 120000,
+       "unit": "1,000,000 tokens",
+       "commitment": "on_demand",
+       "contract_id": null,
+       "model": "llama-3.3-70b-instruct",
+       "token_type": "cached",
+       "tier": "interactive"
+      },
+      {
+       "product": "token-api",
+       "metric": "token",
+       "quantity": 120000000.0,
+       "unit_price": 800,
+       "amount": 96000,
+       "unit": "1,000,000 tokens",
+       "commitment": "on_demand",
+       "contract_id": null,
+       "model": "llama-3.3-70b-instruct",
+       "token_type": "input",
+       "tier": "interactive"
+      }
+     ],
+     "commitment_true_up": 0,
+     "true_up_lines": [],
+     "sla_credits": [],
+     "usage_amount": 216000,
+     "credit_total": 0,
+     "subtotal": 216000,
+     "vat_rate": 0.1,
+     "vat": 21600,
+     "total": 237600,
+     "price_book_version": 1,
+     "computed_at": "2026-11-10T23:26:25.442434+00:00",
+     "updated_at": "2026-11-10T23:26:25.442434+00:00"
+    },
+    "summary": "HTTP 200 · {id, tenant_id, period, currency, status, created_at, finalized_at, paid_at, …}"
+   },
+   "assertion": {
+    "ok": true,
+    "detail_ko": "청구서 별도 행: cached 600,000,000 토큰 × ₩200/1M = ₩120,000 · input 120,000,000 토큰 × ₩800/1M = ₩96,000",
+    "detail_en": "separate invoice line: cached 600,000,000 tok × ₩200/1M = ₩120,000 · input ₩96,000"
+   },
+   "started_at": "2026-11-10T23:26:25.444+00:00",
+   "duration_ms": 2.5,
+   "fallback": false
+  }
+ ]
+}
