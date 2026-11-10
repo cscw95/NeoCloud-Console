@@ -29,6 +29,7 @@
 
   var origText = new WeakMap();   // textNode → original KO
   var origAttr = new WeakMap();   // element → { attr: originalKO }
+  var lastText = new WeakMap();   // textNode → last value this engine wrote (own-write filter)
   var ATTRS = ["title", "placeholder", "aria-label"];
   var hasKo = /[가-힣]/;
 
@@ -59,8 +60,9 @@
       if (!hasKo.test(cur)) return;
       if (!origText.has(node)) origText.set(node, cur);
       var t = translate(origText.get(node));
-      if (t !== null && t !== node.nodeValue) node.nodeValue = t;
+      if (t !== null && t !== node.nodeValue) { lastText.set(node, t); node.nodeValue = t; }
     } else if (origText.has(node)) {
+      lastText.set(node, origText.get(node));
       node.nodeValue = origText.get(node);
     }
   }
@@ -119,7 +121,10 @@
           else if (nd.nodeType === 1) walk(nd, true);
         }
       } else if (m.type === "characterData") {
-        origText.delete(m.target);   // content changed → re-cache new original
+        // our own translation write also fires characterData — skip it, or the
+        // KO original is dropped and EN→KO has nothing to restore (CONSOLE-QA D1)
+        if (lastText.get(m.target) === m.target.nodeValue) continue;
+        origText.delete(m.target);   // content changed by a renderer → re-cache new original
         applyTextNode(m.target, true);
       }
     }

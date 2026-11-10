@@ -73,6 +73,7 @@
   /* ── MRR KPI — 기본 NC.CONST.mrr_usd, 라이브면 renderContracts 가
        실계약 합계(mrrBase)로 덮어쓴다. 표시값은 기간 배수 적용. ── */
   var mrrBase = NC.CONST.mrr_usd;
+  var mrrLoaded = false;   // 라이브 계약 합계를 한 번이라도 읽었나 (CONSOLE-QA D2: mock 값에 라이브 라벨 금지)
   function mrrHtml(v) {
     var m = v / 1e6;
     return "$" + (m >= 100 ? Math.round(m) : m.toFixed(1)) + "<small>M</small>";
@@ -82,6 +83,15 @@
     /* 라이브: 실계약 합계 → 0이면 빌링 실사용 예상 월액(/api/v1/billing/usage). 성장률 이력 API가 없으므로
        라이브에서는 mock 성장률(▲ 12.4% MoM 등)을 표시하지 않는다. */
     var live = !!NC.live;
+    if (live && !mrrLoaded) {                     // 계약 합계 전: mock 대신 로딩 표시 후 계약을 읽는다
+      $$(".js-mrr").forEach(function (el) { el.innerHTML = "…"; });
+      if (!renderMrr._pending) {
+        renderMrr._pending = true;
+        renderContracts().catch(function () { mrrBase = 0; mrrLoaded = true; renderMrr(); })
+          .then(function () { renderMrr._pending = false; });
+      }
+      return;
+    }
     var base = live ? (mrrBase || usageMonthly || 0) : mrrBase;
     var liveSub = !live ? null
       : mrrBase ? "라이브 · 계약 합계 (성장률 이력 없음)"
@@ -464,7 +474,7 @@
       });
       var b1 = $("#ct-body"); if (b1) b1.innerHTML = six;
       var b2 = $("#ct-body-dash"); if (b2) b2.innerHTML = five;
-      if (NC.live) mrrBase = sum;       // 라이브: 실계약 합계 MRR (기간 배수는 renderMrr)
+      if (NC.live) { mrrBase = sum; mrrLoaded = true; }   // 라이브: 실계약 합계 MRR (기간 배수는 renderMrr)
       renderMrr();
       var acme = list.filter(function (c) { return c.tenant === "acme-ai"; })[0];
       if (acme && acme.renewal_d != null)   // 라이브에 acme-ai 없거나 D값 없으면
@@ -593,7 +603,20 @@
   }
 
   /* ── 대시보드 — MRR KPI + 딜/계약 위젯 + 라이브 usage 요약 ── */
+  /* 가동률 KPI — /inventory/sites 할당 랙 합계 (CONSOLE-QA D3: 정적 52/140 제거) */
+  function renderUtil() {
+    if (!NC.live || !NC.api.sitesInventory) return;
+    NC.api.sitesInventory().then(function (inv) {
+      if (!inv || !inv.sites) return;
+      var tot = 0, al = 0, sell = 0;
+      inv.sites.forEach(function (s) { tot += s.racks_total || 0; al += s.racks_allocated || 0; sell += s.racks_sellable || 0; });
+      var v = $("#kpi-util"), sub = $("#kpi-util-s");
+      if (v) v.innerHTML = (tot ? (al / tot * 100).toFixed(1) : "0.0") + "<small>%</small>";
+      if (sub) sub.textContent = "할당 " + al + "/" + tot + "랙 · 판매가능 " + sell + "랙 · 라이브";
+    }).catch(function () {});
+  }
   function renderDashboard() {
+    renderUtil();
     renderMrr();
     syncDeal();
     renderContracts();

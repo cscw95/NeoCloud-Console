@@ -960,6 +960,25 @@
       '<td class="num" style="color:var(--muted2)">—</td>' +
       '<td class="num" style="color:var(--muted2)">+6.0MW</td></tr>');
     body.innerHTML = rows.join("");
+    renderCapKpis(inv.sites);
+  }
+
+  /* 용량 KPI 카드 — 사이트 표와 같은 /inventory/sites 합계 (CONSOLE-QA D3: 정적 mock 제거) */
+  function renderCapKpis(sites) {
+    var t = { total: 0, alloc: 0, sell: 0, gpus: 0, lock: 0, gpuKnown: false };
+    sites.forEach(function (s) {
+      t.total += s.racks_total || 0; t.alloc += s.racks_allocated || 0;
+      t.sell += s.racks_sellable || 0; t.lock += s.racks_locked_by_isolation || 0;
+      if (s.gpus_sellable != null) { t.gpus += s.gpus_sellable; t.gpuKnown = true; }
+    });
+    var pct = t.total ? Math.round(t.alloc / t.total * 100) : 0;
+    var set = function (id, h) { var e = $("#" + id); if (e) e.innerHTML = h; };
+    set("cap-kpi-sell", fmt(t.sell) + "<small>랙</small>");
+    set("cap-kpi-sell-s", t.gpuKnown ? fmt(t.gpus) + " GPU · 라이브" : "라이브 · /inventory/sites");
+    set("cap-kpi-alloc", fmt(t.alloc) + "<small> / " + fmt(t.total) + "랙</small>");
+    var bar = $("#cap-kpi-alloc-bar"); if (bar) bar.style.width = pct + "%";
+    set("cap-kpi-lock", fmt(t.lock) + "<small>랙</small>");
+    set("cap-kpi-lock-s", t.lock ? "격리 잠김 랙 합계 · 라이브" : "잠김 없음 · 라이브");
   }
 
   function renderCapacity() {

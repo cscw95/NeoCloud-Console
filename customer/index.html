@@ -233,13 +233,17 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
       <a class="mi" data-route="monitoring" href="#/monitoring"><span class="dot"></span>모니터링</a>
       <a class="mi" data-route="alerts" href="#/alerts"><span class="dot"></span>알림 · 이벤트 <span class="bd amber" id="mi-alerts-bd">3</span></a>
       <a class="mi" data-route="status" href="#/status"><span class="dot"></span>서비스 상태</a>
+      <a class="mi" data-route="sla" href="#/sla"><span class="dot"></span>SLA · 크레딧</a>
       <a class="mi" data-route="billing" href="#/billing"><span class="dot"></span>빌링 · 비용</a>
+      <a class="mi" data-route="invoices" href="#/invoices"><span class="dot"></span>청구서 · 결제</a>
       <div class="sb-grp">지원 · 보안</div>
       <a class="mi" data-route="support" href="#/support"><span class="dot"></span>지원 티켓 <span class="bd amber" id="mi-support-bd">1</span></a>
       <a class="mi" data-route="security" href="#/security"><span class="dot"></span>보안 · 감사</a>
       <a class="mi" data-route="api" href="#/api"><span class="dot"></span>API · CLI · SDK</a>
+      <a class="mi" data-route="token" href="#/token"><span class="dot"></span>토큰 API</a>
       <a class="mi" data-route="marketplace" href="#/marketplace"><span class="dot"></span>마켓플레이스 <span class="bd p2">P2</span></a>
       <a class="mi" data-route="settings" href="#/settings"><span class="dot"></span>설정 — 조직 · 멤버 · 키</a>
+      <a class="mi" data-route="iam" href="#/iam"><span class="dot"></span>조직 · IAM · SSO</a>
     </nav>
     <div class="sb-user" id="user-card" data-open="demo_login" title="데모 로그인 전환 — 사용자·역할 변경 (클릭)" style="cursor:pointer">
       <span class="av" id="user-av" style="background:var(--ok-bg);color:var(--green-text)">JH</span>
@@ -403,7 +407,11 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
 
       <!-- ════════ 클러스터 ════════ -->
       <!-- DSX OS — 상품 선택(BMaaS / NVKE) · NVKE 마법사 · kubeconfig · 업그레이드 · 사용량 (customer/nvke.js) -->
-      <section data-screen="nvke"><div id="nvke-root"></div></section>
+      <section data-screen="nvke"><div id="nvke-root"></div><div id="nvke-topo-root"></div></section>
+      <section data-screen="token"><div id="v2-token-root"></div></section>
+      <section data-screen="invoices"><div id="v2-invoices-root"></div></section>
+      <section data-screen="sla"><div id="v2-sla-root"></div></section>
+      <section data-screen="iam"><div id="v2-iam-root"></div></section>
       <section data-screen="clusters">
         <!-- IF-08 Fulfillment 진행 스테퍼 — 진행 중 주문 존재 시 3s 폴링 렌더 -->
         <div id="fulfill-wrap"></div>
@@ -1185,6 +1193,9 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
 <script src="../shared/nocp-api.js"></script>
 <script src="../shared/dsx-api.js"></script>
 <script src="nvke.js"></script>
+<script src="../shared/v2-api.js"></script><script src="../shared/v2-ui.js"></script>
+<script src="../shared/v2-scenarios.js"></script><script src="../shared/v2-demo.js"></script>
+<script src="v2.js"></script><script src="nvke-topo.js"></script>
 <script>/* ⌘K 팔레트 엔티티 → 고객 콘솔 라우트 매핑 (palette.js 로드 전 정의 필수 —
    기본값 order:"provisioning"·host:"assets"는 이 콘솔에 없는 라우트) */
 window.NC_PALETTE_ROUTES = { tenant: "dashboard", order: "clusters",
