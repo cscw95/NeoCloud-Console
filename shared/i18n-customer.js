@@ -899,3 +899,12 @@ Object.assign(window.NC_I18N.dict, {
 window.NC_I18N.patterns = [
   [/^주문 (\d+)건 · 월말 예상 (.+)$/, "$1 orders · month-end estimate $2"],
 ].concat(window.NC_I18N.patterns);
+
+/* ── v2-console-p1 2026-11-10: Phase 1 메뉴 (화면 본문은 NC.v2ui.L 로 KO/EN 직접 렌더) ── */
+Object.assign(window.NC_I18N.dict, {
+  "청구서 · 결제": "Invoices · payments",
+  "SLA · 크레딧": "SLA · credits",
+  "토큰 API": "Token API",
+  "조직 · IAM · SSO": "Organization · IAM · SSO",
+  "노드·토폴로지": "Nodes · topology",
+});

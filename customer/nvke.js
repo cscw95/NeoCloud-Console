@@ -81,6 +81,7 @@
         esc(c.k8s_version) + " · NVKE " + esc(c.nvke_version || D.MATRIX.nvke) + "</td><td>" + esc(c.node_image || "—") +
         "</td><td>" + nps + "</td><td>" + stc(c.status) + prog + "</td><td style='white-space:nowrap'>" +
         '<button class="btn-ghost" data-nvke-kc="' + esc(c.id) + '">kubeconfig ↓</button> ' +
+        '<button type="button" class="btn-ghost" data-nvke-topo="' + esc(c.id) + '">노드·토폴로지</button> ' +
         (canWrite() ? '<select data-nvke-upv="' + esc(c.id) + '">' + opts + '</select> <button class="btn-ghost" data-nvke-up="' + esc(c.id) +
           '">업그레이드</button> <button class="btn-ghost" data-nvke-np="' + esc(c.id) + '">+ nodepool</button>' : "") +
         "</td></tr>";

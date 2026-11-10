@@ -175,6 +175,32 @@ node scripts/live-check.mjs # NOCP chain up: every NC.dsx screen call answered l
 pytest tests/               # same suite via pytest (any venv with pytest)
 ```
 
+## v2 Phase 1 screens (IMPROVEMENT-PLAN-v2 E–H)
+
+Client: `shared/v2-api.js` (`NC.v2`) — NOCP-first, seeded mock fallback shown with a **◌ MOCK** badge until the backend
+feature is merged. Every call is recorded (method, URL, headers with `Authorization` redacted, body, status) for the demo views.
+
+| Console | Route | Feature | NOCP contract used |
+|---|---|---|---|
+| customer | `#/token` | F01 · F02 · F04 | `/api/v1/api-keys`, `GET /v1/models`, `POST /v1/chat/completions` (SSE, usage on last chunk), `/api/v1/token/quotas`, `/api/v1/metering/usage` |
+| customer | `#/invoices` | F05 | `/api/v1/billing/invoices[/{id}]`, `…/tax-invoice`, `…/pay`, `/api/v1/billing/payment-methods` |
+| customer | `#/sla` | F09 · F10 | `/api/v1/tenants/{id}/sla-report`, `/api/v1/sla/downtime`, `/api/v1/sla/exceptions`, `/api/v1/remediation/runs` |
+| customer | `#/iam`, `signup.html` | F07 | `/api/v1/signup`, `/.well-known/openid-configuration`, `/oauth2/token`, `/api/v1/tenants/{id}/sso`, `/api/v1/members` |
+| customer | `#/nvke` → 노드·토폴로지 | F11 | `/api/v1/nvke/clusters/{id}/capi`, `…/nodes`, `…/compute-domains` |
+| ops | `#/v2-recovery` | F10 | `/api/v1/remediation/policy`, `/api/v1/remediation/runs[/{id}]` (fault injection = `POST …/runs`) |
+| ops | `#/v2-token` | F01 · F02 · F04 | `/api/v1/token/deployments`, `/api/v1/token/slo`, `/api/v1/token/quotas[/{tid}][/override]`, `/api/v1/metering/reconcile` |
+| ops | `#/v2-billing` | F05 | `/api/v1/billing/invoices:run`, `…/finalize`, `/api/v1/billing/price-book` |
+| ops | `#/v2-accounts` | F07 · F09 | `GET /api/v1/tenants` + `POST /api/v1/signup/{id}/verify`, `/api/v1/sla/exceptions` |
+| biz | `#/contracts`, `#/revenue` | F06 · F05 | `/api/v1/contracts[/{id}][/activate]`, `/api/v1/billing/invoices` |
+
+**Demo.** Each screen has a "▶ 시연 실행 / Run demo" panel (steps, pass count, raw request/response). Same scenarios in the
+terminal: `NOCP_BASE=http://127.0.0.1:8000 node scripts/demo_console.mjs [scenario…]` (`DEMO_LANG=en` for English).
+Scenarios: `token-api`, `token-ops`, `invoice`, `sla`, `signup`, `contract`, `nvke-topology`, `auto-recovery`, `billing-run`
+(`shared/v2-scenarios.js`). "초기화 / Reset" rebuilds the seeded mock (seed 20261110).
+
+**Upstream schema.** `tests/v2.test.mjs` validates the token API messages against the OpenAI `openapi.yaml` subset in
+`tests/fixtures/openai-chat-schemas.json` (MIT, copy of `ref/upstream/openai/openapi.yaml`) and the OIDC Discovery 1.0 §3 fields.
+
 ## Data Scenario (consistent across all three consoles)
 
 | Flow | Customer | Operations | Business |

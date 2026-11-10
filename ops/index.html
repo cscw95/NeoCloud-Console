@@ -300,6 +300,10 @@ section[data-screen="mk8s"]{margin:0}
       <a class="mi" href="#/dsx-power" data-route="dsx-power"><span class="dot"></span>MaxLPS 전력</a>
       <a class="mi" href="#/dsx-rma" data-route="dsx-rma"><span class="dot"></span>RMA · 펌웨어</a>
       <a class="mi" href="#/dsx-metering" data-route="dsx-metering"><span class="dot"></span>미터링 · 격리</a>
+      <a class="mi" href="#/v2-recovery" data-route="v2-recovery"><span class="dot"></span>자동 복구</a>
+      <a class="mi" href="#/v2-token" data-route="v2-token"><span class="dot"></span>토큰 · 쿼터 · SLO</a>
+      <a class="mi" href="#/v2-billing" data-route="v2-billing"><span class="dot"></span>청구 실행</a>
+      <a class="mi" href="#/v2-accounts" data-route="v2-accounts"><span class="dot"></span>가입 · SLA 예외</a>
       <a class="mi" href="#/dsx-versions" data-route="dsx-versions"><span class="dot"></span>DSX OS 버전 매트릭스</a>
       <a class="mi" href="#/nvke-capi" data-route="nvke-capi"><span class="dot"></span>NVKE CAPI · 토폴로지</a>
       <a class="mi" href="#/nvke-sched" data-route="nvke-sched"><span class="dot"></span>KAI 스케줄러 · 큐</a>
@@ -528,9 +532,9 @@ section[data-screen="mk8s"]{margin:0}
       <!-- ════════ ③ 용량 관리 ════════ -->
       <section data-screen="capacity">
         <div class="kpi-band">
-          <div class="kpi"><div class="k">판매 가능 (유효)</div><div class="v green">83<small>랙</small></div><div class="s">5,976 GPU</div></div>
-          <div class="kpi"><div class="k">할당</div><div class="v">52<small> / 140랙</small></div><div class="bar"><i style="width:37%"></i></div></div>
-          <div class="kpi"><div class="k">격리 잠김</div><div class="v amber">4<small>랙</small></div><div class="s">su-2 · beta-ai 부분 점유</div></div>
+          <div class="kpi"><div class="k">판매 가능 (유효)</div><div class="v green" id="cap-kpi-sell">83<small>랙</small></div><div class="s" id="cap-kpi-sell-s">5,976 GPU</div></div>
+          <div class="kpi"><div class="k">할당</div><div class="v" id="cap-kpi-alloc">52<small> / 140랙</small></div><div class="bar"><i id="cap-kpi-alloc-bar" style="width:37%"></i></div></div>
+          <div class="kpi"><div class="k">격리 잠김</div><div class="v amber" id="cap-kpi-lock">4<small>랙</small></div><div class="s" id="cap-kpi-lock-s">su-2 · beta-ai 부분 점유</div></div>
           <div class="kpi"><div class="k">전력 여유</div><div class="v" id="cap-kpi-pwr">—</div><div class="s" id="cap-kpi-pwr-s">DPS 전력 도메인 기준</div></div>
           <div class="kpi"><div class="k">증설 리드타임</div><div class="v" id="kpi-lead">12<small>주</small></div><div class="s" id="kpi-lead-s">su-12·su-13 발주 D-90</div></div>
         </div>
@@ -1204,6 +1208,10 @@ section[data-screen="mk8s"]{margin:0}
       <section data-screen="dsx-power"><div id="dsx-power-root"></div></section>
       <section data-screen="dsx-rma"><div id="dsx-rma-root"></div></section>
       <section data-screen="dsx-metering"><div id="dsx-metering-root"></div></section>
+      <section data-screen="v2-recovery"><div id="v2-recovery-root"></div></section>
+      <section data-screen="v2-token"><div id="v2-tokenops-root"></div></section>
+      <section data-screen="v2-billing"><div id="v2-billing-root"></div></section>
+      <section data-screen="v2-accounts"><div id="v2-accounts-root"></div></section>
       <section data-screen="dsx-versions"><div id="dsx-versions-root"></div></section>
       <!-- F23 랙 bring-up 칸반 — ops/bringup.js (NOCP /api/v1/dcim · /api/v1/bringup) -->
       <section data-screen="bringup"><div id="bringup-root"></div></section>
@@ -1621,6 +1629,9 @@ section[data-screen="mk8s"]{margin:0}
 <script src="bringup.js"></script>
 <script src="phase2.js"></script>
 <script src="demo.js"></script>
+<script src="../shared/v2-api.js"></script><script src="../shared/v2-ui.js"></script>
+<script src="../shared/v2-scenarios.js"></script><script src="../shared/v2-demo.js"></script>
+<script src="v2.js"></script>
 <script src="app.js"></script>
 <script src="../shared/nvke-topology.js"></script>
 <script src="../shared/sched-market-api.js"></script>

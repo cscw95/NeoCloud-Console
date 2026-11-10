@@ -171,7 +171,7 @@
           <div class="kpi"><div class="k js-mrr-k">MRR</div><div class="v js-mrr">$36.7<small>M</small></div><div class="s js-psub" data-m="▲ 12.4% MoM" data-q="▲ 9.8% QoQ" data-y="▲ 41.2% YoY" style="color:var(--green-text)">▲ 12.4% MoM</div></div>
           <div class="kpi"><div class="k">ARR (run-rate)</div><div class="v" id="kpi-arr">$440<small>M</small></div><div class="s" id="kpi-arr-sub">목표 $520M의 85%</div></div>
           <div class="kpi"><div class="k">계약 백로그</div><div class="v">$1.28<small>B</small></div><div class="s">가중 잔여 계약가치</div></div>
-          <div class="kpi"><div class="k">인프라 가동률</div><div class="v">37.1<small>%</small></div><div class="s">판매기준 52/140랙 · <span class="amber">Q4 증설 검토</span></div></div>
+          <div class="kpi"><div class="k">인프라 가동률</div><div class="v" id="kpi-util">37.1<small>%</small></div><div class="s" id="kpi-util-s">판매기준 52/140랙 · <span class="amber">Q4 증설 검토</span></div></div>
           <div class="kpi"><div class="k">파이프라인 (가중)</div><div class="v js-scale" data-usd="17833333" data-fmt="kpi">$17.8<small>M</small></div><div class="s js-psub" data-m="활성 딜 7건 · 월 환산" data-q="활성 딜 7건 · 분기 환산" data-y="활성 딜 7건 · 연 환산 $214M">활성 딜 7건 · 월 환산</div></div>
           <div class="kpi"><div class="k">고객 유지</div><div class="v green">100<small>%</small></div><div class="s js-psub" data-m="신규 1 · 이탈 0 (당월)" data-q="신규 1 · 이탈 0 (분기)" data-y="신규 3 · 이탈 0 (연간)">신규 1 · 이탈 0 (분기)</div></div>
         </div>
@@ -368,6 +368,7 @@
 
       <!-- ═══ 계약 관리 ═══ -->
       <section data-screen="contracts">
+        <div id="v2-contracts-root"></div>
         <div class="panel">
           <div class="ph"><span class="tick"></span><span class="t">계약 목록</span><span class="c">활성 4 · 잔여 계약가치 $1.28B</span>
             <button class="btn fr" data-open="contract" type="button">+ 계약 등록</button></div>
@@ -400,6 +401,7 @@
 
       <!-- ═══ 매출 · 수익 분석 ═══ -->
       <section data-screen="revenue">
+        <div id="v2-biz-rev-root"></div>
         <div class="kpi-band">
           <div class="kpi"><div class="k js-mrr-k">MRR</div><div class="v js-mrr">$36.7<small>M</small></div><div class="s js-psub" data-m="▲ 12.4% MoM" data-q="▲ 9.8% QoQ" data-y="▲ 41.2% YoY" style="color:var(--green-text)">▲ 12.4% MoM</div></div>
           <div class="kpi"><div class="k">블렌디드 마진</div><div class="v green">42.3<small>%</small></div><div class="s">목표 40% 상회</div></div>
@@ -785,6 +787,9 @@
 <script src="../shared/mock-api.js"></script>
 <script src="../shared/nocp-api.js"></script>
 <script src="../shared/palette.js"></script>
+<script src="../shared/v2-api.js"></script><script src="../shared/v2-ui.js"></script>
+<script src="../shared/v2-scenarios.js"></script><script src="../shared/v2-demo.js"></script>
+<script src="v2.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

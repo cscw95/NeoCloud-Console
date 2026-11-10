@@ -1521,3 +1521,19 @@ Object.assign(window.NC_I18N.dict, {
 });
 /* 데모 센터 (ops/demo.js) — 화면 본문은 러너의 _ko/_en 문자열을 직접 쓴다 */
 window.NC_I18N.dict = Object.assign(window.NC_I18N.dict, { "데모 센터": "Demo Center" });
+/* ── v2-console-p1 2026-11-10: Phase 1 메뉴 · 용량 KPI 라이브 문구 ── */
+Object.assign(window.NC_I18N.dict, {
+  "자동 복구": "Auto-recovery",
+  "토큰 · 쿼터 · SLO": "Tokens · quotas · SLO",
+  "청구 실행": "Billing runs",
+  "가입 · SLA 예외": "Sign-ups · SLA exceptions",
+  "라이브 · /inventory/sites": "Live · /inventory/sites",
+  "잠김 없음 · 라이브": "None locked · live",
+  "격리 잠김 랙 합계 · 라이브": "Isolation-locked racks · live",
+});
+window.NC_I18N.patterns = [
+  [/^([\d,]+) GPU · 라이브$/, "$1 GPU · live"],
+].concat(window.NC_I18N.patterns);
+
+/* integration/v2 — F11 NVKE CAPI 메뉴 (ops #/nvke-capi) */
+Object.assign(window.NC_I18N.dict, { "NVKE CAPI · 토폴로지": "NVKE CAPI · topology" });

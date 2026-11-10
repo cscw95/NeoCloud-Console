@@ -597,3 +597,8 @@ Object.assign(window.NC_I18N.dict, {
   "라이브 · 활성 계약 없음": "Live · no active contracts",
   "라이브 MRR × 12": "Live MRR × 12",
 });
+
+/* ── v2-console-p1 2026-11-10: 가동률 KPI 라이브 · 약정 계약 메뉴 ── */
+window.NC_I18N.patterns = [
+  [/^할당 (\d+)\/(\d+)랙 · 판매가능 (\d+)랙 · 라이브$/, "Allocated $1/$2 racks · sellable $3 racks · live"],
+].concat(window.NC_I18N.patterns);
