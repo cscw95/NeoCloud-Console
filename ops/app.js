@@ -1743,12 +1743,14 @@
   /* ══════════════════════════════════════════════════════════
      통합 Observability (obs-*) — NICo Emulator obs API 직접 폴링
      근거: 30MW Vera Rubin NVL72 통합 Observability 설계서.
-     OBS_BASE(:9100 AI Infra)를 NC.api 우회 소형 fetch로 소비 (5s 캐시 ·
+     DSX 업그레이드: AI Infra(:9100) 직접 호출 금지 — NOCP 프록시 /api/v1/infra/* 경유
+     (경로 접미사는 AI Infra 원경로 그대로). 소형 fetch로 소비 (5s 캐시 ·
      실패/미구현 시 mock 폴백 — 화면 상단 출처 칩에 라벨 표기).
      폴링(5s)은 obs-* 화면 활성 시에만 동작한다.
      ══════════════════════════════════════════════════════════ */
-  var OBS_BASE = "http://127.0.0.1:9100/emulator/v1/obs";  // AI Infra Emulator (물리 트윈)
-  var OBS_ROOT = "http://127.0.0.1:9100";   // AI Infra — UFM(/ufm/v1)·NetQ(/netq/v1)·VAST(/vast/v1)·Converged
+  var NOCP_ROOT = localStorage.getItem("nc-nocp") || "http://127.0.0.1:8000";
+  var OBS_ROOT = NOCP_ROOT + "/api/v1/infra";   // NOCP 프록시 → AI Infra UFM(/ufm/v1)·NetQ(/netq/v1)·VAST(/vast/v1)·Converged
+  var OBS_BASE = OBS_ROOT + "/emulator/v1/obs";  // NOCP 프록시 → AI Infra Emulator obs (물리 트윈)
   var obsCacheMap = {};            // path → {t, v} (5s 캐시)
   var OBS_PAGE = 100;
   var obsPwrHist = { ga: [], an: [], tot: [] };   // 사이트별 전력 추이 (5s 폴링 누적)
@@ -1808,7 +1810,7 @@
     var el = document.getElementById("obs-src-" + screen);
     if (!el) return;
     el.className = "obs-src " + (live ? "live" : "mock");
-    el.textContent = lbl || (live ? "● AI Infra Twin 라이브 (:9100)" : "◌ twin 미연동 — mock");
+    el.textContent = lbl || (live ? "● AI Infra Twin 라이브 (NOCP 경유)" : "◌ twin 미연동 — mock");
   }
   function obsHealthSt(h) {
     return h === "critical" ? '<span class="st red">critical</span>'
@@ -2515,7 +2517,7 @@
     return "hsl(" + Math.round(120 - 120 * r) + ",42%," + Math.round(24 + r * 14) + "%)";
   }
 
-  /* 랙 제어 — Emulator control API (:9100 AI Infra …/racks[/{id}]/control).
+  /* 랙 제어 — Emulator control API (NOCP /api/v1/infra 프록시 → AI Infra …/racks[/{id}]/control).
      twin 미연동(404 포함) 시 로컬 오버레이(obsRackLocal)로 데모 반영.
      오버레이는 렌더 시 서버 필드와 일치하면 자동 삭제(동기화)된다. */
   var obsRackLocal = {};     // rack_id → {power_state?, power_cap_kw?, workload_profile?, cordoned?}
@@ -2701,7 +2703,7 @@
       '<option value="idle">프로필: idle</option><option value="steady" selected>프로필: steady</option>' +
       '<option value="train">프로필: train</option><option value="burst">프로필: burst</option></select>' +
       b("btn-ghost", "workload", "프로필 적용") + "</div>" +
-      '<div style="color:var(--muted2);font-size:10px;margin-top:6px">1차 클릭 후 3초 내 재클릭 시 실행 · 전체/일괄 제어는 AI Infra Twin Control(:9100) 사용</div>';
+      '<div style="color:var(--muted2);font-size:10px;margin-top:6px">1차 클릭 후 3초 내 재클릭 시 실행 · 전체/일괄 제어는 AI Infra Twin Control (NOCP 경유) 사용</div>';
   }
 
   function renderObsRack() {
@@ -3209,7 +3211,7 @@
     return st === "down" ? " crit" : st === "degraded" ? " warn" : "";
   }
   function obsFtLive(health, systems, badLinks, pkeys, valid, nqSw, roce) {
-    obsSrc("obs-fabtopo", true, "● UFM·NetQ 라이브 (:9100)");
+    obsSrc("obs-fabtopo", true, "● UFM·NetQ 라이브 (NOCP 경유)");
     var siteKo = { gasan: "가산", ansan: "안산" };
     var tenantPk = pkeys.filter(function (p) { return p && p.tenant_id; });
     var degr = health.links_degraded != null ? health.links_degraded

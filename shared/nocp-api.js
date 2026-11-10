@@ -93,6 +93,22 @@
       return r.json();
     } finally { clearTimeout(t); }
   }
+  /* NICo REST 기반 NOCP 경로(V+primary) → 404/네트워크 시 레거시 경로(BASE+legacy).
+     403 등 시맨틱 에러는 그대로 throw (권한 우회 금지) */
+  async function nicoRead(primary, legacy, norm) {
+    try {
+      const j = await raw(V + primary);
+      return norm ? norm(j) : j;
+    } catch (e) {
+      if (e && e.status && e.status !== 404) throw e;
+      return raw(BASE + legacy);
+    }
+  }
+  // NICo Machine → 레거시 host shape (host_id/tray_id 키 보강, 원 필드 유지)
+  const asHosts = j => (Array.isArray(j) ? j : (j && (j.items || j.machines)) || [])
+    .map(m => Object.assign({}, m, {
+      host_id: m.host_id || m.id || m.machine_id,
+      tray_id: m.tray_id || m.tray || "" }));
   const jp = (u, body, method) => raw(u, {
     method: method || "POST",
     headers: { "Content-Type": "application/json" },
@@ -410,10 +426,13 @@
     },
 
     /* ── 운영 콘솔 풀연동 getter/액션 (라이브 전용) ─────────── */
-    hosts: p => raw(BASE + "/fake-nico/hosts?" + new URLSearchParams(p || {})),
-    hostHardware: id => raw(`${BASE}/fake-nico/hosts/${id}/hardware`),
-    sanitizeReport: id =>
-      raw(`${BASE}/fake-nico/hosts/${id}/sanitize-report`),
+    /* DSX: NICo REST(Machine) 기반 NOCP 경로 우선 → 미구현 시 /fake-nico (deprecated) 폴백 */
+    hosts: p => nicoRead("/machines?" + new URLSearchParams(p || {}),
+      "/fake-nico/hosts?" + new URLSearchParams(p || {}), asHosts),
+    hostHardware: id => nicoRead(`/machines/${id}/hardware`,
+      `/fake-nico/hosts/${id}/hardware`),
+    sanitizeReport: id => nicoRead(`/machines/${id}/sanitize-report`,
+      `/fake-nico/hosts/${id}/sanitize-report`),
     segments: () => raw(BASE + "/fake-nico/segments"),
     fabric: () => raw(V + "/fabric/ib"),
     spec: () => raw(V + "/spec"),
