@@ -25,7 +25,7 @@
       links: "바뀐 화면", verdict: { pass: "통과", fail: "실패", pass_with_pending: "통과(대기 기능 있음)", running: "실행 중" },
       state: { waiting: "○ 대기", running: "▲ 실행 중", passed: "● 통과", failed: "■ 실패", pending: "◌ 기능 대기", skipped: "↷ 건너뜀" },
       resetDone: "초기화 완료 — 결정적 시드로 되돌렸습니다", started: "실행 시작", done: "시나리오 완료",
-      loadErr: "불러오기 실패", total: "합계", fallback: "기존 API로 대체 실행",
+      loadErr: "불러오기 실패", total: "합계",
     },
     en: {
       title: "Demo Center", sub: "v2 end-to-end demos · NOCP /api/v1/demo",
@@ -38,7 +38,7 @@
       links: "Screens that changed", verdict: { pass: "pass", fail: "fail", pass_with_pending: "pass (features pending)", running: "running" },
       state: { waiting: "○ waiting", running: "▲ running", passed: "● passed", failed: "■ failed", pending: "◌ pending feature", skipped: "↷ skipped" },
       resetDone: "Reset — back to the deterministic seed", started: "Run started", done: "Scenario finished",
-      loadErr: "Load failed", total: "total", fallback: "ran the pre-v2 equivalent",
+      loadErr: "Load failed", total: "total",
     },
   };
   var STATE_CLS = { waiting: "unknown", running: "warn", passed: "ok", failed: "crit", pending: "info", skipped: "unknown" };
@@ -102,7 +102,7 @@
       '<p class="dc-narr">' + esc(L(st, "narration", lang)) + "</p>" +
       (exp ? '<div class="dc-exp"><span class="dc-k">' + esc(t(lang).expect) + "</span>" + esc(exp) + "</div>" : "") +
       (a.detail_ko || a.detail_en ? '<div class="dc-res-line"><span class="dc-k">' + esc(t(lang).result) + "</span>" +
-        esc(L(a, "detail", lang)) + (st.fallback ? ' <span class="nc-badge unknown">' + esc(t(lang).fallback) + "</span>" : "") + "</div>" : "") +
+        esc(L(a, "detail", lang)) + "</div>" : "") +
       reqLine + resLine + linksHtml(st.links, lang) + raw + "</li>";
   }
 
@@ -198,8 +198,11 @@
   function mount(win) {
     var doc = win.document;
     var NC = win.NC = win.NC || {};
+    /* NOCP 주소는 다른 화면과 같은 곳에서: NC.dsx.base() → localStorage 'nc-nocp' → :8000 */
     var client = createClient({ base: function () {
-      return (win.NC_AUTH && win.NC_AUTH.base) ? win.NC_AUTH.base(win) : "http://127.0.0.1:8000";
+      if (NC.dsx && typeof NC.dsx.base === "function") return NC.dsx.base();
+      try { return win.localStorage.getItem("nc-nocp") || "http://127.0.0.1:8000"; }
+      catch (e) { return "http://127.0.0.1:8000"; }
     } });
     var st = { scenarios: [], sel: null, detail: null, run: null, live: null, busy: false, es: null, poll: null,
       pace: "normal", presenter: false, err: "" };

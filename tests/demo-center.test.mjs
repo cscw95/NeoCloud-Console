@@ -75,7 +75,7 @@ test("run timeline renders assertion, request line, raw block; escapes HTML", ()
     counts: { passed: 1, failed: 0, pending: 1, skipped: 0 },
     steps: [
       { id: "01-signup", title_ko: "가입", title_en: "Signup", narration_ko: "n", narration_en: "n", feature: "F07",
-        state: "pending", fallback: true, assertion: { ok: null, detail_ko: "pending feature F07 — 없음", detail_en: "pending feature F07" },
+        state: "pending", fallback: true, assertion: { ok: null, detail_ko: "pending feature F07 — 없음 · 기존 API로 대체 실행", detail_en: "pending feature F07" },
         request: { method: "POST", url: "http://nocp.demo/api/v1/tenants" }, response: { status: 201, summary: "HTTP 201 · {id}" }, duration_ms: 3 },
       { id: "02-order", title_ko: "<b>주문</b>", title_en: "Order", narration_ko: "n", narration_en: "n", state: "passed",
         assertion: { ok: true, detail_ko: "주문 ord-1 → delivered", detail_en: "order ord-1 → delivered" },
@@ -87,7 +87,7 @@ test("run timeline renders assertion, request line, raw block; escapes HTML", ()
   assert.match(html, /data-dc-act="cont"/);
   assert.match(html, /POST http:\/\/nocp\.demo\/api\/v1\/orders/);
   assert.match(html, /주문 ord-1 → delivered/);
-  assert.match(html, /기존 API로 대체 실행/);
+  assert.match(html, /pending feature F07 — 없음 · 기존 API로 대체 실행/);
   assert.match(html, /<details class="dc-raw">/);
   assert.match(html, /&lt;b&gt;주문&lt;\/b&gt;/);
   assert.doesNotMatch(html, /<b>주문<\/b>/);
