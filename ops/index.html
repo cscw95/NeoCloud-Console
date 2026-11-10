@@ -274,6 +274,7 @@ section[data-screen="mk8s"]{margin:0}
       <a class="mi" href="#/assets" data-route="assets"><span class="dot"></span>자산 인벤토리 (CMDB)</a>
       <a class="mi" href="#/capacity" data-route="capacity"><span class="dot"></span>용량 관리</a>
       <a class="mi" href="#/provisioning" data-route="provisioning"><span class="dot"></span>프로비저닝 <span class="bd amber" id="bd-prov">1</span></a>
+      <a class="mi" href="#/bringup" data-route="bringup"><span class="dot"></span>랙 bring-up (15단계)</a>
       <a class="mi" href="#/network" data-route="network"><span class="dot"></span>네트워크 — IB · NVLink</a>
       <a class="mi" href="#/power" data-route="power"><span class="dot"></span>전력 · 환경 (DCIM)</a>
       <div class="sb-grp">관측 · 대응</div>
@@ -1188,6 +1189,8 @@ section[data-screen="mk8s"]{margin:0}
       <section data-screen="dsx-rma"><div id="dsx-rma-root"></div></section>
       <section data-screen="dsx-metering"><div id="dsx-metering-root"></div></section>
       <section data-screen="dsx-versions"><div id="dsx-versions-root"></div></section>
+      <!-- F23 랙 bring-up 칸반 — ops/bringup.js (NOCP /api/v1/dcim · /api/v1/bringup) -->
+      <section data-screen="bringup"><div id="bringup-root"></div></section>
 
       <!-- ════════ ⑯ OBS — 냉각 · DLC (Dell PowerCool CDU) ════════ -->
       <section data-screen="obs-dlc">
@@ -1590,6 +1593,7 @@ section[data-screen="mk8s"]{margin:0}
 <script src="../shared/dsx-api.js"></script>
 <script src="../shared/palette.js"></script>
 <script src="dsx.js"></script>
+<script src="bringup.js"></script>
 <script src="app.js"></script>
 <script src="mk8s.js"></script><!-- Managed K8S 목업 (인라인 · iframe 없음 · 내부 라우터) -->
 <script>
