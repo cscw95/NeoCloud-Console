@@ -1628,7 +1628,7 @@ App.register('#/k8s/clusters', function(elm){
       <div class="sub">테넌트 전용 Managed K8S 클러스터 (one-tenant-per-cluster · hosted control plane) ${apiIcon('cluster-crd')}</div></div>
       <div class="right">${actionBtn('+ 클러스터 생성','install',"App.navigate('#/k8s/clusters/new')")}</div></div>
     <div class="card"><table class="table">
-      <tr><th>테넌트</th><th>상태</th><th>버전</th><th>자원 (VR NVL72)</th><th>존</th><th>개통일</th></tr>${rows}
+      <tr><th>테넌트</th><th>상태</th><th>버전</th><th>자원 (VR NVL72)</th><th>존</th><th>개통일</th></tr>${rows||'<tr><td colspan="6" class="muted">Managed K8s 클러스터 없음 — 주문 승인·K8s 설치 후 표시됩니다</td></tr>'}
     </table></div>`;
 });
 

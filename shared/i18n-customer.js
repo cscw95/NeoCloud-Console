@@ -891,3 +891,11 @@ window.NC_I18N.patterns = [
   [/^업그레이드 시작 → (.+)$/, "Upgrade started → $1"],
   [/^NodePool 추가(.*)$/, "NodePool added$1"],
 ].concat(window.NC_I18N.patterns);
+
+/* ── console-fix 2026-11-10: 대시보드 비용 라이브 (billing/usage) ── */
+Object.assign(window.NC_I18N.dict, {
+  "사용 내역 없음": "No usage",
+});
+window.NC_I18N.patterns = [
+  [/^주문 (\d+)건 · 월말 예상 (.+)$/, "$1 orders · month-end estimate $2"],
+].concat(window.NC_I18N.patterns);

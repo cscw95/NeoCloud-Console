@@ -945,6 +945,7 @@
       applyTenant(t);
       renderLiveClusters(t);
       renderLiveHistory(t, "dashboard");
+      renderDashCost(t);
     });
     NC.api.alerts().then(renderAlertFeeds);
     refreshTickets();
@@ -952,6 +953,27 @@
     renderSysChip();
     renderIsolation();
     renderAcceptance();                      // CP-004 인수 대기 카드
+  }
+
+  /* 대시보드 비용 — 라이브: Control-Plane billing/usage 테넌트 합계 (0건이면 $0 · 사용 내역 없음).
+     응답 없으면 정적 mock 수치 유지 + (mock) 표기 — 활성 GPU 0 옆에 mock $5.42M이 라이브처럼 보이지 않도록 */
+  function renderDashCost(t) {
+    var mtd = $("#kpi-mtd"), sub = $("#kpi-mtd-sub"), st = $("#dash-cost-stats");
+    var p = NC.api.billingUsage ? NC.api.billingUsage().catch(function () { return null; }) : Promise.resolve(null);
+    p.then(function (u) {
+      if (!u || !u.lines) {
+        if (NC.live && sub && sub.textContent.indexOf("(mock)") < 0) sub.textContent += " (mock)";
+        return;
+      }
+      var mine = u.lines.filter(function (l) { return t && l.tenant_id === t.id; });
+      var sum = 0, proj = 0;
+      mine.forEach(function (l) { sum += l.amount_usd || 0; proj += l.projected_monthly_usd || 0; });
+      if (mtd) mtd.innerHTML = usdC(sum);
+      if (sub) sub.textContent = mine.length ? "주문 " + mine.length + "건 · 월말 예상 " + usd(proj)
+        : "사용 내역 없음";
+      if (st) st.innerHTML = "<span>MTD <b style=\"font-size:15px\">" + usd(sum) + "</b></span>" +
+        "<span>월말 예상 <b>" + usd(proj) + "</b></span><span>Control-Plane billing/usage</span>";
+    });
   }
 
   /* 노드 — nodes(tid)+cpuNodes(tid) 전체 목록을 pagedTable로 열람

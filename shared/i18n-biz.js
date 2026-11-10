@@ -588,3 +588,11 @@ window.NC_I18N.patterns = [
   [/^([\d.$,]+K) \/PB-월$/, "$1 /PB-month"],
   [/^(\d{2}-\d{2}) 발효 · (.+)$/, "$1 effective · $2"],
 ].concat(window.NC_I18N.patterns);
+
+/* ── console-fix 2026-11-10: 라이브 MRR 보조 문구 (mock 성장률 미표시) ── */
+Object.assign(window.NC_I18N.dict, {
+  "라이브 · 계약 합계 (성장률 이력 없음)": "Live · contract total (no growth history)",
+  "라이브 · 실사용 과금 예상 (계약 0건)": "Live · projected metered billing (0 contracts)",
+  "라이브 · 활성 계약 없음": "Live · no active contracts",
+  "라이브 MRR × 12": "Live MRR × 12",
+});

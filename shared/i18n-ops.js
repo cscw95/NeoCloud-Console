@@ -1335,3 +1335,29 @@ window.NC_I18N.patterns = [
   [/^RMA 생성 — (.+)$/, "RMA created — $1"],
   [/^테넌트 격리 매트릭스 — (.+)$/, "Tenant isolation matrix — $1"],
 ].concat(window.NC_I18N.patterns);
+
+/* ── console-fix 2026-11-10: DPS 도메인 기준 전력 · 라이브 인시던트 패널 · 버전 보고 요약 ── */
+Object.assign(window.NC_I18N.dict, {
+  "보고 없음": "No report",
+  "전력 사용": "Power usage",
+  "매트릭스 일치": "Matrix match",
+  "실측 / 캡": "Measured / cap",
+  "DPS 전력 도메인 실측 (/api/v1/power/domains) — 캡 = operating_limit_kw": "DPS power domains measured (/api/v1/power/domains) — cap = operating_limit_kw",
+  "DPS 전력 도메인 (mock) — 캡 = operating_limit_kw": "DPS power domains (mock) — cap = operating_limit_kw",
+  "DPS 전력 도메인 기준": "Based on DPS power domains",
+  "열린 인시던트 없음": "No open incidents",
+  "nocp 장애 이벤트 없음": "No nocp fault events",
+  "Managed K8s 클러스터 없음 — 주문 승인·K8s 설치 후 표시됩니다": "No Managed K8s clusters — shown after order approval and K8s install",
+});
+window.NC_I18N.patterns = [
+  [/^(.+?) kW · 캡 (.+?) · 랙 텔레메트리 합 (.+?)MW$/, "$1 kW · cap $2 · rack telemetry sum $3MW"],
+  [/^(.+?) kW · 캡 (.+?)$/, "$1 kW · cap $2"],
+  [/^(.+) · 랙 텔레메트리$/, "$1 · rack telemetry"],
+  [/^DPS 실측 · MaxQ 랙 캡 (.+)MW$/, "DPS measured · MaxQ rack cap $1MW"],
+  [/^캡 ([\d.]+)MW 기준(.*)$/, "Based on $1MW cap$2"],
+  [/^(.+) — 매트릭스 일치$/, "$1 — matrix match"],
+  [/^(P\d|—) · 진행 중$/, "$1 · in progress"],
+  [/^(P\d|—) · 해결$/, "$1 · resolved"],
+  [/^XID (\S+) 감지 — (.*)$/, "XID $1 detected — $2"],
+  [/^자동 복구 완료 \(TTR (.+)s\)$/, "Auto-recovery complete (TTR $1s)"],
+].concat(window.NC_I18N.patterns);

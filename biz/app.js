@@ -72,9 +72,24 @@
   }
   function renderMrr() {
     var p = PERIODS[period];
+    /* 라이브: 실계약 합계 → 0이면 빌링 실사용 예상 월액(/api/v1/billing/usage). 성장률 이력 API가 없으므로
+       라이브에서는 mock 성장률(▲ 12.4% MoM 등)을 표시하지 않는다. */
+    var live = !!NC.live;
+    var base = live ? (mrrBase || usageMonthly || 0) : mrrBase;
+    var liveSub = !live ? null
+      : mrrBase ? "라이브 · 계약 합계 (성장률 이력 없음)"
+      : usageMonthly ? "라이브 · 실사용 과금 예상 (계약 0건)"
+      : "라이브 · 활성 계약 없음";
     $$(".js-mrr").forEach(function (el) {
-      el.innerHTML = mrrHtml(mrrBase * p.mult);
+      el.innerHTML = mrrHtml(base * p.mult);
+      var sub = el.parentNode && el.parentNode.querySelector(".js-psub");
+      if (sub && liveSub) { sub.textContent = liveSub; sub.style.color = "var(--muted)"; sub.dataset.live = "1"; }
     });
+    if (live) {                                   // ARR run-rate = 라이브 MRR × 12 (mock $440M 미표시)
+      var arr = $("#kpi-arr"), arrS = $("#kpi-arr-sub");
+      if (arr) arr.innerHTML = mrrHtml(base * 12);
+      if (arrS) arrS.textContent = "라이브 MRR × 12";
+    }
     $$(".js-mrr-k").forEach(function (el) { el.textContent = p.k; });
     $$(".js-mrr-label").forEach(function (el) {   // 차트 패널 제목에 기간 표기
       if (!el.dataset.base) el.dataset.base = el.textContent;
@@ -87,6 +102,7 @@
     });
     $$(".js-mrr-col").forEach(function (el) { el.textContent = p.col; });
     $$(".js-psub").forEach(function (el) {        // 기간별 보조 문구 (data-m/q/y)
+      if (el.dataset.live) return;                // 라이브 MRR 보조 문구는 위에서 설정
       var v = el.dataset[p.key];
       if (v) el.textContent = v;
     });

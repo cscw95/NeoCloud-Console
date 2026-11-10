@@ -392,12 +392,16 @@
           function (j) {
             j = j || {};
             if (j.matrix) return j;
-            return { matrix: Object.assign({}, MATRIX, j), components: j.components || {} };
+            return { matrix: Object.assign({}, MATRIX, j), components: j.components || j.live || {} };
           });
       },
       catalog: function () {
         return get("/catalog", mockCatalog, function (j) {
-          var ps = arr(j, ["products"]);
+          // NOCP: units[] (과금 단위 목록), layer → 화면 공통 형태 unit / tier
+          var ps = arr(j, ["products"]).map(function (p) {
+            return Object.assign({}, p, { unit: p.unit || (Array.isArray(p.units) ? p.units.join(" · ") : p.units),
+              tier: p.tier || p.layer });
+          });
           return { products: ps.length ? ps : mockCatalog().products };
         });
       },
@@ -572,9 +576,15 @@
       nvkeReleases: function () {
         return get("/nvke/releases", mockReleases, function (j) {
           var m = mockReleases();
-          var rel = arr(j, ["releases"]);
+          // NOCP: {k8s_minor, k8s_version, node_image} per release → 화면 공통 형태 {k8s, version, node_image}
+          var rel = arr(j, ["releases"]).map(function (x) {
+            return Object.assign({}, x, { k8s: x.k8s || x.k8s_minor || x.version,
+              version: x.k8s_version || x.version || x.k8s_minor, nvke: x.nvke || x.nvke_version });
+          });
+          var imgs = (j && j.node_images) || rel.map(function (x) { return x.node_image; })
+            .filter(function (x, i, a) { return x && a.indexOf(x) === i; });
           return { releases: rel.length ? rel : m.releases,
-            node_images: (j && j.node_images) || m.node_images,
+            node_images: imgs.length ? imgs : m.node_images,
             instance_types: (j && j.instance_types) || m.instance_types };
         });
       },

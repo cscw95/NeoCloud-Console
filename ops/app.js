@@ -38,6 +38,45 @@
     if (!NC.api || typeof NC.api[name] !== "function") return Promise.resolve(null);
     return NC.api[name].apply(NC.api, args).catch(function () { return null; });
   }
+  /* DPS 전력 도메인 (NOCP /api/v1/power/domains, NC.dsx) — 실측 measured_kw · 캡 operating_limit_kw.
+     사이트/층 캡과 사용 전력의 단일 출처. 라이브 실패 시 NC.dsx mock 도메인 (live=false). 5s 캐시 */
+  var pwrDomCache = null;
+  function pwrDomains() {
+    if (pwrDomCache && Date.now() - pwrDomCache.t < 5000) return Promise.resolve(pwrDomCache.v);
+    if (!NC.dsx || typeof NC.dsx.powerDomains !== "function") return Promise.resolve(null);
+    return NC.dsx.powerDomains().then(function (r) {
+      var ds = r && Array.isArray(r.data) ? r.data : [];
+      var v = null;
+      if (ds.length) {
+        v = { live: !!r.live, domains: ds, measured: 0, limit: 0, site: {} };
+        ds.forEach(function (d) {
+          var m = +(d.measured_kw != null ? d.measured_kw : d.used_kw) || 0;
+          var lim = +(d.operating_limit_kw != null ? d.operating_limit_kw : d.site_budget_kw) || 0;
+          var k = d.site || "—";
+          var st = v.site[k] || (v.site[k] = { measured: 0, limit: 0, racks: 0, domains: [] });
+          st.measured += m; st.limit += lim; st.racks += +(d.rack_count || d.racks) || 0; st.domains.push(d);
+          v.measured += m; v.limit += lim;
+        });
+      }
+      pwrDomCache = { t: Date.now(), v: v };
+      return v;
+    }).catch(function () { return null; });
+  }
+  /* 인벤토리 사이트(factory_id) → 그 사이트의 도메인들 (compute_block = factory_id + "-fN") */
+  function pwrSiteDomains(pd, s) {
+    if (!pd) return [];
+    var fid = s.factory_id || s.id || "";
+    return pd.domains.filter(function (d) {
+      return fid && d.compute_block && d.compute_block.indexOf(fid) === 0;
+    });
+  }
+  function pwrSum(ds, k) {
+    return ds.reduce(function (a, d) {
+      var v = k === "measured" ? (d.measured_kw != null ? d.measured_kw : d.used_kw) : d.operating_limit_kw;
+      return a + (+v || 0);
+    }, 0);
+  }
+
   /* 시계열 → SVG polyline points (viewBox 기준 정규화) */
   function poly(vals, w, h) {
     if (!vals || !vals.length) return "";
@@ -642,13 +681,15 @@
     var eqCall = NC.api.equipment
       ? NC.api.equipment().catch(function () { return null; })
       : Promise.resolve(null);
-    Promise.all([NC.api.incidents(), NC.api.alerts(), NC.api.scale(), eqCall])
+    Promise.all([NC.api.incidents(), NC.api.alerts(), NC.api.scale(), eqCall, pwrDomains()])
       .then(function (r) {
         var list = r[0] || [];
+        var pd = r[4];
         var open = list.filter(function (i) { return i.state !== "resolved"; }).length;
         var alerts = (r[1] || []).length;
         var s = r[2], eq = r[3];
 
+        renderOvIncident(list);
         /* ── 사이트 스코프: 해당 사이트 집계로 전환 ── */
         if (scopeName()) { renderScopedKpi(el, list, r[1] || []); return; }
 
@@ -672,8 +713,9 @@
             kpiCell("전체 GPU", fmt(s.gpus_total), "", kpiSub(gbsTxt)) +
             kpiCell("판매 가능 용량", fmt(sell) + "<small>랙</small>", "green",
               kpiSub("계약 가능 " + fmt(contr) + "랙")) +
-            kpiCell("전력 캡", (s.capped_mw != null ? Number(s.capped_mw).toFixed(1) : "—") +
-              "<small> MW</small>", "", kpiSub("MaxQ 캡 운전 기준")) +
+            (pd ? kpiCell("전력 사용", (pd.measured / 1000).toFixed(2) + "<small> / " + (pd.limit / 1000).toFixed(1) +
+              " MW</small>", "", kpiSub("DPS 실측 · MaxQ 랙 캡 " + Number(s.capped_mw).toFixed(1) + "MW"))
+              : kpiCell("전력 캡", Number(s.capped_mw).toFixed(1) + "<small> MW</small>", "", kpiSub("MaxQ 캡 운전 기준"))) +
             kpiCell("열린 인시던트", String(open), open ? "red" : "green",
               kpiSub(open ? "P2 " + open + (firstOpen ? " · " + esc(firstOpen.id) : "") : "전건 해결 · P1 0")) +
 
@@ -695,16 +737,50 @@
             kpiSub("랙당 " + C.gpu_per_rack + " · in-service 936")) +
           kpiCell("판매 가능 용량", "83<small>랙</small>", "green",
             kpiSub("잠김 4 · 증설 리드타임 12주")) +
-          kpiCell("전력 사용", "5.87<small> / 26.2 MW</small>", "",
-            '<div class="bar"><i style="width:22%"></i></div>') +
+          kpiCell("전력 사용", pd ? (pd.measured / 1000).toFixed(2) + "<small> / " + (pd.limit / 1000).toFixed(1) +
+            " MW</small>" : "—", "",
+            '<div class="bar"><i style="width:' + (pd && pd.limit ? Math.min(100, Math.round(pd.measured / pd.limit * 100)) : 0) +
+            '%"></i></div>') +
           kpiCell("열린 인시던트", String(open), open ? "red" : "green",
-            kpiSub(open ? "P2 " + open + " · INC-0412" : "전건 해결 · P1 0")) +
+            kpiSub(open ? "P2 " + open + " · " + esc(list.filter(function (i) {
+              return i.state !== "resolved"; })[0].id) : "전건 해결 · P1 0")) +
           kpiCell("알림 (24h)", String(alerts), "amber",
             kpiSub("억제 규칙 6 · 중복 제거 on")) +
           kpiCell("SLA 준수율 (30d)", "99.97<small>%</small>", "green",
             kpiSub("에러버짓 잔여 64%"));
       });
   }
+
+  /* Overview 인시던트 패널 — 라이브: 첫 열린 인시던트(없으면 최근 1건) · mock: 정적 INC-0412 유지 */
+  function renderOvIncident(list) {
+    var log = $("#ov-inc-log");
+    if (!log || !NC.live) return;
+    var inc = list.filter(function (i) { return i.state !== "resolved"; })[0] || list[0];
+    if (!inc) {
+      setTxt("ov-inc-title", "인시던트");
+      setHtml("ov-inc-st", "열린 인시던트 없음");
+      $("#ov-inc-st").className = "st green";
+      log.innerHTML = '<div style="color:var(--muted)">nocp 장애 이벤트 없음</div>';
+      return;
+    }
+    var resolved = inc.state === "resolved";
+    setTxt("ov-inc-title", "인시던트 — " + inc.id);
+    setTxt("ov-inc-st", (inc.sev || "—") + (resolved ? " · 해결" : " · 진행 중"));
+    $("#ov-inc-st").className = "st " + (resolved ? "green" : "red");
+    log.innerHTML = (inc.timeline || []).map(function (t) {
+      return '<div><span class="ts">' + esc(t[0] || "—") + "</span> " + esc(t[1] || "") + "</div>";
+    }).join("") || '<div style="color:var(--muted)">' + esc(inc.target || "—") + " " + esc(inc.kind || "") + "</div>";
+  }
+
+  /* 상단 시계 — 현재 시각 (KST) */
+  function tickClock() {
+    var el = $("#tb-clock");
+    if (!el) return;
+    var k = new Date(Date.now() + 9 * 3600e3).toISOString();
+    el.textContent = k.slice(0, 10) + " " + k.slice(11, 16) + " KST";
+  }
+  tickClock();
+  setInterval(tickClock, 15000);
 
   /* P2 인시던트 스트립 — overview에서만 · 해결 시 숨김 (mock 시나리오 전용) */
   function refreshStrip(route) {
@@ -879,6 +955,11 @@
         var d = r[1].filter(function (x) { return x.id === "delta-corp"; })[0] || r[1][0];
         var exp = r[2];
         renderCapSites(r[3]);
+        pwrDomains().then(function (pd) {   // 전력 여유 = Σ operating_limit_kw − Σ measured_kw
+          if (!pd) return;
+          setHtml("cap-kpi-pwr", ((pd.limit - pd.measured) / 1000).toFixed(1) + "<small> MW</small>");
+          setTxt("cap-kpi-pwr-s", "캡 " + (pd.limit / 1000).toFixed(1) + "MW 기준" + (pd.live ? "" : " (mock)"));
+        });
         var tb = $("#cap-pipe");
         if (tb) {
           var provState = p.state === "approval_pending"
@@ -1495,16 +1576,17 @@
     return found;
   }
 
+  var pwMeasHist = [];   // DPS 실측 합계 추이 (화면 활성 시 누적)
   function renderPower() {
     Promise.all([apiOr("spec"), apiOr("sitesInventory"), apiOr("emuHistoryGlobal", 60),
-                 topoCache ? Promise.resolve(topoCache) : apiOr("topologyTree")])
+                 topoCache ? Promise.resolve(topoCache) : apiOr("topologyTree"), pwrDomains()])
       .then(function (r) {
-        var inv = r[1], hist = r[2];
+        var inv = r[1], hist = r[2] || [], pd = r[4];
         topoCache = r[3] || topoCache;
-        if (!inv || !inv.sites || !hist || !hist.length) return;   // 폴백: 정적 유지
-        var last = hist[hist.length - 1] || {};
-        var usedKw = last.power_kw || 0;
-        var capKw = (inv.totals && inv.totals.power_cap_kw) || 26180;
+        if (!inv || !inv.sites || !pd) return;   // 폴백: 정적 유지
+        /* 사용 전력 = DPS 실측 measured_kw 합, 캡 = 도메인 operating_limit_kw 합 (EMU power_kw는 할당 기반이라 0 가능) */
+        var usedKw = pd.measured;
+        var capKw = pd.limit;
         setHtml("pw-kpi-use", (usedKw / 1000).toFixed(2) + "<small> / " + (capKw / 1000).toFixed(1) + " MW</small>");
         var bar = $("#pw-kpi-use-bar");
         if (bar) bar.style.width = Math.min(100, Math.round(usedKw / capKw * 100)) + "%";
@@ -1512,40 +1594,47 @@
         var maxQ = rk && rk.power_cap_kw ? rk.power_cap_kw : 187;
         var maxP = rk && rk.tdp_kw ? rk.tdp_kw : 227;
         var allocRacks = (inv.totals && inv.totals.racks_allocated) || 0;
-        setHtml("pw-kpi-rack", (allocRacks ? fmt(Math.round(usedKw / allocRacks)) : "—") +
+        var pdRacks = pd.domains.reduce(function (a, d) { return a + (+(d.rack_count || d.racks) || 0); }, 0);
+        setHtml("pw-kpi-rack", (pdRacks ? fmt(Math.round(usedKw / pdRacks)) : allocRacks ? fmt(Math.round(usedKw / allocRacks)) : "—") +
           "<small> / " + esc(maxQ) + " kW</small>");
         setTxt("pw-kpi-rack-s", "MaxQ 캡 " + maxQ + "kW · MaxP(TDP) " + maxP + "kW — vr-nvl72 블루프린트");
         /* 사이트 표 — 사용 전력은 GPU 할당 비례 배분(추정) */
         var head = $("#pw-sites-head"), body = $("#pw-sites-body");
         if (head && body) {
-          head.innerHTML = "<th>사이트 / 층</th><th style='width:180px'>사용(추정) / 캡</th>" +
+          head.innerHTML = "<th>사이트 / 층</th><th style='width:180px'>실측 / 캡</th>" +
             "<th class='num'>여유</th><th class='num'>GPU 할당</th>";
-          var totAllocG = (inv.totals && inv.totals.gpus_allocated) || 0;
           body.innerHTML = inv.sites.map(function (s) {
-            var capMw = (s.power_cap_kw || 0) / 1000;
-            var estMw = totAllocG ? (usedKw * ((s.gpus_allocated || 0) / totAllocG)) / 1000 : 0;
+            var sds = pwrSiteDomains(pd, s);
+            var capMw = pwrSum(sds, "limit") / 1000;
+            var estMw = pwrSum(sds, "measured") / 1000;
             var pct = capMw ? Math.min(100, Math.round(estMw / capMw * 100)) : 0;
             var spare = capMw - estMw;
+            var spareCol = capMw && spare / capMw < 0.2 ? "var(--amber)" : "var(--green-text)";
             var rows = "<tr>" +
               td("<b>" + esc(s.name || s.site) + "</b> (" + fmt(s.racks_total || 0) + "랙)") +
-              td('<span class="pb" style="width:130px"><span style="width:' + pct + '%"></span></span> ' +
-                 estMw.toFixed(2) + " / " + capMw.toFixed(1) + "MW") +
-              td('<span style="color:' + (spare / capMw < 0.2 ? "var(--amber)" : "var(--green-text)") +
-                 ';font-weight:700">' + spare.toFixed(1) + "MW</span>", "num") +
+              td('<span style="white-space:nowrap"><span class="pb" style="width:110px"><span style="width:' + pct +
+                 '%"></span></span> ' + estMw.toFixed(2) + " / " + capMw.toFixed(1) + "MW</span>") +
+              td('<span style="color:' + spareCol + ';font-weight:700">' + spare.toFixed(1) + "MW</span>", "num") +
               td(fmt(s.gpus_allocated || 0) + " / " + fmt(s.gpus_total || 0), "num") + "</tr>";
-            rows += (s.floors || []).map(function (fl) {
+            var fds = sds.slice().sort(function (a, b) { return a.compute_block < b.compute_block ? -1 : 1; });
+            rows += (s.floors || []).map(function (fl, i) {
+              var d = fds[i];   // 층 i ↔ ComputeBlock -f(i+1)
+              var cap = d ? (+d.operating_limit_kw || 0) / 1000 : null;
+              var mea = d ? (+(d.measured_kw != null ? d.measured_kw : d.used_kw) || 0) / 1000 : null;
               return '<tr><td style="color:var(--muted2);padding-left:22px">└ ' + esc(fl.name || "—") +
-                "</td>" + td('<span style="color:var(--muted2)">캡 ' + esc(fl.power_mw != null ? fl.power_mw : "—") +
-                "MW</span>") + td(muted("가동 " + esc(fl.ready || "—")), "num") +
-                td(muted("—"), "num") + "</tr>";
+                "</td>" + td('<span style="color:var(--muted2)">' + (d ? mea.toFixed(2) + " / " + cap.toFixed(1) + "MW"
+                : "캡 " + esc(fl.power_mw != null ? fl.power_mw : "—") + "MW") + "</span>") +
+                td(muted(d ? (cap - mea).toFixed(1) + "MW" : "가동 " + esc(fl.ready || "—")), "num") +
+                td(muted(d && d.gpus != null ? fmt(d.gpus) + " GPU" : "—"), "num") + "</tr>";
             }).join("");
             return rows;
           }).join("");
-          setTxt("pw-sites-c", "nocp 인벤토리 + EMU 실측 — 사이트 배분은 GPU 할당 비례 추정");
+          setTxt("pw-sites-c", pd.live ? "DPS 전력 도메인 실측 (/api/v1/power/domains) — 캡 = operating_limit_kw"
+            : "DPS 전력 도메인 (mock) — 캡 = operating_limit_kw");
         }
+        pwMeasHist.push(usedKw); if (pwMeasHist.length > 60) pwMeasHist.shift();
         var line = $("#pw-spark-line");
-        if (line) line.setAttribute("points",
-          poly(hist.map(function (h) { return h.power_kw || 0; }), 560, 64));
+        if (line) line.setAttribute("points", poly(pwMeasHist, 560, 64));
         setTxt("pw-spark-val", fmt(Math.round(usedKw)));
       });
   }
@@ -3130,19 +3219,28 @@
       }
       head += rk.cooling_headroom_kw || 0;
     });
-    var tot = ga + an;
+    pwrDomains().then(function (pd) { obsRackPowerDraw(pd, ga, an, gaN, anN, maxR, allocSum, allocN, head); });
+  }
+  /* 사이트 합계·캡은 DPS 도메인 실측(measured_kw)·operating_limit_kw가 기준 — obs 트윈 랙 텔레메트리 합은 보조 표시 */
+  function obsRackPowerDraw(pd, rga, ran, gaN, anN, maxR, allocSum, allocN, head) {
+    var sg = pd && pd.site.gasan, sa = pd && pd.site.ansan;
+    var ga = sg ? sg.measured : rga, an = sa ? sa.measured : ran;
+    var tot = ga + an, rtot = rga + ran;
+    var capGa = sg ? sg.limit : 0, capAn = sa ? sa.limit : 0, capTot = pd ? pd.limit : 0;
+    var nGa = sg && sg.racks ? sg.racks : gaN, nAn = sa && sa.racks ? sa.racks : anN;
     obsPwrHist.ga.push(ga); obsPwrHist.an.push(an); obsPwrHist.tot.push(tot);
     ["ga", "an", "tot"].forEach(function (k) { if (obsPwrHist[k].length > 72) obsPwrHist[k].shift(); });
     setHtml("obs-rack-kpi",
       kpiCell("전체 IT 전력", (tot / 1000).toFixed(2) + "<small> MW</small>", "",
-        kpiSub(fmt(Math.round(tot)) + " kW · 계약 캡 26.2MW")) +
+        kpiSub(fmt(Math.round(tot)) + " kW · 캡 " + (capTot ? (capTot / 1000).toFixed(1) + "MW" : "—") +
+          (pd ? " · 랙 텔레메트리 합 " + (rtot / 1000).toFixed(2) + "MW" : ""))) +
       kpiCell("가산", fmt(Math.round(ga)) + "<small> kW</small>", "",
-        kpiSub(gaN + "랙 · 평균 " + (gaN ? Math.round(ga / gaN) : 0) + "kW/랙")) +
+        kpiSub(nGa + "랙 · 평균 " + (nGa ? Math.round(ga / nGa) : 0) + "kW/랙")) +
       kpiCell("안산", fmt(Math.round(an)) + "<small> kW</small>", "",
-        kpiSub(anN + "랙 · 평균 " + (anN ? Math.round(an / anN) : 0) + "kW/랙")) +
+        kpiSub(nAn + "랙 · 평균 " + (nAn ? Math.round(an / nAn) : 0) + "kW/랙")) +
       kpiCell("최고 랙", maxR ? fmt(Math.round(maxR.p)) + "<small> kW</small>" : "—",
         maxR && maxR.p >= 170 ? "amber" : "",
-        kpiSub(maxR ? esc(maxR.id) + " · MaxQ 캡 187kW" : "—")) +
+        kpiSub(maxR ? esc(maxR.id) + " · 랙 텔레메트리" : "—")) +
       kpiCell("할당 랙 평균", allocN ? Math.round(allocSum / allocN) + "<small> kW</small>" : "—", "",
         kpiSub("할당 " + allocN + "랙 기준")) +
       kpiCell("냉각 헤드룸 합", fmt(Math.round(head)) + "<small> kW</small>", "green",
@@ -3159,16 +3257,16 @@
     setTxt("obs-pwr-tot-v", (tot / 1000).toFixed(2) + " MW");
     setTxt("obs-pwr-note", "누적 " + obsPwrHist.tot.length + "샘플 (5s 간격 · 화면 활성 시에만 수집)");
     function capRow(lb, v, cap, col) {
-      var pct = Math.min(100, v / cap * 100);
+      var pct = cap ? Math.min(100, v / cap * 100) : 0;
       return '<div class="evrow"><span class="lb" style="width:120px">' + lb +
         '</span><i style="max-width:none"><b style="width:' + pct.toFixed(1) + "%;background:" + col +
         '"></b></i><em style="width:130px">' + (v / 1000).toFixed(2) + " / " + (cap / 1000).toFixed(1) +
         "MW</em></div>";
     }
     setHtml("obs-pwr-caps",
-      capRow("가산 · 전력 캡", ga, 6700, "var(--green)") +
-      capRow("안산 · 전력 캡", an, 19400, "#5aa7e8") +
-      capRow("전체 · 계약 캡", tot, 26200, "var(--amber)") +
+      capRow("가산 · 전력 캡", ga, capGa, "var(--green)") +
+      capRow("안산 · 전력 캡", an, capAn, "#5aa7e8") +
+      capRow("전체 · 계약 캡", tot, capTot, "var(--amber)") +
       '<div style="color:var(--muted2);font-size:10px;margin-top:6px">IT 전력 기준 (냉각 부대전력 제외) · PUE 1.18 적용 시 시설 전력 ≈ ' +
       ((tot * 1.18) / 1000).toFixed(2) + "MW</div>");
   }

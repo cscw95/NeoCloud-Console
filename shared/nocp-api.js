@@ -300,7 +300,8 @@
           .concat(x.resolved ? [[(x.resolved_at || "").slice(5, 16),
             `자동 복구 완료 (TTR ${x.ttr_s || "?"}s)`]] : []),
       }));
-      return list.length ? list : mock.incidents();
+      // 라이브 응답(recent 배열)이면 0건이어도 라이브 — mock INC-0412는 응답이 없을 때만
+      return list.length || Array.isArray(f && f.recent) ? list : mock.incidents();
     },
     async tickets() {
       const ts = await raw(V + "/tickets");

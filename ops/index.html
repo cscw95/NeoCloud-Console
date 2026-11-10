@@ -347,7 +347,7 @@ section[data-screen="mk8s"]{margin:0}
       <span class="crumb" style="font-size:12.5px"><span style="color:var(--muted2);font-size:11.5px;font-weight:400">Ops</span><span class="sep">/</span><span class="cur">관제 Overview</span></span>
       <span class="search"><span class="mono">⌕</span> 호스트 · 랙 · 인시던트 검색 <span class="mono" style="border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:9.5px">⌘K</span></span>
       <div class="tb-right">
-        <span class="mono tabnum" style="color:var(--muted);font-size:11px">2026-07-09 10:41 KST</span>
+        <span class="mono tabnum" id="tb-clock" style="color:var(--muted);font-size:11px">—</span>
         <button class="btn-ghost" data-notif title="알림 · 이벤트 드롭다운">알림<span id="notif-badge" class="nbadge" style="display:none">0</span></button>
         <button class="btn-warn" id="btn-maint-mode" data-act="maint-mode" title="콘솔 정책 레이어 토글 — 신규 프로비저닝 승인 보류 권고">유지보수 모드</button>
         <button class="btn" data-open="reconcile">Reconcile 실행</button>
@@ -398,8 +398,8 @@ section[data-screen="mk8s"]{margin:0}
           </div>
           <div>
             <div class="panel">
-              <div class="ph"><span class="tick red"></span><span class="t">인시던트 — INC-0412</span><span class="st red">P2 · 진행 중</span><span class="lnk" style="margin-left:auto" data-nav="incidents">전체 보기 →</span></div>
-              <div class="log">
+              <div class="ph"><span class="tick red"></span><span class="t" id="ov-inc-title">인시던트 — INC-0412</span><span class="st red" id="ov-inc-st">P2 · 진행 중</span><span class="lnk" style="margin-left:auto" data-nav="incidents">전체 보기 →</span></div>
+              <div class="log" id="ov-inc-log">
                 <div><span class="ts">06:19:42</span> <b style="color:var(--red)">XID 63</b> su-5-rack-03-tray-11 GPU2 — row-remap pending</div>
                 <div><span class="ts">06:19:48</span> nvsentinel 자동 대응 — GPU reset → cordon <span style="color:var(--green-text)">(TTA 6s)</span></div>
                 <div><span class="ts">06:20:04</span> 워크로드 재스케줄 — 영향 &lt;0.1% · 고객 알림 발송</div>
@@ -525,7 +525,7 @@ section[data-screen="mk8s"]{margin:0}
           <div class="kpi"><div class="k">판매 가능 (유효)</div><div class="v green">83<small>랙</small></div><div class="s">5,976 GPU</div></div>
           <div class="kpi"><div class="k">할당</div><div class="v">52<small> / 140랙</small></div><div class="bar"><i style="width:37%"></i></div></div>
           <div class="kpi"><div class="k">격리 잠김</div><div class="v amber">4<small>랙</small></div><div class="s">su-2 · beta-ai 부분 점유</div></div>
-          <div class="kpi"><div class="k">전력 여유</div><div class="v">16.4<small> MW</small></div><div class="s">캡 26.2MW 기준</div></div>
+          <div class="kpi"><div class="k">전력 여유</div><div class="v" id="cap-kpi-pwr">—</div><div class="s" id="cap-kpi-pwr-s">DPS 전력 도메인 기준</div></div>
           <div class="kpi"><div class="k">증설 리드타임</div><div class="v" id="kpi-lead">12<small>주</small></div><div class="s" id="kpi-lead-s">su-12·su-13 발주 D-90</div></div>
         </div>
         <div class="grid" style="margin-bottom:16px">
@@ -697,7 +697,7 @@ section[data-screen="mk8s"]{margin:0}
       <!-- ════════ ⑥ 전력 · 환경 (DCIM) ════════ -->
       <section data-screen="power">
         <div class="kpi-band">
-          <div class="kpi"><div class="k">캠퍼스 사용 전력</div><div class="v" id="pw-kpi-use">5.87<small> / 26.2 MW</small></div><div class="bar"><i id="pw-kpi-use-bar" style="width:22%"></i></div></div>
+          <div class="kpi"><div class="k">캠퍼스 사용 전력</div><div class="v" id="pw-kpi-use">—</div><div class="bar"><i id="pw-kpi-use-bar" style="width:0%"></i></div></div>
           <div class="kpi"><div class="k">PUE (7d)</div><div class="v green">1.18</div><div class="s">DLC 비중 94%</div></div>
           <div class="kpi"><div class="k">랙 평균 / 캡</div><div class="v" id="pw-kpi-rack">131<small> / 187 kW</small></div><div class="s" id="pw-kpi-rack-s">MaxQ 캡 운전</div></div>
           <div class="kpi"><div class="k">냉각수 공급/회수</div><div class="v">25.0<small> / 41.2°C</small></div><div class="s">ΔT 16.2°C 정상</div></div>
@@ -720,7 +720,7 @@ section[data-screen="mk8s"]{margin:0}
           <div class="panel" style="margin-bottom:0">
             <div class="ph"><span class="tick"></span><span class="t">전력 · 온도 추이 (24h)</span></div>
             <div class="spark" style="margin-bottom:12px">
-              <div class="hd"><span style="color:var(--amber);font-weight:700">캠퍼스 전력 (kW)</span><span class="v" id="pw-spark-val">5,872</span></div>
+              <div class="hd"><span style="color:var(--amber);font-weight:700">캠퍼스 전력 (kW)</span><span class="v" id="pw-spark-val">—</span></div>
               <svg width="100%" height="64" viewBox="0 0 560 64" preserveAspectRatio="none"><polyline id="pw-spark-line" points="0,48 40,46 80,47 120,42 160,44 200,37 240,40 280,33 320,36 360,29 400,32 440,26 480,29 520,24 560,26" fill="none" stroke="var(--amber)" stroke-width="1.7"></polyline></svg>
             </div>
             <div class="spark">

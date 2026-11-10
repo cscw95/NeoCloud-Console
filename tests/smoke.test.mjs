@@ -500,3 +500,73 @@ test("dsx-api: powerTelemetry flattens NOCP/DPS domains→groups→racks (racks 
   assert.equal(r.data.groups[0].used_kw, 160);
   assert.equal(r.data.groups[0].max_kw, 200);
 });
+
+/* ── console-fix (CONSOLE-BUGS.md 1–10): live NOCP shapes → screen shapes, no hardcoded caps/clock ── */
+test("dsx-api: live NVKE releases (k8s_minor/k8s_version/node_image) normalise to k8s/version/node_images", async () => {
+  const f = fakeFetch({ "GET /api/v1/nvke/releases": { releases: [
+    { id: "nvke-0.23.1-k8s-1.34", nvke_version: "0.23.1", k8s_minor: "1.34", k8s_version: "v1.34.1", node_image: "img-134", default: true },
+    { id: "nvke-0.23.1-k8s-1.33", nvke_version: "0.23.1", k8s_minor: "1.33", k8s_version: "v1.33.5", node_image: "img-133", default: false }],
+    instance_types: ["vr-nvl72"] } });
+  const D = dsxMod.create({ base: "http://nocp", fetch: f, token: null, session: () => null });
+  const r = await D.nvkeReleases();
+  assert.equal(r.live, true);
+  assert.deepEqual(r.data.releases.map(x => [x.k8s, x.version, x.node_image]), [["1.34", "v1.34.1", "img-134"], ["1.33", "v1.33.5", "img-133"]]);
+  assert.deepEqual(r.data.node_images, ["img-134", "img-133"]);
+  assert.deepEqual(r.data.instance_types, ["vr-nvl72"]);
+});
+
+test("dsx-api: live catalog units[] → unit, layer → tier; versions live{} → components", async () => {
+  const f = fakeFetch({
+    "GET /api/v1/catalog": { products: [{ id: "bmaas", name: "BMaaS", layer: "provisioning", units: ["instance-hour", "gpu-hour"] }] },
+    "GET /api/v1/platform/versions": Object.assign({}, PLAN_MATRIX, { live: { ai_infra: Object.assign({}, PLAN_MATRIX, { component: "ai-infra-emulator" }) } }) });
+  const D = dsxMod.create({ base: "http://nocp", fetch: f, token: null, session: () => null });
+  const c = await D.catalog();
+  assert.equal(c.data.products[0].unit, "instance-hour · gpu-hour");
+  assert.equal(c.data.products[0].tier, "provisioning");
+  const v = await D.versions();
+  assert.equal(v.live, true);
+  assert.equal(v.data.components.ai_infra.component, "ai-infra-emulator");
+});
+
+test("ops: power caps come from DPS domains, not hardcoded MW; no static clock / incident in live paths", () => {
+  const app = read("ops/app.js"), html = read("ops/index.html");
+  for (const lit of ["26200", "19400", ", 6700,", "26180", "계약 캡 26.2MW", "5.87<small> / 26.2"])
+    assert.ok(!app.includes(lit), "ops/app.js still hardcodes " + lit);
+  assert.ok(!/26\.2 ?MW/.test(html), "ops/index.html hardcodes 26.2MW");
+  assert.ok(!html.includes("2026-07-09 10:41 KST"), "static topbar clock");
+  assert.match(app, /pwrDomains\(\)/);
+  assert.match(app, /operating_limit_kw/);
+  assert.match(app, /measured_kw/);
+});
+
+test("shell: KPI band keeps all cards on one row on wide screens (no auto-fit wrap)", () => {
+  const css = read("shared/shell.css");
+  const rule = css.slice(css.indexOf(".kpi-band{"), css.indexOf("}", css.indexOf(".kpi-band{")));
+  assert.ok(!/auto-fit/.test(rule), rule);
+  assert.match(rule, /grid-auto-flow:column/);
+});
+
+test("ops OOB: leaving the screen stops SSE and polling", () => {
+  const src = read("ops/dsx.js");
+  assert.match(src, /function stopEvents\(\)/);
+  assert.match(src, /clearInterval\(oob\.poll\)/);
+  assert.match(src, /id !== "dsx-oob"\) stopEvents\(\)/);
+});
+
+test("biz: live MRR never shows the mock growth % ", () => {
+  const src = read("biz/app.js");
+  assert.match(src, /라이브 · 계약 합계 \(성장률 이력 없음\)/);
+  assert.match(src, /el\.dataset\.live\) return/);
+});
+
+test("i18n: every new console-fix KO string has an EN entry", () => {
+  const ctx = { window: { NC_I18N: { dict: {}, patterns: [] } } };
+  for (const f of ["shared/i18n-dict.js", "shared/i18n-ops.js", "shared/i18n-biz.js", "shared/i18n-customer.js"])
+    vm.runInNewContext(read(f), ctx);
+  const { dict, patterns } = ctx.window.NC_I18N;
+  const en = s => dict[s] || (patterns.find(p => (p[0] instanceof RegExp ? p[0] : new RegExp(p[0])).test(s)) || [])[1];
+  for (const s of ["보고 없음", "실측 / 캡", "열린 인시던트 없음", "사용 내역 없음", "라이브 · 활성 계약 없음",
+    "Managed K8s 클러스터 없음 — 주문 승인·K8s 설치 후 표시됩니다", "25,634 kW · 캡 32.3MW · 랙 텔레메트리 합 10.61MW",
+    "su-1-rack-00 · 랙 텔레메트리", "캡 32.3MW 기준", "XID 79 감지 — su-1-rack-00-tray-01", "주문 2건 · 월말 예상 $1,200"])
+    assert.ok(en(s), "no EN for: " + s);
+});

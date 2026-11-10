@@ -157,7 +157,7 @@
     if (oob.es || oob.poll) { setEvSrc(oob.es ? "SSE · /api/v1/events" : "폴링 · /api/v1/oob/events"); return; }
     pollEvents();
     oob.poll = setInterval(function () {
-      if (location.hash.indexOf("#/dsx-oob") !== 0) return;
+      if (location.hash.indexOf("#/dsx-oob") !== 0) return stopEvents();
       if (!oob.es) pollEvents();
     }, 10000);
     if (D.isLive() === false) return;          // mock 모드 — SSE 시도 생략
@@ -335,7 +335,18 @@
     }).join("");
     var cRows = Object.keys(comps).map(function (k) {
       var v = comps[k];
-      return "<tr><td class='id'>" + esc(k) + "</td><td>" + esc(typeof v === "object" ? JSON.stringify(v) : v) + "</td></tr>";
+      // live 보고: 서비스별 매트릭스 dict → 기준과 다른 키 + 컴포넌트/HW 식별 정보만 요약
+      var txt = v;
+      if (v && typeof v === "object") {
+        var diff = Object.keys(D.MATRIX).filter(function (m) {
+          return v[m] != null && String(v[m]) !== String(D.MATRIX[m]);
+        });
+        var meta = ["component", "component_version", "hw_vendor", "hw_platform"].filter(function (m) { return v[m]; })
+          .map(function (m) { return v[m]; });
+        txt = (meta.length ? meta.join(" · ") + " — " : "") +
+          (diff.length ? diff.map(function (m) { return m + "=" + v[m]; }).join(", ") : "매트릭스 일치");
+      }
+      return "<tr><td class='id'>" + esc(k) + "</td><td>" + esc(txt) + "</td></tr>";
     }).join("");
     root.innerHTML = '<div class="filters" style="margin-bottom:14px">' + src(res) +
       '<span style="color:var(--muted2);font-size:10.5px">DSX OS 4계층 — Provisioning · Runtime · Workload · Fleet Health</span></div>' +
@@ -343,7 +354,7 @@
       panel("기준 버전 매트릭스", "PLAN 기준 vs NOCP 보고",
         '<table class="tbl"><thead><tr><th>구성요소</th><th>키</th><th>기준</th><th>보고값</th><th>일치</th></tr></thead><tbody>' + rows + "</tbody></table>") +
       panel("서비스별 보고", "GET /api/v1/platform/versions · components",
-        '<table class="tbl"><tbody>' + (cRows || "<tr><td>보고 없음 (mock)</td></tr>") + "</tbody></table>") +
+        '<table class="tbl"><tbody>' + (cRows || "<tr><td>" + (res.live ? "보고 없음" : "보고 없음 (mock)") + "</td></tr>") + "</tbody></table>") +
       "</div>";
   }
 
@@ -425,7 +436,13 @@
   var R = { "dsx-oob": renderOob, "dsx-power": renderPower, "dsx-versions": renderVersions,
     "dsx-rma": renderRma, "dsx-metering": renderMetering };
   NC.dsxScreens = R;
-  if (NC.bus) NC.bus.on("route", function (id) { if (R[id]) R[id](); });
+  /* OOB 화면 이탈 시 SSE·폴링 정리 — 열린 EventSource/무한 setInterval이 다른 화면에서도 남아
+     네트워크·타이머를 붙잡지 않도록 (헤드리스 --virtual-time-budget 무한 대기의 원인) */
+  function stopEvents() {
+    if (oob.poll) { clearInterval(oob.poll); oob.poll = null; }
+    if (oob.es) { oob.es.close(); oob.es = null; }
+  }
+  if (NC.bus) NC.bus.on("route", function (id) { if (id !== "dsx-oob") stopEvents(); if (R[id]) R[id](); });
 
   document.addEventListener("click", async function (e) {
     var t = e.target.closest("[data-oob-m],[data-oob-rack],[data-oob-act],[data-oob-sel],[data-pwr-mode],#dsx-pwr-limit-apply,#dsx-sim-run,#dsx-flex-run,[data-rma-adv],[data-rma-new],#dsx-rma-create");

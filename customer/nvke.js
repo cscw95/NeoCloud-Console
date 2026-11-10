@@ -55,7 +55,7 @@
     var use = r[3].data || {};
     var rels = REL.releases || [];
     if (!W.rel) { var df = rels.find(function (x) { return x.default; }) || rels[0]; W.rel = df && (df.k8s || df.version); }
-    if (!W.image) W.image = (REL.node_images || [])[0];
+    if (!W.image) W.image = relImage(W.rel) || (REL.node_images || [])[0];
     if (!W.itype) W.itype = (REL.instance_types || [])[0];
 
     var cards = cat.map(function (p) {
@@ -75,7 +75,7 @@
       }).join("<br>");
       var opts = rels.map(function (x) {
         var k = x.k8s || x.version;
-        return '<option value="' + esc(k) + '"' + (k === c.k8s_version ? " selected" : "") + ">" + esc(k) + "</option>";
+        return '<option value="' + esc(k) + '"' + (k === c.k8s_version || x.version === c.k8s_version ? " selected" : "") + ">" + esc(k) + "</option>";
       }).join("");
       return "<tr><td class='id'>" + esc(c.id) + "<br><span style='color:var(--muted)'>" + esc(c.name) + "</span></td><td>" +
         esc(c.k8s_version) + " · NVKE " + esc(c.nvke_version || D.MATRIX.nvke) + "</td><td>" + esc(c.node_image || "—") +
@@ -147,9 +147,13 @@
       (W.step < 3 ? '<button class="btn" data-nvke-w="next">다음 →</button>' : '<button class="btn" data-nvke-w="create">클러스터 생성</button>') + "</div>";
     return head + body + nav;
   }
+  function relImage(k) {
+    var x = ((REL && REL.releases) || []).find(function (r) { return r.k8s === k; });
+    return x && x.node_image;
+  }
   function readStep() {
     var g = function (id) { var e = $(id); return e ? e.value : null; };
-    if (W.step === 0) { W.rel = g("nvke-w-rel") || W.rel; W.name = (g("nvke-w-name") || "").trim(); W.workload = g("nvke-w-wl") || W.workload; }
+    if (W.step === 0) { var pr = W.rel; W.rel = g("nvke-w-rel") || W.rel; if (W.rel !== pr) W.image = relImage(W.rel) || W.image; W.name = (g("nvke-w-name") || "").trim(); W.workload = g("nvke-w-wl") || W.workload; }
     if (W.step === 1) W.image = g("nvke-w-img") || W.image;
     if (W.step === 2) { W.np = (g("nvke-w-np") || "").trim() || "gpu-pool"; W.itype = g("nvke-w-it") || W.itype; W.count = Math.max(1, +g("nvke-w-cnt") || 1); }
   }
