@@ -169,7 +169,9 @@ tests/              node --test smoke suite (+ pytest wrapper)
 ### Tests
 
 ```bash
-node --test tests/          # 25 smoke tests, no dependencies
+node --test tests/          # 31 smoke tests, no dependencies
+node scripts/live-check.mjs # NOCP chain up: every NC.dsx screen call answered live, not mock (32)
+                            # secure NOCP: NOCP_TOKEN=<operator> NOCP_TENANT_TOKEN=<tenant> NOCP_TENANT=<id>
 pytest tests/               # same suite via pytest (any venv with pytest)
 ```
 
