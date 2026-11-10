@@ -1381,3 +1381,5 @@ window.NC_I18N.patterns = [
   [/^XID (\S+) 감지 — (.*)$/, "XID $1 detected — $2"],
   [/^자동 복구 완료 \(TTR (.+)s\)$/, "Auto-recovery complete (TTR $1s)"],
 ].concat(window.NC_I18N.patterns);
+/* 데모 센터 (ops/demo.js) — 화면 본문은 러너의 _ko/_en 문자열을 직접 쓴다 */
+window.NC_I18N.dict = Object.assign(window.NC_I18N.dict, { "데모 센터": "Demo Center" });
