@@ -2054,7 +2054,7 @@
       var isBad = su[1] === "su-5";
       var dT = heat > 400 ? +(15.5 + r * 1.5).toFixed(1) : 1.5;
       return {
-        cdu_id: "cdu-" + su[1], model: "SMCI LDC-2000", oem: "Supermicro",
+        cdu_id: "cdu-" + su[1], model: "Dell PowerCool CDU C7000", oem: "Dell",
         type: "liquid-to-liquid (in-row)",
         site: su[0], su_id: su[1],
         rack_ids: racks.map(function (x) { return x.rack_id; }),
@@ -2918,7 +2918,7 @@
     });
   }
 
-  /* ── ⑯ 냉각 · DLC (SMCI CDU) ───────────────────────────── */
+  /* ── ⑯ 냉각 · DLC (Dell PowerCool CDU) ───────────────────────────── */
   function obsPumpChip(p) {
     p = p || {};
     var cls = p.state === "running" || p.state === "duty" ? "on"
@@ -2940,7 +2940,7 @@
         if (c.leak && c.leak.detected) leaks++;
       });
       setHtml("obs-dlc-kpi",
-        kpiCell("CDU", fmt(cdus.length), "", kpiSub("Supermicro · liquid-to-liquid")) +
+        kpiCell("CDU", fmt(cdus.length), "", kpiSub(((cdus[0] && cdus[0].oem) || "—") + " · liquid-to-liquid")) +
         kpiCell("총 제열량", fmt(Math.round(totHeat)) + "<small> kW</small>", "",
           kpiSub("정격 " + fmt(totCap) + "kW")) +
         kpiCell("평균 사용률", (totCap ? (totHeat / totCap * 100).toFixed(1) : "—") + "<small>%</small>",
