@@ -430,7 +430,7 @@ function genRacks(tenantId){
  *    overview·installs·nodes·acceptance·nodepools·addons·services·
  *    kubeconfigs(발급/폐기)·upgrades(실행)·cves·health-events·storage·metrics
  *    스냅샷 캐시(TTL 2.5s) + 폴링, 변경 시 리렌더 (뷰 렌더는 동기 유지)
- *  - 모드: localStorage["nc-mk8s-mode"] ("mock"|"live", 기본 mock)
+ *  - 모드: localStorage["nc-mk8s-mode"] ("mock"|"live", 기본: 라이브 우선 자동 프로브 — ops/index.html)
  *  - 단독 실행(managed-k8s.html 직접 오픈)에서도 동작 — NC/bus 옵셔널
  * ============================================================ */
 const DS=(function(){

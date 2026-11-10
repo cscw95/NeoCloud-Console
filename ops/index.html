@@ -300,11 +300,17 @@ section[data-screen="mk8s"]{margin:0}
       <a class="mi" href="#/obs-slo" data-route="obs-slo"><span class="dot"></span>SLA · Error Budget</a>
       <a class="mi" href="#/obs-alerts" data-route="obs-alerts"><span class="dot"></span>알림 · 이벤트 <span class="bd amber" id="bd-obs-alerts" style="display:none">0</span></a>
       <a class="mi" href="#/obs-trayops" data-route="obs-trayops"><span class="dot"></span>트레이 수명주기</a>
+      <div class="sb-grp">DSX OS</div>
+      <a class="mi" href="#/dsx-oob" data-route="dsx-oob"><span class="dot"></span>OOB 모니터링</a>
+      <a class="mi" href="#/dsx-power" data-route="dsx-power"><span class="dot"></span>MaxLPS 전력</a>
+      <a class="mi" href="#/dsx-rma" data-route="dsx-rma"><span class="dot"></span>RMA · 펌웨어</a>
+      <a class="mi" href="#/dsx-metering" data-route="dsx-metering"><span class="dot"></span>미터링 · 격리</a>
+      <a class="mi" href="#/dsx-versions" data-route="dsx-versions"><span class="dot"></span>DSX OS 버전 매트릭스</a>
       <!-- Managed K8S — portal-mockup 통합 (독립 그룹 · 목업 프리뷰) -->
       <div class="sb-grp" style="display:flex;align-items:center;gap:6px">Managed K8S
         <button id="mk8s-mode-btn" class="mk8s-mode" type="button"
-          title="Managed K8S 데이터 소스 전환 — MOCK(시나리오) ↔ LIVE(NOCP :8000 실연동)">
-          <span class="sw"><span class="knob"></span></span><span class="bd-txt">MOCK</span>
+          title="Managed K8S 데이터 소스 — 라이브 우선(NOCP :8000) · 실패 시에만 MOCK 표시 · 클릭으로 수동 전환">
+          <span class="sw"><span class="knob"></span></span><span class="bd-txt">…</span>
         </button></div>
       <div id="mk8s-sub" class="mk8s-sub">
         <a class="mi" href="#/mk8s?v=overview"   data-mk8s-v="overview"><span class="dot"></span>Overview</a>
@@ -1009,7 +1015,7 @@ section[data-screen="mk8s"]{margin:0}
               <tr><td>GPU 쿼터 · 테넌트 배분</td><td style="color:var(--muted)">Run:ai + 수동</td><td class="st amber">Ops 콘솔 통합</td><td style="color:var(--muted)">Q4 '26</td></tr>
               <tr><td>패브릭 관리 (IB·NVLink)</td><td style="color:var(--muted)">UFM + NMX-M</td><td class="st amber">네트워크 메뉴 단일 뷰</td><td style="color:var(--muted)">Q1 '27</td></tr>
               <tr><td>잡 오케스트레이션</td><td style="color:var(--muted)">Slurm/SUNK + Run:ai</td><td class="st blue">워크로드 유형별 역할 분리</td><td style="color:var(--muted)">Q2 '27</td></tr>
-              <tr><td>Managed K8S (테넌트 K8s 클러스터)</td><td style="color:var(--muted)">NKD + 수동 개통</td><td class="st green">Ops 콘솔 통합 — 목업(MOCK) 검증 중</td><td style="color:var(--muted)"><span class="lnk" data-nav="mk8s?v=overview">Managed K8S 그룹 →</span></td></tr>
+              <tr><td>Managed K8S (테넌트 K8s 클러스터)</td><td style="color:var(--muted)">NKD + 수동 개통</td><td class="st green">Ops 콘솔 통합 — NVKE 라이브 우선 (NOCP 미기동 시 mock)</td><td style="color:var(--muted)"><span class="lnk" data-nav="mk8s?v=overview">Managed K8S 그룹 →</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -1181,6 +1187,13 @@ section[data-screen="mk8s"]{margin:0}
           <div id="obs-rack-detail"></div>
         </div>
       </section>
+
+      <!-- ════════ DSX OS — shared/dsx-api.js + ops/dsx.js (NOCP /api/v1 경유) ════════ -->
+      <section data-screen="dsx-oob"><div id="dsx-oob-root"></div></section>
+      <section data-screen="dsx-power"><div id="dsx-power-root"></div></section>
+      <section data-screen="dsx-rma"><div id="dsx-rma-root"></div></section>
+      <section data-screen="dsx-metering"><div id="dsx-metering-root"></div></section>
+      <section data-screen="dsx-versions"><div id="dsx-versions-root"></div></section>
 
       <!-- ════════ ⑯ OBS — 냉각 · DLC (SMCI CDU) ════════ -->
       <section data-screen="obs-dlc">
@@ -1576,10 +1589,13 @@ section[data-screen="mk8s"]{margin:0}
   <div class="mf"><button class="btn-ghost" id="obs-ftsw-refresh" style="margin-right:auto">새로고침</button><button class="btn-cancel" data-close>닫기</button></div>
 </div></div>
 
+<script src="../shared/nocp-auth.js"></script>
 <script src="../shared/app.js"></script>
 <script src="../shared/mock-api.js"></script>
 <script src="../shared/nocp-api.js"></script>
+<script src="../shared/dsx-api.js"></script>
 <script src="../shared/palette.js"></script>
+<script src="dsx.js"></script>
 <script src="app.js"></script>
 <script src="mk8s.js"></script><!-- Managed K8S 목업 (인라인 · iframe 없음 · 내부 라우터) -->
 <script>
@@ -1630,7 +1646,7 @@ section[data-screen="mk8s"]{margin:0}
     if (active) {
       var crumb = document.querySelector(".crumb .cur");
       /* 페이지 타이틀(마스트헤드)이 뷰 이름을 담당 — 브레드크럼은 경로만 */
-      if (crumb) crumb.textContent = "Managed K8S (목업)";
+      if (crumb) crumb.textContent = "Managed K8S (NVKE)";
     }
   }
 
@@ -1659,7 +1675,9 @@ section[data-screen="mk8s"]{margin:0}
       setTimeout(function () { App.navigate(target); }, 0);
   });
 
-  /* ── Mock/Live 토글 (R1) — localStorage["nc-mk8s-mode"] · NC.bus "mk8s-mode" ──
+  /* ── Live 우선 데이터 소스 (DSX) — localStorage["nc-mk8s-mode"] · NC.bus "mk8s-mode" ──
+     부팅 시 GET /api/v1/spec 자동 프로브 → 성공 LIVE / 실패 시에만 MOCK 배지.
+     사용자가 MOCK을 수동 선택하면 nc-mk8s-pin="mock"으로 고정(자동 프로브 생략).
      LIVE 전환 시 GET /api/v1/spec 프로브 — 실패하면 토스트 + 스위치 원복(MOCK 유지).
      DS(mk8s.js 데이터 프로바이더)가 버스 수신 → 캐시 무효화 + 현재 서브뷰 리렌더. */
   (function () {
@@ -1671,6 +1689,15 @@ section[data-screen="mk8s"]{margin:0}
       var live = mode() === "live";
       btn.classList.toggle("live", live);
       btn.querySelector(".bd-txt").textContent = live ? "LIVE" : "MOCK";
+      btn.style.display = "";
+    }
+    function probe(cb) {
+      var base = localStorage.getItem("nc-nocp") || "http://127.0.0.1:8000";
+      var ctl = new AbortController();
+      var t = setTimeout(function () { ctl.abort(); }, 1500);
+      fetch(base + "/api/v1/spec", { signal: ctl.signal }).then(function (r) {
+        clearTimeout(t); cb(r.ok, base);
+      }).catch(function () { clearTimeout(t); cb(false, base); });
     }
     function apply(m) {
       localStorage.setItem(KEY, m);
@@ -1681,25 +1708,29 @@ section[data-screen="mk8s"]{margin:0}
     }
     btn.addEventListener("click", function () {
       if (mode() === "live") {
+        localStorage.setItem("nc-mk8s-pin", "mock");   // 수동 MOCK 고정
         apply("mock");
         NC.toast("Managed K8S — MOCK 모드 (시나리오 데이터)");
         return;
       }
-      var base = localStorage.getItem("nc-nocp") || "http://127.0.0.1:8000";
-      var ctl = new AbortController();
-      var t = setTimeout(function () { ctl.abort(); }, 1500);
-      fetch(base + "/api/v1/spec", { signal: ctl.signal }).then(function (r) {
-        clearTimeout(t);
-        if (!r.ok) throw new Error(r.status);
+      probe(function (ok, base) {
+        if (!ok) {
+          paint();                                     // 스위치 원복 (MOCK 유지)
+          NC.toast("NOCP(:8000) 미기동 — Mock 모드 유지", "warn");
+          return;
+        }
+        localStorage.removeItem("nc-mk8s-pin");
         apply("live");
         NC.toast("Managed K8S — LIVE 모드 (NOCP " + base + " 연동)");
-      }).catch(function () {
-        clearTimeout(t);
-        paint();                                       // 스위치 원복 (MOCK 유지)
-        NC.toast("NOCP(:8000) 미기동 — Mock 모드 유지", "warn");
       });
     });
-    paint();                                           // 새로고침 시 저장된 모드 복원
+    paint();                                           // 저장된 모드로 첫 페인트
+    if (localStorage.getItem("nc-mk8s-pin") !== "mock") {
+      probe(function (ok) {                            // 라이브 우선 — 실패 시에만 MOCK
+        if ((ok ? "live" : "mock") !== mode()) apply(ok ? "live" : "mock");
+        else paint();
+      });
+    }
   })();
 
   /* 목업 내부 네비게이션 → 콘솔 해시/서브메뉴 역동기화 (mk8s.js 렌더 훅) */
