@@ -282,7 +282,7 @@
           (ttl ? ' title="' + esc(ttl) + '"' : "") + ">" + txt + "</span>";
       }).join("");
       var note = row[2]
-        ? '<span style="color:var(--muted2);font-size:10px;padding-left:4px">' + esc(row[2]) + "</span>"
+        ? '<span style="color:var(--muted2);font-size:11px;padding-left:4px">' + esc(row[2]) + "</span>"
         : "";
       /* 셀 그리드 오른쪽 테넌트 칩 — 복수 테넌트면 각 랙수 병기 (색-이름 연결) */
       var tc = rowTenantCounts(tens);
@@ -467,9 +467,9 @@
             '" style="cursor:pointer" title="클릭 시 SLA · Error Budget · hover 시 랙맵 강조">' +
             td('<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' +
               tenantColor(t.id) + ';margin-right:6px;vertical-align:0"></span><b>' + esc(t.name) + "</b>" +
-              '<div style="color:var(--muted2);font-size:9.5px" class="id">' + esc(t.id) + "</div>") +
+              '<div style="color:var(--muted2);font-size:11px" class="id">' + esc(t.id) + "</div>") +
             td(muted(esc(t.site)) + (t.sus.length
-              ? ' <span class="id" style="color:var(--muted2);font-size:10px">' +
+              ? ' <span class="id" style="color:var(--muted2);font-size:11px">' +
                 t.sus.map(esc).join("·") + "</span>" : "")) +
             td('<b class="tabnum">' + fmt(t.racks) + "랙</b> <span style='color:var(--muted)'>/ " +
               fmt(t.gpus) + " GPU</span>", "num") +
@@ -477,7 +477,7 @@
               ? fmt(s.available_gpus != null ? s.available_gpus : 0) +
                 ' · <span style="color:' + (okA ? "var(--green-text)" : "var(--red)") +
                 ';font-weight:700">' + (+avail).toFixed(2) + "%</span>" +
-                (tgt != null ? '<div style="color:var(--muted2);font-size:9.5px">SLO ' + tgt + "%</div>" : "")
+                (tgt != null ? '<div style="color:var(--muted2);font-size:11px">SLO ' + tgt + "%</div>" : "")
               : muted("—"), "num") +
             td(eb != null
               ? '<span class="pb" style="width:90px"><span style="width:' +
@@ -583,35 +583,35 @@
     var doms = ["GPU", "COOLING", "FABRIC", "STORAGE", "REPROV"];
     Object.keys(byDom).forEach(function (d) { if (doms.indexOf(d) < 0) doms.push(d); });
     var mx = Math.max.apply(null, doms.map(function (d) { return byDom[d] || 0; }).concat([1]));
-    var domCol = { GPU: "var(--green)", COOLING: "#5ad0c8", FABRIC: "#9fd0ff",
+    var domCol = { GPU: "var(--green)", COOLING: "var(--teal)", FABRIC: "var(--info-text)",
       STORAGE: "var(--purple-text)", REPROV: "var(--amber)" };
     var tot = firing + resolved || 1;
     box.innerHTML =
-      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin-bottom:5px">도메인별 발생</div>' +
+      '<div style="color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em;margin-bottom:5px">도메인별 발생</div>' +
       doms.map(function (d) {
         var n = byDom[d] || 0;
         return '<div class="evrow"><span class="lb" style="width:84px">' + d +
           '</span><i><b style="width:' + (n / mx * 100).toFixed(1) + "%;background:" +
           (domCol[d] || "var(--ready)") + '"></b></i><em>' + n + "</em></div>";
       }).join("") +
-      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin:12px 0 6px">심각도</div>' +
+      '<div style="color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em;margin:12px 0 6px">심각도</div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
       [["critical", "red"], ["major", "red"], ["warning", "amber"], ["minor", "blue"]]
         .map(function (p) {
           return '<span class="st ' + p[1] + '">' + p[0].toUpperCase() + " " +
             (bySev[p[0]] || 0) + "</span>";
         }).join("") + "</div>" +
-      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin:12px 0 6px">firing vs resolved</div>' +
+      '<div style="color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em;margin:12px 0 6px">firing vs resolved</div>' +
       '<div class="statebar">' +
       '<i style="width:' + (firing / tot * 100).toFixed(1) + '%;background:var(--red)"></i>' +
       '<i style="width:' + (resolved / tot * 100).toFixed(1) + '%;background:var(--green)"></i></div>' +
-      '<div style="display:flex;gap:12px;font-size:10px;color:var(--muted)" class="tabnum">' +
+      '<div style="display:flex;gap:12px;font-size:11px;color:var(--muted)" class="tabnum">' +
       '<span><span class="leg" style="background:var(--red)"></span> firing ' + firing + "</span>" +
       '<span><span class="leg" style="background:var(--green)"></span> resolved ' + resolved + "</span></div>" +
       '<div style="display:flex;gap:10px;margin-top:12px">' +
-      '<div class="sub" style="flex:1;text-align:center"><div style="color:var(--muted2);font-size:9.5px;font-weight:700">최근 1h</div>' +
+      '<div class="sub" style="flex:1;text-align:center"><div style="color:var(--muted2);font-size:11px;font-weight:700">최근 1h</div>' +
       '<div style="color:#fff;font-size:17px;font-weight:800" class="tabnum">' + fmt(n1h) + "</div></div>" +
-      '<div class="sub" style="flex:1;text-align:center"><div style="color:var(--muted2);font-size:9.5px;font-weight:700">최근 24h</div>' +
+      '<div class="sub" style="flex:1;text-align:center"><div style="color:var(--muted2);font-size:11px;font-weight:700">최근 24h</div>' +
       '<div style="color:#fff;font-size:17px;font-weight:800" class="tabnum">' + fmt(n24h) + "</div></div></div>";
     setTxt("ov-fstats-c", "표본 " + rec.length + "건" + (live ? " · NOCP 라이브" : " · mock"));
   }
@@ -943,7 +943,7 @@
         td(s.racks_sellable != null
           ? '<span style="color:var(--green-text);font-weight:700">' + fmt(s.racks_sellable) + "랙</span>" +
             (s.gpus_sellable != null
-              ? '<div style="color:var(--muted2);font-size:10px">' + fmt(s.gpus_sellable) + " GPU</div>" : "")
+              ? '<div style="color:var(--muted2);font-size:11px">' + fmt(s.gpus_sellable) + " GPU</div>" : "")
           : "—", "num") +
         td(s.racks_contractable != null ? fmt(s.racks_contractable) + "랙" : "—", "num") +
         td(locked
@@ -1181,7 +1181,7 @@
         '<b class="mono" style="font-size:11px;color:#fff">' + esc(s.id) + "</b>" +
         '<span style="font-size:12px">' + esc(s.tenant) + " 회수분 · " + esc(s.racks) + "랙</span>" + status +
 
-        '<span style="margin-left:auto;color:var(--muted);font-size:10.5px">' +
+        '<span style="margin-left:auto;color:var(--muted);font-size:11px">' +
         (s.cert_ready ? "PASS " + total + "/" + total : "ETA " + (total - done) * 11 + "분") +
         "</span></div>" +
         '<div class="sanseg">' + segs + "</div>" +
@@ -1331,7 +1331,7 @@
         '" style="cursor:pointer" title="클릭 시 하드웨어 상세">' +
         td('<span class="id">' + esc(h.host_id) + "</span>") +
         td('<span class="id" style="color:var(--muted)">' + esc(h.tray_id) + "</span>" +
-           '<div style="color:var(--muted2);font-size:10px">' + esc(h.sku || "—") + "</div>") +
+           '<div style="color:var(--muted2);font-size:11px">' + esc(h.sku || "—") + "</div>") +
         td(muted(esc(h.site || "—"))) +
         td('<span class="st ' + st[0] + '"><span class="dot ' + st[0] + '"></span> ' + esc(st[1]) + "</span>" +
            (h.cordoned ? ' <span class="st red">cordon</span>' : "") +
@@ -1341,10 +1341,10 @@
            '<span class="st ' + (h.attested ? "green" : "red") + '">attest ' +
            (h.attested ? "OK" : "실패") + "</span>") +
         td('<span class="id" style="color:var(--muted)">' + esc(h.tenant_ref || "—") + "</span>" +
-           '<div style="color:var(--muted2);font-size:10px">' + esc(h.instance_id || "—") + "</div>") +
-        td('<button class="btn-ghost" style="padding:3px 9px;font-size:10.5px" data-act="asset-hw" data-host="' +
+           '<div style="color:var(--muted2);font-size:11px">' + esc(h.instance_id || "—") + "</div>") +
+        td('<button class="btn-ghost" style="padding:3px 9px;font-size:11px" data-act="asset-hw" data-host="' +
            esc(h.host_id) + '" data-tray="' + esc(h.tray_id) + '">상세</button> ' +
-           '<button class="btn-ghost" style="padding:3px 9px;font-size:10.5px;color:var(--amber)" data-act="asset-rma" data-tray="' +
+           '<button class="btn-ghost" style="padding:3px 9px;font-size:11px;color:var(--amber)" data-act="asset-rma" data-tray="' +
            esc(h.tray_id) + '">RMA</button>', "num") +
         "</tr>";
     }).join("") || '<tr><td colspan="7" style="color:var(--muted)">필터 결과 없음</td></tr>';
@@ -1559,7 +1559,7 @@
           "<th class='num'>Converged VNI</th><th class='num'>호스트</th>";
         vb.innerHTML = segData.map(function (sg) {
           return "<tr>" + td('<span class="id">' + esc(sg.segment_id || "—") + "</span>" +
-            '<div style="color:var(--muted2);font-size:9.5px">' + esc(sg.tenant_ref || "") + "</div>") +
+            '<div style="color:var(--muted2);font-size:11px">' + esc(sg.tenant_ref || "") + "</div>") +
             td(esc(sg.vrf || "—")) + td(fmt(sg.l3vni || 0), "num") +
             td(fmt(sg.converged_vni || 0), "num") +
             td(fmt((sg.host_ids || []).length), "num") + "</tr>";
@@ -1750,10 +1750,10 @@
         (a ? "" : ";opacity:.55") + '">' +
         '<span class="dot ' + (a ? "amber" : "gray") + '"></span>' +
         '<span class="id" style="color:#fff">' + esc(p.id) + "</span>" +
-        '<span class="id" style="font-size:10px;color:var(--muted)">' + esc(p.operator || "—") +
+        '<span class="id" style="font-size:11px;color:var(--muted)">' + esc(p.operator || "—") +
         " → " + esc(p.target || "—") +
         (a ? " · 녹화 중 · TTL " + Math.round((p.ttl_s || 0) / 60) + "분" : " · 종료 (녹화 봉인)") + "</span>" +
-        (a ? '<button class="btn-danger" style="margin-left:auto;padding:2px 9px;font-size:10.5px" ' +
+        (a ? '<button class="btn-danger" style="margin-left:auto;padding:2px 9px;font-size:11px" ' +
              'data-act="pam-close" data-id="' + esc(p.id) + '">종료</button>' : "") +
         "</div>";
     }).join("") ||
@@ -1774,7 +1774,7 @@
           body.innerHTML = audit.map(function (a) {
             var ok = a.result === "success";
             return "<tr>" +
-              td('<span class="id" style="color:var(--muted);font-size:10px">' +
+              td('<span class="id" style="color:var(--muted);font-size:11px">' +
                  esc(String(a.at || "").slice(5, 19).replace("T", " ")) + "</span>") +
               td('<span class="id">' + esc(a.actor || "—") + "</span>") +
               td(esc(a.action || "—")) +
@@ -1820,7 +1820,7 @@
             box.innerHTML =
               '<div style="font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px">' +
               "실 Sanitize 리포트 — " + esc(rep.host_id || cand.host_id) + " (nocp)</div>" +
-              '<div class="mono" style="font-size:10.5px;color:var(--soft);word-break:break-all">' +
+              '<div class="mono" style="font-size:11px;color:var(--soft);word-break:break-all">' +
               esc(JSON.stringify(rep).slice(0, 400)) + "</div>";
           });
         }
@@ -1843,7 +1843,7 @@
           td('<span class="st ' + (x.state === "maintenance" ? "amber" : "red") + '">' +
              esc(x.state || "—") + "</span>") +
           td('<span class="id" style="color:var(--muted)">' + esc(x.tenant_id || "—") + "</span>") +
-          td('<button class="btn-ghost" style="padding:3px 10px;font-size:10.5px" data-act="equip-restore" ' +
+          td('<button class="btn-ghost" style="padding:3px 10px;font-size:11px" data-act="equip-restore" ' +
              'data-kind="' + esc(x.kind || "tray") + '" data-id="' + esc(x.id || "") + '">복구 → ready</button>', "num") +
           "</tr>";
       }).join("") ||
@@ -1936,7 +1936,7 @@
       : '<span class="st blue">' + esc(String(s || "info").toUpperCase()) + "</span>";
   }
   function obsAt(v) {
-    return '<span class="id" style="color:var(--muted2);font-size:10px">' +
+    return '<span class="id" style="color:var(--muted2);font-size:11px">' +
       esc(String(v || "—").replace("T", " ").slice(5, 16)) + "</span>";
   }
 
@@ -2374,7 +2374,7 @@
   function obsGpuLoc(x) {
     return '<span class="id" style="color:#fff">' + esc(x.tray_id || (x.rack_id || "—")) +
       " · g" + esc(x.idx != null ? x.idx : "?") + "</span>" +
-      '<div style="color:var(--muted2);font-size:9.5px">' + esc(x.gpu_uuid) + " · " +
+      '<div style="color:var(--muted2);font-size:11px">' + esc(x.gpu_uuid) + " · " +
       esc(x.site || "—") + " " + esc(x.su_id || "") + "</div>";
   }
   function obsGpuRow(x) {
@@ -2490,20 +2490,20 @@
       return '<i style="width:' + Math.max(0.4, (n || 0) / tot * 100) + '%;background:' + color + '"></i>';
     }
     setHtml("obs-gpu-dist",
-      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em">상태 분해 — 전체 ' + fmt(g.total || 0) + '기</div>' +
+      '<div style="color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em">상태 분해 — 전체 ' + fmt(g.total || 0) + '기</div>' +
       '<div class="statebar">' + seg(g.active, "var(--green)") + seg(g.idle, "var(--ready)") +
         seg((g.throttled || 0) * 40, "var(--amber)") + seg((g.faulted || 0) * 40, "var(--red)") + "</div>" +
-      '<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:10px;color:var(--muted);margin-bottom:10px">' +
+      '<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-bottom:10px">' +
         '<span><span class="leg" style="background:var(--green)"></span> active ' + fmt(g.active || 0) + "</span>" +
         '<span><span class="leg" style="background:var(--ready)"></span> idle ' + fmt(g.idle || 0) + "</span>" +
         '<span><span class="leg" style="background:var(--amber)"></span> throttled ' + esc(g.throttled || 0) + " <em style=\"font-style:normal;color:var(--muted2)\">(확대 표시)</em></span>" +
         '<span><span class="leg" style="background:var(--red)"></span> faulted ' + esc(g.faulted || 0) + "</span></div>" +
-      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em">' + uLbl + '</div>' +
+      '<div style="color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em">' + uLbl + '</div>' +
       '<div class="hist">' + ub.map(function (n) {
         return '<i style="height:' + Math.max(4, n / um * 100) + '%"></i>';
       }).join("") + "</div>" +
       '<div class="hist-x"><span>0%</span><span>50%</span><span>100%</span></div>' +
-      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin-top:10px">온도 분포</div>' +
+      '<div style="color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em;margin-top:10px">온도 분포</div>' +
       '<div class="hist">' + tb.map(function (n, i) {
         return '<i class="' + (i >= 7 ? "hot" : "") + '" style="height:' + Math.max(4, n / tm * 100) + '%"></i>';
       }).join("") + "</div>" +
@@ -2557,7 +2557,7 @@
         td(x.power_w != null ? fmt(x.power_w) + "W" : "—", "num") +
         td(esc(x.ecc_uncorr || 0) + " / " + esc(x.ecc_corr || 0), "num") +
         td('<span class="id" style="color:var(--muted)">' + esc(x.tenant_id || "—") + "</span>") +
-        td('<span style="color:var(--muted2);font-size:10.5px">' + advice + "</span>") + "</tr>";
+        td('<span style="color:var(--muted2);font-size:11px">' + advice + "</span>") + "</tr>";
     }).join("") || '<tr><td colspan="8" style="color:var(--green-text)">예외 없음 — 전 GPU 정상 범위</td></tr>');
   }
 
@@ -2815,7 +2815,7 @@
       '<option value="idle">프로필: idle</option><option value="steady" selected>프로필: steady</option>' +
       '<option value="train">프로필: train</option><option value="burst">프로필: burst</option></select>' +
       b("btn-ghost", "workload", "프로필 적용") + "</div>" +
-      '<div style="color:var(--muted2);font-size:10px;margin-top:6px">1차 클릭 후 3초 내 재클릭 시 실행 · 전체/일괄 제어는 AI Infra Twin Control (NOCP 경유) 사용</div>';
+      '<div style="color:var(--muted2);font-size:11px;margin-top:6px">1차 클릭 후 3초 내 재클릭 시 실행 · 전체/일괄 제어는 AI Infra Twin Control (NOCP 경유) 사용</div>';
   }
 
   function renderObsRack() {
@@ -2981,13 +2981,13 @@
           '<div style="display:flex;align-items:center;gap:8px"><span class="dot ' +
           (leak || c.health === "critical" ? "red" : c.health === "warn" ? "amber" : "green") +
           '"></span><b class="mono" style="font-size:11.5px;color:#fff">' + esc(c.cdu_id || "—") + "</b>" +
-          '<span style="color:var(--muted);font-size:10.5px">' + esc(c.model || "—") + " · " +
+          '<span style="color:var(--muted);font-size:11px">' + esc(c.model || "—") + " · " +
           esc(c.oem || "") + "</span>" +
-          '<span style="margin-left:auto;color:var(--muted2);font-size:10px">' + esc(c.su_id || "—") +
+          '<span style="margin-left:auto;color:var(--muted2);font-size:11px">' + esc(c.su_id || "—") +
           " · " + fmt((c.rack_ids || []).length) + "랙</span></div>" +
           '<div class="gauge"><i style="width:' + Math.min(100, Math.max(0, util)) + "%;background:" +
           gcol + '"></i></div>' +
-          '<div class="tabnum" style="display:flex;gap:12px;flex-wrap:wrap;font-size:10.5px;color:var(--muted)">' +
+          '<div class="tabnum" style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted)">' +
           "<span>사용률 <b style='color:#fff'>" + obsN1(util) + "%</b></span>" +
           "<span>2차 " + obsN1(sec.supply_c) + "/" + obsN1(sec.return_c) + "°C</span>" +
           "<span>ΔT <b style='color:#fff'>" + obsN1(sec.delta_t != null ? sec.delta_t :
@@ -2999,7 +2999,7 @@
           (leak ? '<span class="pumpchip bad">LEAK — ' + esc((c.leak || {}).location || "위치 확인 중") + "</span>"
                 : '<span class="pumpchip stby">누수 없음</span>') + "</div>" +
           ((c.alarms || []).length
-            ? '<div style="margin-top:7px;font-size:10px;color:var(--amber)">⚠ ' +
+            ? '<div style="margin-top:7px;font-size:11px;color:var(--amber)">⚠ ' +
               (c.alarms || []).map(function (a) {
                 return esc(typeof a === "string" ? a
                   : (a.code || a.severity || "") + (a.detail ? " — " + a.detail : ""));
@@ -3287,7 +3287,7 @@
       capRow("가산 · 전력 캡", ga, capGa, "var(--green)") +
       capRow("안산 · 전력 캡", an, capAn, "#5aa7e8") +
       capRow("전체 · 계약 캡", tot, capTot, "var(--amber)") +
-      '<div style="color:var(--muted2);font-size:10px;margin-top:6px">IT 전력 기준 (냉각 부대전력 제외) · PUE 1.18 적용 시 시설 전력 ≈ ' +
+      '<div style="color:var(--muted2);font-size:11px;margin-top:6px">IT 전력 기준 (냉각 부대전력 제외) · PUE 1.18 적용 시 시설 전력 ≈ ' +
       ((tot * 1.18) / 1000).toFixed(2) + "MW</div>");
   }
 
@@ -3404,10 +3404,10 @@
       return '<div class="ft-site">' +
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:9px">' +
         '<b style="color:#fff;font-size:12.5px">' + esc(siteKo[siteId] || siteId) + " — 독립 IB 패브릭</b>" +
-        '<span style="color:var(--muted);font-size:10.5px">UFM 라이브 · 스위치 ' +
+        '<span style="color:var(--muted);font-size:11px">UFM 라이브 · 스위치 ' +
           fmt(s.spines.length + s.suOrder.reduce(function (a, su) { return a + s.sus[su].length; }, 0)) + "대</span>" +
-        '<span style="margin-left:auto;color:var(--muted2);font-size:10px;font-family:Menlo,monospace">' + esc(pkLbl) + "</span></div>" +
-        '<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:9px"><span style="color:var(--muted2);font-size:9.5px;width:56px">스파인</span>' +
+        '<span style="margin-left:auto;color:var(--muted2);font-size:11px;font-family:Menlo,monospace">' + esc(pkLbl) + "</span></div>" +
+        '<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:9px"><span style="color:var(--muted2);font-size:11px;width:56px">스파인</span>' +
         s.spines.map(function (sw) {
           return '<span class="ft-sp ' + (sw.plane === "B" ? "b" : "") + obsFtSwState(sw.state) +
             '" data-obs-ftsw="' + esc(sw.guid || "") + '" title="' +
@@ -3427,7 +3427,7 @@
           return '<div class="ft-su"><span class="lb">' + esc(su) +
             '</span><span class="cells">' + h + "</span></div>";
         }).join("") +
-        '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:10px;color:var(--muted)">' +
+        '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--muted)">' +
         '<span><span class="leg" style="background:var(--info-bg)"></span> plane-A 리프</span>' +
         '<span><span class="leg" style="background:#2a2140"></span> plane-B 리프</span>' +
         '<span style="color:var(--amber)">□ degraded</span>' +
@@ -3440,7 +3440,7 @@
       return "<tr>" +
         td('<span class="id" style="color:#fff">' + esc(l.link_id || "—") + "</span>") +
         td('<span style="color:var(--muted)">' + esc(l.src || "—") + " ↔ " + esc(l.dst || "—") +
-          '</span><div style="color:var(--muted2);font-size:9.5px">plane ' + esc(l.plane || "?") +
+          '</span><div style="color:var(--muted2);font-size:11px">plane ' + esc(l.plane || "?") +
           " · " + esc(l.su_id || "—") + " · " + esc(l.site || "—") + "</div>") +
         td(st + ' <span style="color:var(--muted);font-size:11px">BER ' + esc(String(l.ber != null ? l.ber : "—")) +
           " · SymbolErr " + esc(String(l.symbol_err_rate != null ? l.symbol_err_rate : "—")) + "</span>") +
@@ -3545,14 +3545,14 @@
       return '<div class="ft-site">' +
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:9px">' +
         '<b style="color:#fff;font-size:12.5px">' + s.nm + " — 독립 IB 패브릭</b>" +
-        '<span style="color:var(--muted);font-size:10.5px">' + s.ufm + "</span>" +
-        '<span style="margin-left:auto;color:var(--muted2);font-size:10px;font-family:Menlo,monospace">' + s.pk + "</span></div>" +
-        '<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:9px"><span style="color:var(--muted2);font-size:9.5px;width:56px">스파인</span>' +
+        '<span style="color:var(--muted);font-size:11px">' + s.ufm + "</span>" +
+        '<span style="margin-left:auto;color:var(--muted2);font-size:11px;font-family:Menlo,monospace">' + s.pk + "</span></div>" +
+        '<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:9px"><span style="color:var(--muted2);font-size:11px;width:56px">스파인</span>' +
         spines(s.k) + "</div>" +
         s.sus.map(function (su) {
           return '<div class="ft-su"><span class="lb">' + su + '</span><span class="cells">' + cells(s.k, su) + "</span></div>";
         }).join("") +
-        '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:10px;color:var(--muted)">' +
+        '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--muted)">' +
         '<span><span class="leg" style="background:var(--info-bg)"></span> rail-A 리프 (8/SU)</span>' +
         '<span><span class="leg" style="background:#2a2140"></span> rail-B 리프 (8/SU)</span>' +
         '<span style="color:var(--amber)">□ warn (예측 포함)</span>' +
@@ -3689,7 +3689,7 @@
       "<tr><td>트래픽 합계</td><td>tx <b style='color:#fff'>" + fmt(Math.round(tx)) +
         "</b> · rx <b style='color:#fff'>" + fmt(Math.round(rx)) + "</b> Gbps (수집 " + fmt(ports.length) + "포트)</td></tr>" +
       "</table>" +
-      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin:12px 0 5px">포트 — 이상 ' +
+      '<div style="color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em;margin:12px 0 5px">포트 — 이상 ' +
         fmt(bad.length) + " · 전체 " + fmt(ports.length) + " (이상 우선 · 표시 " + fmt(show.length) + ")</div>" +
       '<div style="overflow-x:auto;max-height:260px;overflow-y:auto"><table class="tbl">' +
       "<thead><tr><th>포트</th><th>state</th><th>peer</th><th class='num'>SymbolErr</th>" +
@@ -3699,7 +3699,7 @@
         var isBad = obsFtPortBad(p.state);
         return '<tr style="' + (isBad ? "background:rgba(240,163,176,.06)" : "") + '">' +
           td('<span class="id" style="color:#fff">p' + esc(obsPad2(p.number || 0)) + "</span>" +
-            '<div style="color:var(--muted2);font-size:9.5px">' + esc(p.speed || "—") + "</div>") +
+            '<div style="color:var(--muted2);font-size:11px">' + esc(p.speed || "—") + "</div>") +
           td(obsFtPortSt(p.state)) +
           td('<span class="id" style="color:var(--muted)">' + esc(p.peer || "—") + "</span>") +
           td((c.symbol_err || 0) ? '<b style="color:var(--amber)">' + fmt(c.symbol_err) + "</b>" : "0", "num") +
@@ -3708,7 +3708,7 @@
           td(obsN1(c.tx_gbps) + " / " + obsN1(c.rx_gbps), "num") + "</tr>";
       }).join("") || '<tr><td colspan="7" style="color:var(--muted)">포트 데이터 없음</td></tr>') +
       "</tbody></table></div>" +
-      '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin:12px 0 5px">관련 이상 링크 (UFM links)</div>' +
+      '<div style="color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em;margin:12px 0 5px">관련 이상 링크 (UFM links)</div>' +
       (rel.length
         ? '<table class="tbl"><tbody>' + rel.map(function (l) {
             return "<tr>" +
@@ -3825,7 +3825,7 @@
         "<tr><td>트래픽 합계</td><td>tx <b style='color:#fff'>" + fmt(Math.round(tx)) +
           "</b> · rx <b style='color:#fff'>" + fmt(Math.round(rx)) + "</b> Gbps</td></tr>" +
         "</table>" +
-        '<div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin:12px 0 5px">인터페이스 — 이상 ' +
+        '<div style="color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em;margin:12px 0 5px">인터페이스 — 이상 ' +
           fmt(bad.length) + " · 전체 " + fmt(ifs.length) + " (이상 우선 · 표시 " + fmt(show.length) + ")</div>" +
         '<div style="overflow-x:auto;max-height:260px;overflow-y:auto"><table class="tbl">' +
         "<thead><tr><th>인터페이스</th><th>state</th><th>peer</th><th class='num'>MTU</th>" +
@@ -3835,7 +3835,7 @@
           var isBad = obsFtPortBad(p.state);
           return '<tr style="' + (isBad ? "background:rgba(240,163,176,.06)" : "") + '">' +
             td('<span class="id" style="color:#fff">' + esc(p.interface || "—") + "</span>" +
-              '<div style="color:var(--muted2);font-size:9.5px">' + esc(p.speed || "—") + "</div>") +
+              '<div style="color:var(--muted2);font-size:11px">' + esc(p.speed || "—") + "</div>") +
             td(obsFtPortSt(p.state)) +
             td('<span class="id" style="color:var(--muted)">' + esc(p.peer || "—") + "</span>") +
             td(fmt(p.mtu || 0), "num") +
@@ -3865,23 +3865,23 @@
       (f ? "활성 체인 — " + esc(f.finding || "냉각발 성능 저하") + " (룰 R13)"
          : "세션 내 활성 체인 없음 — 최근 확정 사례 표시 (R13 · 07-08 06:12 발생분)") + "</div>" +
       '<div class="chain">' +
-      stg("COOLING", "#5ad0c8", esc(cdu) + " 2차측 유량 저하", "-8.2% (840→771 LPM)", "T+0s",
+      stg("COOLING", "var(--teal)", esc(cdu) + " 2차측 유량 저하", "-8.2% (840→771 LPM)", "T+0s",
         "CDM 밸브 개도 불변 — 펌프측 원인 추정 · 누수 0건") + arr +
       stg("RACK", "var(--amber)", racks.length + "개 랙 inlet 상승", "+1.9°C (10분 창)", "T+118s",
         esc(racks.join(" · "))) + arr +
       stg("GPU", "var(--red)", "고온 → thermal throttle", fmt(gpus) + "기 · 최고 84.1°C", "T+241s",
         "HW_SLOWDOWN · SM clock 1,410→980MHz") + arr +
-      stg("FABRIC", "#9fd0ff", "집합통신 지연 전파", "NCCL allreduce p99 +9%", "T+299s",
+      stg("FABRIC", "var(--info-text)", "집합통신 지연 전파", "NCCL allreduce p99 +9%", "T+299s",
         "leaf 트래픽 재조정 · 링크다운 없음 — straggler 효과") + arr +
       stg("TENANT", "var(--purple-text)", "fin-corp 성능 저하", "MFU -4.1pp · goodput -2.8%", "T+310s",
         "가용성 미차감 — 성능 SLA 협의 대상 기록") + "</div>" +
       '<div class="grid" style="margin-top:14px">' +
-      '<div><div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin-bottom:5px">R13 신뢰도 구성 — conf 0.91</div>' +
+      '<div><div style="color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em;margin-bottom:5px">R13 신뢰도 구성 — conf 0.91</div>' +
       '<div class="evrow"><span class="lb">시간 순서 정합 (유량→온도→throttle)</span><i><b style="width:28%"></b></i><em>0.28</em></div>' +
       '<div class="evrow"><span class="lb">유량–온도 상관 r = -0.81</span><i><b style="width:26%"></b></i><em>0.26</em></div>' +
       '<div class="evrow"><span class="lb">공간 일치 — 동일 CDU 배관 계통</span><i><b style="width:22%"></b></i><em>0.22</em></div>' +
       '<div class="evrow"><span class="lb">반증 부재 — 전력캡 · 워크로드 불변</span><i><b style="width:15%"></b></i><em>0.15</em></div></div>' +
-      '<div><div style="color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.04em;margin-bottom:5px">자동 그룹화 · 권고</div>' +
+      '<div><div style="color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.04em;margin-bottom:5px">자동 그룹화 · 권고</div>' +
       '<div style="font-size:11px;color:var(--muted);line-height:1.8">' +
       '이 체인으로 <b style="color:#fff">GPU 고온 14 · 스로틀 6 · inlet 3건</b>이 1개 인시던트로 억제됨 — 개별 페이징 없음<br>' +
       '권고: <b style="color:var(--green-text)">standby 펌프 전환 (무중단 · N+1)</b> → 실패 시 워크로드 마이그레이션 (su-5-r03 우선)<br>' +
@@ -4087,7 +4087,7 @@
       return '<div class="sub" style="flex:1 1 auto;min-width:230px">' +
         '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">' +
         '<b style="color:#fff;font-size:12px">' + title + "</b>" +
-        '<span style="color:var(--muted2);font-size:10px">' + sub + "</span></div>" +
+        '<span style="color:var(--muted2);font-size:11px">' + sub + "</span></div>" +
         inner + "</div>";
     }
     var rbCnt = rb && rb.count != null ? rb.count : (k.reboots || 0);
@@ -4180,7 +4180,7 @@
           td(obsToOpChip(t.op)) +
           td('<span class="id" style="color:var(--muted)">' + esc(t.tenant_id || "—") + "</span>") +
           td(obsToStepper(t.stages) +
-            (t.stage ? '<div style="color:var(--amber);font-size:9.5px;margin-top:3px">현재: ' +
+            (t.stage ? '<div style="color:var(--amber);font-size:11px;margin-top:3px">현재: ' +
               esc(t.stage) + "</div>" : "")) +
           td('<span class="tabnum" style="color:var(--soft);font-weight:700">' +
             obsToFmtS(t.elapsed_s) + "</span>", "num") + "</tr>";
@@ -4193,7 +4193,7 @@
         var sd = hrow.stage_durations || {};
         return "<tr>" +
           td('<span class="id" style="color:#fff">' + esc(hrow.tray_id || "—") + "</span>" +
-            '<div style="color:var(--muted2);font-size:9.5px">' + esc(hrow.at || "—") + "</div>") +
+            '<div style="color:var(--muted2);font-size:11px">' + esc(hrow.at || "—") + "</div>") +
           td(obsToOpChip(hrow.op)) +
           td('<span class="id" style="color:var(--muted)">' + esc(hrow.tenant_id || "—") + "</span>") +
           td(obsToFmtS(obsToSd(sd, /disc/i)), "num") +

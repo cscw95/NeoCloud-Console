@@ -88,7 +88,7 @@
 
     root.innerHTML =
       '<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">' + src(r[2]) +
-      '<span style="color:var(--muted2);font-size:10.5px">DSX OS ' + esc(D.MATRIX.dsx_os) + " · NVKE " + esc(D.MATRIX.nvke) +
+      '<span style="color:var(--muted2);font-size:11px">DSX OS ' + esc(D.MATRIX.dsx_os) + " · NVKE " + esc(D.MATRIX.nvke) +
       " · K8s " + esc(D.MATRIX.k8s.join("/")) + " · " + esc(D.MATRIX.platform) + "</span></div>" +
       '<div class="panel"><div class="ph"><span class="tick"></span><span class="t">상품 선택</span><span class="c">/api/v1/catalog</span></div>' +
       '<div class="nvke-prod">' + cards + "</div></div>" +

@@ -23,16 +23,16 @@
     border-bottom:1px solid var(--line);padding:13px 16px;color:var(--text);
     font-size:13.5px;font-family:inherit;outline:none}
   #ncp-list{max-height:46vh;overflow-y:auto;padding:6px}
-  .ncp-grp{color:var(--muted2);font-size:9.5px;font-weight:800;
+  .ncp-grp{color:var(--muted2);font-size:11px;font-weight:800;
     letter-spacing:.08em;padding:8px 10px 3px}
   .ncp-it{display:flex;align-items:center;gap:9px;padding:8px 10px;
     border-radius:7px;cursor:pointer;font-size:12.5px;color:var(--text)}
-  .ncp-it .sub{color:var(--muted2);font-size:10.5px;font-family:Menlo,monospace;
+  .ncp-it .sub{color:var(--muted2);font-size:11px;font-family:Menlo,monospace;
     margin-left:auto}
   .ncp-it.sel,.ncp-it:hover{background:var(--menu-hover)}
   .ncp-it .dot{width:6px;height:6px}
   #ncp-foot{border-top:1px solid var(--line);padding:7px 14px;
-    color:var(--muted2);font-size:10px;display:flex;gap:14px}
+    color:var(--muted2);font-size:11px;display:flex;gap:14px}
   #nc-notif{position:fixed;z-index:71;width:340px;background:var(--card);
     border:1px solid var(--line);border-radius:10px;display:none;
     box-shadow:0 14px 40px rgba(0,0,0,.5);overflow:hidden}
@@ -40,7 +40,7 @@
     color:#fff;font-weight:700;font-size:12.5px}
   #nc-notif .it{padding:9px 14px;border-bottom:1px solid var(--line-soft);
     font-size:11.5px;display:flex;gap:8px;align-items:flex-start}
-  #nc-notif .it .at{margin-left:auto;color:var(--muted2);font-size:10px;
+  #nc-notif .it .at{margin-left:auto;color:var(--muted2);font-size:11px;
     font-family:Menlo,monospace;white-space:nowrap}`;
   document.head.appendChild(css);
 

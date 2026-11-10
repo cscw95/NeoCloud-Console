@@ -303,7 +303,7 @@
     if (hero) hero.textContent = "안녕하세요, " + s.user + " 님";
     var org = $("#org-cell");
     if (org) org.innerHTML = esc(s.tenant_name) +
-      ' <span class="mono" style="color:var(--muted2);font-size:10px">' +
+      ' <span class="mono" style="color:var(--muted2);font-size:11px">' +
       esc(s.tenant_id) + "</span> · 계약 reserved";
     var sav = $("#scope-avatar");
     if (sav) sav.textContent =
@@ -710,7 +710,7 @@
       " kW</b></span>" +
       "<span>최고 온도 <b>" + esc(c.max_gpu_temp_c || 0) + "°C</b></span>" +
       "<span>NVLink <b>" + esc(c.nvlink_tbps || 0) + " TB/s</b></span>" +
-      '<span>P_Key <b class="mono" style="color:var(--soft);font-size:10.5px">' +
+      '<span>P_Key <b class="mono" style="color:var(--soft);font-size:11px">' +
       esc((t && t.pkey) || "—") + "</b></span>" +
       (faults
         ? '<span style="color:var(--amber)">fault GPU ' + esc(faults) + "</span>"
@@ -1715,7 +1715,7 @@
     var conds = c.conditions || [];
     var pass = conds.filter(function (x) { return x.result === "PASS"; }).length;
     var chips = (c.addons || []).map(function (a) {
-      return '<span class="chip" style="font-size:10.5px" title="' +
+      return '<span class="chip" style="font-size:11px" title="' +
         esc(a.role || "") + " · " + esc(a.status || "") + '">' +
         esc(a.name) + " " + esc(a.version) + "</span>";
     }).join("");
@@ -1853,7 +1853,7 @@
     var perSu = (sp.racks_per_su || {})[key];
     var name = '<td class="id">' + esc(key) +
       (sp.default_blueprint === key
-        ? ' <span class="st green" style="font-size:9.5px">기본</span>' : "") +
+        ? ' <span class="st green" style="font-size:11px">기본</span>' : "") +
       "</td>";
     if (!b) return "<tr>" + name +
       '<td style="color:var(--muted)">블루프린트' +
@@ -1904,7 +1904,7 @@
     var lbl = role === "admin" ? "org admin" : role;
     return "<tr><td><b>" + esc(name) + "</b>" +
       (me ? ' <span class="role-bd" style="margin-left:4px">나</span>' : "") +
-      ' <span style="color:var(--muted2);font-size:10px">' + esc(email) +
+      ' <span style="color:var(--muted2);font-size:11px">' + esc(email) +
       "</span></td>" +
       '<td class="' + cls + '" style="font-size:11.5px;' +
       (cls ? "" : "color:var(--muted);font-weight:700") + '">' + esc(lbl) +

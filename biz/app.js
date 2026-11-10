@@ -255,7 +255,7 @@
           ">" + esc(d.racks) + "랙 · 확률 " + esc(d.prob) + "% · " + esc(nextAction(d)) +
           "</div>" +
           '<div class="pbar"><i style="width:' + pct + '%"></i></div>' +
-          '<div class="mut2" style="font-size:10px;margin-top:3px">진행 ' + pct +
+          '<div class="mut2" style="font-size:11px;margin-top:3px">진행 ' + pct +
           "% · " + esc(d.owner) + "</div></div>";
       }).join("") || '<div class="mut2" style="font-size:11px">딜 없음</div>';
       var tone = i === 4 ? ' style="color:var(--green-text)"'
@@ -369,7 +369,7 @@
         " 완료 · 항목 클릭으로 토글)</div>" +
       '<div class="ckl" style="margin-bottom:4px">' + subs + "</div>" +
       '<div class="pbar"><i style="width:' + pct + '%"></i></div>' +
-      '<div class="mut2" style="font-size:10.5px;margin:4px 0 12px">전체 진행률 ' +
+      '<div class="mut2" style="font-size:11px;margin:4px 0 12px">전체 진행률 ' +
         pct + "% — 5스테이지 × 3세부 단계 기준</div>" +
       '<table class="kv2"><tbody>' +
       "<tr><td>고객 / 조건</td><td><b>" + esc(d.name) + "</b> — " + esc(d.racks) +
@@ -451,9 +451,9 @@
       list.forEach(function (c) {
         sum += c.mrr_usd || 0;
         var name = "<td><b>" + esc(c.tenant) + "</b>" +
-          (c.k8s ? ' <span class="st blue" style="font-size:9.5px" title="Managed K8s ' +
+          (c.k8s ? ' <span class="st blue" style="font-size:11px" title="Managed K8s ' +
             esc(c.k8s_version || "") + '">K8s</span>' : "") +
-          ' <span class="mut2" style="font-size:10px">' + esc(c.kind || "") + "</span></td>";
+          ' <span class="mut2" style="font-size:11px">' + esc(c.kind || "") + "</span></td>";
         var base = '<td class="num">' + esc(c.racks || 0) + '랙</td>' +
           '<td class="num id js-scale" data-usd="' + esc(c.mrr_usd || 0) + '">' +
           fmtM((c.mrr_usd || 0) * PERIODS[period].mult) + "</td>";
@@ -567,7 +567,7 @@
     var mo = racks * rate * 720;
     var calc = $("#q-calc");
     if (calc) calc.innerHTML = "월 " + fmtM(mo) + " · 연 " + fmtM(mo * 12) +
-      ' <span class="mut2" style="font-size:10px">(' + racks + "랙 × $" + esc(rate) +
+      ' <span class="mut2" style="font-size:11px">(' + racks + "랙 × $" + esc(rate) +
       "/rack-h × 720h)</span>";
     var lbl = $("#q-rate");
     if (lbl) lbl.textContent = quoteRate
@@ -680,7 +680,7 @@
             "</td></tr>";
         });
       }
-      if (r.note) rows += '<tr><td colspan="3" class="mut" style="font-size:10.5px">' +
+      if (r.note) rows += '<tr><td colspan="3" class="mut" style="font-size:11px">' +
         esc(r.note) + "</td></tr>";
       body.innerHTML = rows;
       var cap = $("#price-cap");

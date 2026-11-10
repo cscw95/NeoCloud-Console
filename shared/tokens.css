@@ -57,7 +57,7 @@
   --ok:var(--p-nv-200);      --ok-bg:#1c2e20;  --ok-line:#2d4a12;
   --warn:var(--p-amber-300); --warn-bg:var(--p-amber-900); --warn-line:#4a3d18; --on-warn:#241c05;
   --crit:var(--p-red-300);   --crit-bg:#3a1a20; --crit-line:var(--p-red-900); --on-crit:#2a0f15;
-  --info:var(--p-blue-400);  --info-text:var(--p-cobalt-300); --info-bg:#0e2438; --info-line:#1f4a6a;
+  --info:var(--p-blue-400);  --on-info:#07203a; --info-text:var(--p-cobalt-300); --info-bg:#0e2438; --info-line:#1f4a6a;
   --leak:var(--p-teal-300);  --leak-bg:#0f2e2d; --leak-line:#1f5552;
   --unknown:var(--text-3);   --unknown-bg:var(--surface-2);
   --live:var(--ok); --live-bg:var(--ok-bg); --live-line:var(--ok-line);
@@ -94,7 +94,7 @@ body[data-design="blueprint"]{
   --ok:var(--p-green-700);   --ok-bg:var(--p-green-50); --ok-line:#a8d8c2;
   --warn:var(--p-amber-700); --warn-bg:var(--p-amber-50); --warn-line:#e4c49a; --on-warn:#fff;
   --crit:var(--p-red-700);   --crit-bg:var(--p-red-50);   --crit-line:#f0b9be; --on-crit:#fff;
-  --info:var(--p-blue-700);  --info-text:var(--p-blue-700); --info-bg:var(--p-blue-50); --info-line:#b5cff3;
+  --info:var(--p-blue-700);  --on-info:#fff; --info-text:var(--p-blue-700); --info-bg:var(--p-blue-50); --info-line:#b5cff3;
   --leak:#0b6f78; --leak-bg:#dff3f4; --leak-line:#9ed6da;
   --unknown:var(--text-3); --unknown-bg:var(--surface-2);
   --live:var(--ok); --live-bg:var(--ok-bg); --live-line:var(--ok-line);
@@ -107,7 +107,7 @@ body[data-design="blueprint"]{
   --chart-1:#2458d6; --chart-2:#0c7752; --chart-3:#a84d08; --chart-4:#7048b6; --chart-5:#0e8a8a; --chart-6:#ca232e;
   --chart-1-soft:#9db9e8; --chart-grid:#dde5ef; --chart-axis:var(--text-3);
   --ready:#b9cdf0; --fault:#e89aa2; --amber-dim:#e4c49a;
-  --ghost-bg:#fbe7e9; --resolved:#e0f2ea; --teal:var(--p-teal-600); --orange:#b5560c;
+  --ghost-bg:#fbe7e9; --resolved:#e0f2ea; --teal:#0b6f78; --orange:#b5560c;
   --purple:var(--p-violet-600); --purple-text:var(--p-violet-600); --pink-soft:#b02a3a;
   --fabA-bg:#e0edfb; --fabA-line:#b9d4f5; --fabB-bg:#efe6fa; --fabB-line:#d5c5ef;
   --leaf-bg:#f7f9fc; --leaf-text:var(--p-slate-600); --leaf-green:var(--p-green-700);

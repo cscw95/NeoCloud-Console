@@ -46,10 +46,10 @@
   /* ── 스타일 (heatmap · bar · chart) ─────────────────────────── */
   var css = document.createElement("style");
   css.textContent =
-    ".dsx-path{color:var(--muted2);font-size:10px;margin-left:6px;font-family:monospace}" +
+    ".dsx-path{color:var(--muted2);font-size:11px;margin-left:6px;font-family:monospace}" +
     ".dsx-hm{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:4px}" +
-    ".dsx-cell{border-radius:5px;padding:5px 4px;font-size:9.5px;line-height:1.25;cursor:pointer;color:#e8eef6;border:1px solid transparent;text-align:center}" +
-    ".dsx-cell.sel{border-color:var(--green)}.dsx-cell b{display:block;font-size:10px}" +
+    ".dsx-cell{border-radius:5px;padding:5px 4px;font-size:11px;line-height:1.25;cursor:pointer;color:#e8eef6;border:1px solid transparent;text-align:center}" +
+    ".dsx-cell.sel{border-color:var(--green)}.dsx-cell b{display:block;font-size:11px}" +
     ".dsx-cell.ok{background:#1f3b2c}.dsx-cell.warn{background:#5a4512}.dsx-cell.crit{background:#5c1f28}.dsx-cell.off{background:var(--track)}" +
     ".dsx-bar{height:6px;border-radius:3px;background:var(--track);min-width:80px}.dsx-bar>i{display:block;height:100%;border-radius:3px;background:var(--green)}" +
     ".dsx-bar.amber>i{background:var(--amber)}.dsx-bar.red>i{background:var(--red)}" +
@@ -58,7 +58,7 @@
     ".dsx-ev{max-height:320px;overflow-y:auto;font-size:11px}.dsx-ev div{padding:5px 0;border-bottom:1px solid var(--line-soft)}" +
     ".dsx-cmp{display:grid;grid-template-columns:120px 1fr 1fr;gap:6px 12px;align-items:center;font-size:11.5px}" +
     ".dsx-stages{display:flex;gap:3px}.dsx-stages i{flex:1;height:6px;border-radius:2px;background:var(--track)}.dsx-stages i.on{background:var(--green)}" +
-    ".dsx-legend{font-size:10.5px;color:var(--muted)}.dsx-legend span{margin-right:10px}" +
+    ".dsx-legend{font-size:11px;color:var(--muted)}.dsx-legend span{margin-right:10px}" +
     ".dsx-tabs{display:flex;gap:6px;margin-bottom:12px}.dsx-tabs button{background:none;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer}" +
     ".dsx-tabs button.on{border-color:var(--green);color:var(--green)}";
   document.head.appendChild(css);
@@ -109,7 +109,7 @@
     }).join("");
     root.innerHTML =
       '<div class="filters" style="margin-bottom:14px">' + src(res) +
-      '<span style="color:var(--muted2);font-size:10.5px">Redfish Power/Thermal/Leak/SEL · BMC 도달성 · PowerShelf PSU — NOCP /oob 집계</span>' +
+      '<span style="color:var(--muted2);font-size:11px">Redfish Power/Thermal/Leak/SEL · BMC 도달성 · PowerShelf PSU — NOCP /oob 집계</span>' +
       '<span class="rt"><select id="dsx-oob-site"><option value="">전체 사이트</option><option value="gasan"' + (oob.site === "gasan" ? " selected" : "") +
       '>가산</option><option value="ansan"' + (oob.site === "ansan" ? " selected" : "") + ">안산</option></select></span></div>" +
       '<div class="kpi-band">' +
@@ -259,7 +259,7 @@
     }).join("");
     root.innerHTML =
       '<div class="filters" style="margin-bottom:14px">' + src(dres) +
-      '<span style="color:var(--muted2);font-size:10.5px">DPS(nvidia.dcpower.v1) PowerDomain · OperatingLimit · WPPS · power smoothing · DSX Flex</span>' +
+      '<span style="color:var(--muted2);font-size:11px">DPS(nvidia.dcpower.v1) PowerDomain · OperatingLimit · WPPS · power smoothing · DSX Flex</span>' +
       '<span class="rt"><select id="dsx-pwr-domain">' + opts + "</select></span></div>" +
       '<div class="kpi-band">' +
       kpi("OperatingLimit", fmt(limit / 1000, 2) + "<small>MW</small>", esc(d.compute_block || d.site || "")) +
@@ -276,7 +276,7 @@
         '<button class="' + (d.mode === "dynamic" ? "btn" : "btn-ghost") + '" data-pwr-mode="dynamic">dynamic (DPS)</button>' +
         '<label style="margin-left:14px"><input type="checkbox" id="dsx-pwr-smooth"' + (d.smoothing ? " checked" : "") + "> power smoothing</label>" +
         '<label style="margin-left:14px">OperatingLimit (kW)</label><input id="dsx-pwr-limit" type="number" value="' + esc(limit) + '"' + (budget ? ' max="' + esc(budget) + '"' : "") + ' style="width:100px">' +
-        (budget ? '<span style="color:var(--muted2);font-size:10.5px">블록 예산 ≤ ' + fmt(budget) + " kW</span>" : "") +
+        (budget ? '<span style="color:var(--muted2);font-size:11px">블록 예산 ≤ ' + fmt(budget) + " kW</span>" : "") +
         '<button class="btn-ghost" id="dsx-pwr-limit-apply">적용</button></div>') +
       '<div class="grid">' +
       panel("ResourceGroup 헤드룸", "priority · min/max kW",
@@ -306,8 +306,8 @@
     var s = r.static || {}, dy = r.dynamic || {};
     function row(lbl, k, unit) {
       var a = +s[k] || 0, b = +dy[k] || 0, mx = Math.max(a, b, 1);
-      return "<div>" + esc(lbl) + "</div><div>" + bar(a / mx, "amber") + '<span style="font-size:10.5px">' + fmt(a) + unit + "</span></div>" +
-        "<div>" + bar(b / mx) + '<span style="font-size:10.5px">' + fmt(b) + unit + "</span></div>";
+      return "<div>" + esc(lbl) + "</div><div>" + bar(a / mx, "amber") + '<span style="font-size:11px">' + fmt(a) + unit + "</span></div>" +
+        "<div>" + bar(b / mx) + '<span style="font-size:11px">' + fmt(b) + unit + "</span></div>";
     }
     var gain = s.racks_supported ? ((dy.racks_supported - s.racks_supported) / s.racks_supported * 100) : 0;
     el.innerHTML = '<div class="dsx-cmp"><div></div><div style="color:var(--amber)">static</div><div style="color:var(--green-text)">dynamic (DPS)</div>' +
@@ -349,7 +349,7 @@
       return "<tr><td class='id'>" + esc(k) + "</td><td>" + esc(txt) + "</td></tr>";
     }).join("");
     root.innerHTML = '<div class="filters" style="margin-bottom:14px">' + src(res) +
-      '<span style="color:var(--muted2);font-size:10.5px">DSX OS 4계층 — Provisioning · Runtime · Workload · Fleet Health</span></div>' +
+      '<span style="color:var(--muted2);font-size:11px">DSX OS 4계층 — Provisioning · Runtime · Workload · Fleet Health</span></div>' +
       '<div class="grid">' +
       panel("기준 버전 매트릭스", "PLAN 기준 vs NOCP 보고",
         '<table class="tbl"><thead><tr><th>구성요소</th><th>키</th><th>기준</th><th>보고값</th><th>일치</th></tr></thead><tbody>' + rows + "</tbody></table>") +
@@ -382,7 +382,7 @@
         '" data-comp="' + esc(x.component) + '">RMA 생성</button></td></tr>';
     }).join("");
     root.innerHTML = '<div class="filters" style="margin-bottom:14px">' + src(r[0]) +
-      '<span style="color:var(--muted2);font-size:10.5px">NVSentinel health event → cordon/drain → 격리 → 교체 → burn-in → 풀 복귀</span>' +
+      '<span style="color:var(--muted2);font-size:11px">NVSentinel health event → cordon/drain → 격리 → 교체 → burn-in → 풀 복귀</span>' +
       '<span class="rt"><input id="dsx-rma-m" placeholder="machine (예: GA-R001-T01)" style="width:190px"> <button class="btn" id="dsx-rma-create">+ RMA 생성</button></span></div>' +
       '<div class="kpi-band">' + kpi("진행 중 RMA", fmt(list.filter(function (c) { return c.stage !== "pool_return"; }).length), "/api/v1/rma") +
       kpi("펌웨어 드리프트", fmt(drift.length), "baseline 불일치 machine", drift.length ? "amber" : "green") +
@@ -424,7 +424,7 @@
       }).join("") + "</tbody></table>")
       : panel("테넌트 격리 매트릭스", "", '<div style="color:var(--muted);font-size:11.5px">테넌트를 선택하면 VPC/VRF · P_Key · NVLink · Spectrum-X · NSG 격리 상태를 표시합니다.</div>');
     root.innerHTML = '<div class="filters" style="margin-bottom:14px">' + src(res) +
-      '<span style="color:var(--muted2);font-size:10.5px">GPU-hour · instance-hour · K8s node-hour</span>' +
+      '<span style="color:var(--muted2);font-size:11px">GPU-hour · instance-hour · K8s node-hour</span>' +
       '<span class="rt"><select id="dsx-met-tenant">' + opts + "</select></span></div>" +
       '<div class="kpi-band">' + kpi("GPU-hour", fmt(u.gpu_hours, 0), esc(u.period || "")) +
       kpi("instance-hour", fmt(u.instance_hours, 0), "BMaaS") + kpi("K8s node-hour", fmt(u.k8s_node_hours, 0), "Managed K8s (NVKE)") + "</div>" +

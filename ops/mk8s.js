@@ -1427,7 +1427,7 @@ App.register('#/k8s/workflow', function(elm){
           ? `<button class="btn btn-sm" style="margin-top:8px;width:100%"
                onclick="event.stopPropagation();wfStartRetire('${jsa(r.id)}')">반납 시작</button>`:'');
         return `<div class="kcard" onclick="wfDetail('${jsa(r.id)}')">
-          <b>${esc(t.company)} <span class="chip" style="font-size:9.5px">${esc(r.kind)}</span></b>
+          <b>${esc(t.company)} <span class="chip" style="font-size:11px">${esc(r.kind)}</span></b>
           <div class="meta"><span>${esc(r.id)}</span><span>VR NVL72 × ${esc(r.racks)}랙</span><span>희망 ${esc(r.wantDate)}</span><span class="muted">${esc(r.from)}</span>
           ${r.reviewer?`<span style="color:var(--accent)">👤 ${esc(r.reviewer.split('@')[0])}</span>`:''}
           ${r.rejectReason?`<span style="color:var(--red)">⛔ ${esc(r.rejectReason.code)}</span>`:''}</div>
@@ -2910,13 +2910,13 @@ function accTabRbac(box){
     <div class="card"><div class="card-h">Namespace 접근 스코프</div><div class="card-b">
       <div class="matrix"><table>
         <tr><th style="text-align:left">Namespace / Resource</th><th>Tenant-user</th><th>Tenant-operator</th><th>SKT Admin</th></tr>
-        ${['default','slurm','dynamo'].map(ns=>`<tr><td class="mono">${ns} <span class="chip" style="font-size:9.5px">테넌트</span></td>
+        ${['default','slurm','dynamo'].map(ns=>`<tr><td class="mono">${ns} <span class="chip" style="font-size:11px">테넌트</span></td>
           <td class="ok">CRUD<div class="small muted" style="font-weight:400">발급 시 선택한 NS만</div></td><td class="ok">CRUD</td><td class="ok">R</td></tr>`).join('')}
-        ${D.systemNs.map(ns=>`<tr><td class="mono">${esc(ns)} <span class="chip" style="font-size:9.5px;background:#3a1a20;color:#f0a3b0">시스템</span></td>
+        ${D.systemNs.map(ns=>`<tr><td class="mono">${esc(ns)} <span class="chip" style="font-size:11px;background:#3a1a20;color:#f0a3b0">시스템</span></td>
           <td class="no">—</td><td class="no">—</td><td class="ok">CRUD</td></tr>`).join('')}
-        <tr><td class="mono">nodes <span class="chip" style="font-size:9.5px">클러스터 스코프</span></td>
+        <tr><td class="mono">nodes <span class="chip" style="font-size:11px">클러스터 스코프</span></td>
           <td class="ok">R</td><td class="ok">R</td><td class="ok">R</td></tr>
-        <tr><td class="mono">clusterroles / CRD 정의 <span class="chip" style="font-size:9.5px">클러스터 스코프</span></td>
+        <tr><td class="mono">clusterroles / CRD 정의 <span class="chip" style="font-size:11px">클러스터 스코프</span></td>
           <td class="no">—</td><td class="no">—</td><td class="ok">R</td></tr>
       </table></div>
       <p class="small muted" style="margin-top:10px">nodes 조회는 전 역할 허용 — one-tenant-per-cluster라 타 테넌트 정보 노출이 없고, <code>kubectl get nodes</code>·스케줄링 디버깅에 필수 (EKS/GKE 동일). 쓰기(cordon 등)는 프로바이더 전용.</p>
@@ -3368,7 +3368,7 @@ function senFleetRack(tenantId, rackId){
       const bad=g.xid || (isEvNode && h.sev!=='critical' && h.evt.gpu.includes('GPU '+g.idx));
       return `<div class="tip" data-tip="${esc('GPU '+g.idx+(g.xid?' — '+g.xid:bad?' — '+h.evt.errorCode.join(','):(tr.status==='Ready'?' — 정상':'')))}"
         style="width:30px;height:20px;border-radius:4px;display:flex;align-items:center;justify-content:center;
-        font-size:9px;font-weight:800;color:${!g.xid&&bad?'var(--glyph-d)':'var(--glyph-w)'};background:${g.xid?'var(--red)':(bad?'#e8c66a':(tr.status==='Ready'?'var(--hm-ok)':'var(--seg-off)'))}">${g.xid?'✕':(bad?'!':'')}</div>`;
+        font-size:11px;font-weight:800;color:${!g.xid&&bad?'var(--glyph-d)':'var(--glyph-w)'};background:${g.xid?'var(--red)':(bad?'#e8c66a':(tr.status==='Ready'?'var(--hm-ok)':'var(--seg-off)'))}">${g.xid?'✕':(bad?'!':'')}</div>`;
     }).join('');
     const stateLabel=tr.status.includes('NotReady')?`<span class="badge b-red">quarantined</span>`:
       (isEvNode?`<span class="badge b-amber">관찰</span>`:badge(tr.status==='Ready'?'Ready':tr.status));
@@ -4817,7 +4817,7 @@ function day0Edit(idx){
   const inp=(f,i)=>`
     <div style="margin-bottom:12px">
       <label class="small" style="font-weight:700;display:block;margin-bottom:4px">${esc(f.label)}
-        ${f.type==='secret'?'<span class="chip" style="font-size:9.5px;background:#3a1a20;color:#f0a3b0">secret</span>':''}</label>
+        ${f.type==='secret'?'<span class="chip" style="font-size:11px;background:#3a1a20;color:#f0a3b0">secret</span>':''}</label>
       ${f.type==='secret'
         ?`<input id="d0-${i}" type="text" placeholder="변경 시에만 입력 — 현재값은 Vault 참조 유지 (${esc(f.v)})"
             style="width:100%;padding:8px 11px;border:1px solid var(--line);border-radius:6px;font-family:var(--mono);font-size:12px">`

@@ -59,13 +59,13 @@ body[data-design="blueprint"] .sb-brand .lg{
   font-family:var(--bp-mono);font-weight:700}
 body[data-design="blueprint"] .sb-brand .t{color:var(--tx)}
 body[data-design="blueprint"] .sb-brand .s{
-  color:var(--mu2);font-family:var(--bp-mono);font-size:8.5px;
-  letter-spacing:.13em;text-transform:uppercase}
+  color:var(--mu2);font-family:var(--bp-mono);font-size:11px;
+  letter-spacing:.06em;text-transform:uppercase}
 body[data-design="blueprint"] .sb-grp{
-  color:var(--mu2);font-family:var(--bp-mono);font-size:8.5px;
-  letter-spacing:.13em;text-transform:uppercase}
+  color:var(--mu2);font-family:var(--bp-mono);font-size:11px;
+  letter-spacing:.06em;text-transform:uppercase}
 body[data-design="blueprint"] .sb-scope .k{
-  font-family:var(--bp-mono);letter-spacing:.13em;font-weight:600}
+  font-family:var(--bp-mono);letter-spacing:.06em;font-weight:600}
 body[data-design="blueprint"] .mi{
   border:0;border-left:2px solid transparent;padding:6px 9px;
   color:var(--mu);font-size:12px;margin-bottom:1px}
@@ -75,7 +75,7 @@ body[data-design="blueprint"] .mi.act{
   color:var(--acc);font-weight:700}
 body[data-design="blueprint"] .mi.act .dot{background:var(--acc)}
 body[data-design="blueprint"] .mi .bd{
-  font-family:var(--bp-mono);font-size:9px;font-weight:700;
+  font-family:var(--bp-mono);font-size:11px;font-weight:700;
   background:none;border:1px solid currentColor;padding:0 5px}
 body[data-design="blueprint"] .mi .bd.amber{color:var(--amb)}
 body[data-design="blueprint"] .mi .bd.red{color:var(--red)}
@@ -83,14 +83,14 @@ body[data-design="blueprint"] .mi .bd.cnt,
 body[data-design="blueprint"] .mi .bd.p2{border-color:var(--ln);color:var(--mu2)}
 body[data-design="blueprint"] .sb-user .av{
   background:transparent;border:1.5px solid var(--amb);color:var(--amb);
-  font-family:var(--bp-mono);font-size:9px}
+  font-family:var(--bp-mono);font-size:11px}
 body[data-design="blueprint"] .sb-user .nm{color:var(--tx);
-  font-family:var(--bp-mono);font-size:10.5px;font-weight:600}
+  font-family:var(--bp-mono);font-size:11px;font-weight:600}
 
 /* ── 톱바 ── */
 body[data-design="blueprint"] .topbar{height:48px;gap:12px;padding:0 18px}
 body[data-design="blueprint"] .crumb{color:var(--tx);font-size:12.5px;font-weight:700}
-body[data-design="blueprint"] .crumb .sep{color:var(--mu2);font-family:var(--bp-mono);font-size:10px}
+body[data-design="blueprint"] .crumb .sep{color:var(--mu2);font-family:var(--bp-mono);font-size:11px}
 body[data-design="blueprint"] .search{border-color:var(--ln)}
 body[data-design="blueprint"] .search:hover{border-color:var(--acc)}
 body[data-design="blueprint"] .tb-chip{color:var(--mu);border-color:var(--ln)}
@@ -104,7 +104,7 @@ body[data-design="blueprint"] .kpi::before{
   content:"";position:absolute;top:6px;left:6px;width:7px;height:7px;
   border-top:2px solid var(--acc);border-left:2px solid var(--acc)}
 body[data-design="blueprint"] .kpi .k{
-  font-family:var(--bp-mono);font-size:8.5px;letter-spacing:.11em;
+  font-family:var(--bp-mono);font-size:11px;letter-spacing:.06em;
   text-transform:uppercase;color:var(--mu);padding-left:10px}
 body[data-design="blueprint"] .kpi .v{
   font-family:var(--bp-mono);font-size:22px;font-weight:600;color:var(--tx)}
@@ -112,7 +112,7 @@ body[data-design="blueprint"] .kpi .v small{color:var(--mu);font-family:var(--bp
 body[data-design="blueprint"] .kpi .v.amber{color:var(--amb)}
 body[data-design="blueprint"] .kpi .v.green{color:var(--grn)}
 body[data-design="blueprint"] .kpi .v.red{color:var(--red)}
-body[data-design="blueprint"] .kpi .s{color:var(--mu2);font-size:10px}
+body[data-design="blueprint"] .kpi .s{color:var(--mu2);font-size:11px}
 body[data-design="blueprint"] .kpi .bar{background:var(--lnS)}
 body[data-design="blueprint"] .kpi .bar>i{background:var(--acc)}
 
@@ -126,7 +126,7 @@ body[data-design="blueprint"] .sec-h .tick{
 body[data-design="blueprint"] .ph .tick::after,
 body[data-design="blueprint"] .sec-h .tick::after{
   content:"FIG." counter(bp-fig,decimal-leading-zero);
-  font-family:var(--bp-mono);font-size:9px;font-weight:700;
+  font-family:var(--bp-mono);font-size:11px;font-weight:700;
   letter-spacing:.08em;color:var(--acc);
   border:1px solid var(--accL);background:var(--accS);padding:1px 5px}
 body[data-design="blueprint"] .panel:has(> .tbl) .ph .tick::after,
@@ -144,7 +144,7 @@ body[data-design="blueprint"] .sec-h .t{
   color:var(--tx);font-size:12.5px;font-weight:700}
 body[data-design="blueprint"] .ph .c,
 body[data-design="blueprint"] .sec-h .c{
-  color:var(--mu2);font-size:9px;font-family:var(--bp-mono)}
+  color:var(--mu2);font-size:11px;font-family:var(--bp-mono)}
 body[data-design="blueprint"] .callout{
   background:var(--cd2);border-color:var(--ln);color:var(--mu)}
 body[data-design="blueprint"] .callout::before{color:var(--acc)}
@@ -152,7 +152,7 @@ body[data-design="blueprint"] .callout.warn::before{color:var(--amb)}
 
 /* ── 상태 도트·라벨 — 성공 시맨틱은 코발트가 아닌 green 유지 ── */
 body[data-design="blueprint"] .dot.green{background:var(--grn)}
-body[data-design="blueprint"] .st{font-family:var(--bp-mono);font-size:10px;
+body[data-design="blueprint"] .st{font-family:var(--bp-mono);font-size:11px;
   font-weight:700;letter-spacing:.05em}
 body[data-design="blueprint"] .st.green{color:var(--grn)}
 body[data-design="blueprint"] .st.amber{color:var(--amb)}
@@ -174,7 +174,7 @@ body[data-design="blueprint"] .btn-cancel:hover{color:var(--tx);border-color:var
 
 /* ── 테이블 ── */
 body[data-design="blueprint"] .tbl th{
-  color:var(--mu2);font-family:var(--bp-mono);font-size:9px;
+  color:var(--mu2);font-family:var(--bp-mono);font-size:11px;
   letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--ln)}
 body[data-design="blueprint"] .tbl td{border-bottom:1px solid var(--lnS)}
 body[data-design="blueprint"] .tbl tr:hover td{background:var(--hov)}
@@ -384,7 +384,7 @@ body[data-design="blueprint"] #mk8s-root .card .card-h::before{
   counter-increment:bp-fig;
   content:"FIG." counter(bp-fig,decimal-leading-zero);
   width:auto;height:auto;border-radius:0!important;
-  font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.08em;
+  font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.08em;
   color:var(--green-text);border:1px solid var(--green-line);
   background:var(--green-soft);padding:1px 5px}
 body[data-design="blueprint"] #mk8s-root .card:has(.table) .card-h::before{
@@ -403,9 +403,9 @@ body[data-design="blueprint"] #mk8s-root .kpi .l,
 body[data-design="blueprint"] #mk8s-root .table th,
 body[data-design="blueprint"] #mk8s-root .sidebar .sect,
 body[data-design="blueprint"] #mk8s-root .sect{
-  font-family:var(--mono);letter-spacing:.11em;text-transform:uppercase;
-  font-size:8.5px}
-body[data-design="blueprint"] #mk8s-root .table th{font-size:9px}
+  font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;
+  font-size:11px}
+body[data-design="blueprint"] #mk8s-root .table th{font-size:11px}
 /* F. .gwrap/.gpanel 계열(Grafana 임베드 시뮬레이션)은 의도적 다크 유지 — 무접촉 */
 
 /* ── mk8s 주간 — 페이지 마스트헤드 통일 ──────────────────────────
@@ -431,8 +431,8 @@ body[data-design="blueprint"] #mk8s-root .page-h>div:first-child{
   padding-right:250px}
 body[data-design="blueprint"] #mk8s-root .page-h h1::before{
   content:"MANAGED K8S · OPS CONSOLE";display:block;
-  font-family:var(--mono);font-size:8.5px;font-weight:700;
-  letter-spacing:.13em;color:var(--green-text);margin-bottom:6px}
+  font-family:var(--mono);font-size:11px;font-weight:700;
+  letter-spacing:.06em;color:var(--green-text);margin-bottom:6px}
 /* 콘솔 전역 .sub(박스형 서브패널) 누출 차단 — 타이틀 서브텍스트는 플레인 */
 body[data-design="blueprint"] #mk8s-root .page-h .sub{
   background:none;border:0;padding:0;font-size:12px;margin-top:6px;
@@ -481,7 +481,7 @@ body[data-design="blueprint"] [style*="color:#241c05"]{color:#fff!important}
 .design-toggle{display:flex;flex:none;border:1px solid var(--line);
   font-family:Menlo,monospace}
 .design-toggle>[data-dm],.lang-toggle>[data-lang]{border:0;margin:0;font-family:inherit;border-radius:0}
-.design-toggle>[data-dm]{padding:4px 9px;font-size:10.5px;cursor:pointer;
+.design-toggle>[data-dm]{padding:4px 9px;font-size:11px;cursor:pointer;
   color:var(--muted);background:transparent;user-select:none;
   line-height:1.4}
 .design-toggle>[data-dm]+button{border-left:1px solid var(--line)}
@@ -496,7 +496,7 @@ body[data-design="blueprint"] .design-toggle>[data-dm].on{
 /* ═══ 언어 토글 (KO|EN) — design-toggle와 동일 룩 ═══ */
 .lang-toggle{display:flex;flex:none;border:1px solid var(--line);
   font-family:Menlo,monospace;margin-right:2px}
-.lang-toggle>[data-lang]{padding:4px 7px;font-size:10px;cursor:pointer;
+.lang-toggle>[data-lang]{padding:4px 7px;font-size:11px;cursor:pointer;
   color:var(--muted);background:transparent;user-select:none;line-height:1.4;
   letter-spacing:.04em}
 .lang-toggle>[data-lang]+button{border-left:1px solid var(--line)}
