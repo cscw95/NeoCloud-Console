@@ -89,6 +89,90 @@ sanitization walkthrough) stay on scenario mock data by design.
 To point at a different NOCP host:
 `localStorage.setItem("nc-nocp", "http://<host>:<port>")`.
 
+## DSX OS Baseline (2026.05)
+
+The consoles target the **NVIDIA DSX OS** four-layer stack (Provisioning · Runtime ·
+Workload · Fleet Health). All data flows **Console → NOCP `/api/v1` only** — no direct
+calls to AI-Infra (:9100) or NICo (:9000). Every DSX getter falls back to a
+deterministic mock (140 racks · 10,080 GPUs) when NOCP is down or lacks the path; the
+source chip on each screen shows `● NOCP live` or `◌ NOCP not connected — mock`.
+
+### Version matrix
+
+| Key | Baseline |
+|-----|----------|
+| `dsx_os` | 2026.05 |
+| `nico` | 2.3.0 |
+| `nvke` | 0.23.1 |
+| `dps` | 0.10 |
+| `mission_control` | 2.5 |
+| `doca` | 3.x |
+| `gpu_operator` | AICR recipe |
+| `k8s` | 1.33, 1.34 |
+| `platform` | Vera Rubin NVL72 |
+
+### New screens
+
+| Console | Route | Screen |
+|---------|-------|--------|
+| Ops | `#/dsx-oob` | OOB monitoring — rack heatmap (BMC reachability · PSU · leak · inlet · SEL), event stream (SSE → polling → mock), rack detail with AC power cycle / GPU reset and SEL |
+| Ops | `#/dsx-power` | MaxLPS power — PowerDomain limit vs use, ResourceGroup/rack headroom, static/dynamic + smoothing toggle, WPPS profile per rack, static-vs-dynamic simulate chart, DSX Flex events |
+| Ops | `#/dsx-rma` | RMA workflow (health event → cordon/drain → isolate → replace → burn-in → pool return) + firmware baseline/drift |
+| Ops | `#/dsx-metering` | Metering (GPU-hour, instance-hour, K8s node-hour) + tenant isolation matrix |
+| Ops | `#/dsx-versions` | DSX OS version matrix (baseline vs NOCP-reported) |
+| Customer | `#/nvke` | Product choice BMaaS / Managed K8s (NVKE), 4-step cluster wizard (K8s version, node image, instance type, nodepool), kubeconfig download, upgrade progress, usage |
+
+Managed K8S in the ops console is now **live-first**: it probes NOCP at boot and shows
+the MOCK badge only when NOCP is unreachable (or when the operator pins MOCK manually).
+
+### NOCP endpoints consumed (PLAN.md §C)
+
+| Method | Path | Used by |
+|--------|------|---------|
+| GET | `/api/v1/platform/versions` | version matrix |
+| GET | `/api/v1/catalog` | customer product choice (`bmaas`, `managed-k8s`) |
+| GET | `/api/v1/power/domains` · `/api/v1/power/domains/{id}` | MaxLPS |
+| PATCH | `/api/v1/power/domains/{id}` (`operating_limit_kw`, `mode`, `smoothing`) | MaxLPS policy |
+| GET | `/api/v1/power/profiles` · `/api/v1/power/telemetry?domain=` | MaxLPS |
+| POST | `/api/v1/power/simulate` · `/api/v1/power/flex-events` (GET lists) | MaxLPS |
+| POST | `/api/v1/racks/{rack}/power-policy` `{"policy": <WPPS profile>}` | WPPS per rack |
+| GET | `/api/v1/oob/summary?site=` · `/api/v1/oob/racks/{id}` · `/api/v1/oob/events` · `/api/v1/oob/sel/{machine}` | OOB |
+| GET | `/api/v1/events` (SSE) | OOB event stream |
+| GET/POST | `/api/v1/rma` · POST `/api/v1/rma/{id}/advance` | RMA |
+| GET | `/api/v1/firmware/baseline` · `/api/v1/firmware/drift` | firmware |
+| GET | `/api/v1/metering/usage?tenant=` · `/api/v1/isolation/{tenant}` | metering, isolation |
+| GET/POST | `/api/v1/nvke/releases` · `/api/v1/nvke/clusters` (+ `/{id}`, DELETE) | NVKE |
+| GET/POST | `/api/v1/nvke/clusters/{id}/nodepools` · GET `/kubeconfig` · POST `/upgrade` · GET `/aicr-recipe` | NVKE |
+| * | `/api/v1/infra/<AI-Infra path>` (e.g. `/api/v1/infra/emulator/v1/obs/racks`, `/api/v1/infra/ufm/v1/...`) | Integrated Observability screens (replaces direct :9100) |
+| GET | `/api/v1/machines[/{id}/hardware\|sanitize-report]` → falls back to `/fake-nico/hosts…` (deprecated) | asset inventory |
+
+Not in the §C contract yet (the console calls them and falls back to mock on 404):
+`POST /api/v1/oob/machines/{machine}/actions/{ac-power-cycle|gpu-reset}`,
+`POST /api/v1/rma/{id}/advance`, `GET /api/v1/machines`.
+
+**Auth headers.** `shared/nocp-auth.js` adds `X-Operator: true` to every NOCP call
+from the ops/biz consoles (required when NOCP runs with `NOCP_DEV_OPERATOR_DEFAULT=0`).
+The customer console never sends it; it sends only the tenant session headers
+(`X-Tenant-Id`, `X-Tenant-Role`). `EventSource` cannot set headers, so the SSE stream
+uses `?operator=true`.
+
+### Files
+
+```
+shared/dsx-api.js   DSX data layer (NC.dsx) — NOCP /api/v1 client + deterministic mock
+shared/nocp-auth.js fetch shim — X-Operator header for ops/biz NOCP calls
+ops/dsx.js          OOB · MaxLPS · RMA/firmware · metering · version screens
+customer/nvke.js    product choice + NVKE wizard/kubeconfig/upgrade/usage
+tests/              node --test smoke suite (+ pytest wrapper)
+```
+
+### Tests
+
+```bash
+node --test tests/          # 25 smoke tests, no dependencies
+pytest tests/               # same suite via pytest (any venv with pytest)
+```
+
 ## Data Scenario (consistent across all three consoles)
 
 | Flow | Customer | Operations | Business |
