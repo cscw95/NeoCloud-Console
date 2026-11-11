@@ -32,7 +32,7 @@
     ".mk-tiers{display:flex;gap:6px;flex-wrap:wrap}.mk-tiers label{border:1px solid var(--line);border-radius:8px;padding:4px 8px;cursor:pointer}" +
     ".mk-tiers input:checked+span{color:var(--green);font-weight:600}" +
     ".mk-root button:focus-visible,.mk-tiers input:focus-visible+span{outline:2px solid var(--green);outline-offset:2px}" +
-    ".mk-pre{font-size:10.5px;max-height:260px;overflow:auto;background:var(--card-sub);border:1px solid var(--line);border-radius:6px;padding:8px;white-space:pre-wrap;word-break:break-all}";
+    ".mk-pre{font-size:11px;max-height:260px;overflow:auto;background:var(--card-sub);border:1px solid var(--line);border-radius:6px;padding:8px;white-space:pre-wrap;word-break:break-all}";
   document.head.appendChild(css);
 
   function price(t, m) {
@@ -41,6 +41,15 @@
       return "$" + p.input + " / $" + p.output + " " + L("(입력/출력, 1M 토큰)", "(in/out per 1M tokens)");
     }
     return "$" + ((t.price || {}).usd_per_hour) + L("/시간", "/hour");
+  }
+
+  /* v2 쇼케이스 — 배포 → 토큰 API 흐름 (customer/token-viz.js · NC.flow) + 플레이그라운드로 바로 이동 */
+  function tokenFlow(d) {
+    if (!NC.flow || !NC.tokenViz) return "";
+    var model = (d.endpoint || {}).model || d.model;
+    return '<div class="tk-mflow"><div class="tk-mflow-h">' + L("원클릭 배포 → 토큰 API", "One-click deploy → token API") + "</div>" +
+      NC.flow.timeline(NC.tokenViz.deployFlow(d), { orientation: "horizontal", progress: true, ariaLabel: L("배포에서 토큰 API 호출까지", "From deployment to a token API call") }) +
+      '<a class="btn" href="#/token" data-mk="try" data-model="' + esc(model) + '">' + L("플레이그라운드에서 시험", "Try in the playground") + " → model=" + esc(model) + "</a></div>";
   }
 
   async function render() {
@@ -68,7 +77,7 @@
         L("원클릭 배포", "Deploy in one click") + "</button></div>";
     }).join("");
     var rows = deps.map(function (d) {
-      return "<tr><td class='id'>" + esc(d.id) + '<div style="color:var(--muted);font-size:10.5px">' + esc(d.namespace + "/" + d.name) +
+      return "<tr><td class='id'>" + esc(d.id) + '<div style="color:var(--muted);font-size:11px">' + esc(d.namespace + "/" + d.name) +
         "</div></td><td>" + esc(d.model) + "</td><td>" + esc(d.tier) + "</td><td>" + st(d.state) + "</td><td>" + esc(d.engine) +
         "</td><td>" + d.gpus + "</td><td><code>" + esc(d.endpoint.chat_completions) + "</code> model=<code>" + esc(d.endpoint.model) +
         '</code></td><td><button class="btn-ghost" type="button" data-mk="detail" data-id="' + esc(d.id) + '" aria-expanded="' + (S.open === d.id) +
@@ -83,7 +92,7 @@
       esc(JSON.stringify(open.upstream.request.body, null, 2)) + "</pre>" +
       '<div style="font-size:11.5px;margin:6px 0">' + L("응답 상태 (DGD status)", "Response status (DGD status)") + " · HTTP " +
       esc(open.upstream.response.status == null ? "stub" : open.upstream.response.status) + '</div><pre class="mk-pre">' +
-      esc(JSON.stringify((open.dgd || {}).status || {}, null, 2)) + "</pre></div>" : "";
+      esc(JSON.stringify((open.dgd || {}).status || {}, null, 2)) + "</pre>" + tokenFlow(open) + "</div>" : "";
     host.innerHTML = '<div class="panel mk-root"><div class="ph"><span class="tick"></span><span class="t">' +
       L("모델 마켓플레이스 (F32)", "Model marketplace (F32)") + '</span><span class="c">/api/v1/marketplace/{models,deploy,deployments}</span>' +
       (mr.live ? "" : ' <span class="st amber">mock</span>') +
@@ -107,6 +116,7 @@
     var t = e.target.closest && e.target.closest("[data-mk]");
     if (!t) return;
     var k = t.dataset.mk, r;
+    if (k === "try") { if (NC.tokenUI) NC.tokenUI.preset(t.dataset.model); return; }
     if (k === "deploy") {
       var body = { model: t.dataset.model, tier: S.tier[t.dataset.model] || "serverless" };
       if (tenant()) body.tenant_id = tenant();

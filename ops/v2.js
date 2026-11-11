@@ -72,6 +72,7 @@
 
   /* ══ ② 토큰 · 쿼터 · SLO ═══════════════════════════════════ */
   async function renderToken() {
+    if (NC.tokenOps) return NC.tokenOps.render(); /* v2 쇼케이스 화면 — ops/token.js */
     var root = $("v2-tokenops-root"); if (!root) return;
     var r = await Promise.all([A.deployments(), A.quotas(), A.models(), A.reconcile()]);
     var deps = r[0].data || [], quotas = r[1].data || [], models = r[2].data || [], rec = r[3].data || {};
