@@ -1,0 +1,771 @@
+{
+ "_source": "NOCP integration/v2 8bdd8bf live run on PORT_BASE 20260, 2026-11-11",
+ "run": {
+  "id": "demo-run-0003",
+  "scenario_id": "c-xid-remediation",
+  "feature": "F10/F09/F05",
+  "title_ko": "(c) XID 장애 주입 → 자동 cordon/drain/교체 → SLA 크레딧 → 청구서 차감",
+  "title_en": "(c) XID fault → auto cordon/drain/replace → SLA credit → invoice deduction",
+  "mode": "all",
+  "state": "done",
+  "verdict": "fail",
+  "created_at": "2026-11-10T22:58:15.526+00:00",
+  "finished_at": "2026-11-10T22:58:16.217+00:00",
+  "cursor": 11,
+  "counts": {
+   "waiting": 0,
+   "running": 0,
+   "passed": 10,
+   "failed": 1,
+   "pending": 0,
+   "skipped": 0
+  },
+  "total_ms": 690.7,
+  "steps": [
+   {
+    "id": "01-tenant",
+    "title_ko": "테넌트 demo-c-xid 생성",
+    "title_en": "Create tenant demo-c-xid",
+    "narration_ko": "고객 조직을 만들면 VRF·L3VNI·IAM realm이 자동으로 묶인다.",
+    "narration_en": "Creating the customer org binds a VRF, an L3VNI and an IAM realm.",
+    "expect_ko": "",
+    "expect_en": "",
+    "feature": null,
+    "links": [
+     {
+      "console": "ops",
+      "route": "orchestration",
+      "label_ko": "운영 · 테넌트",
+      "label_en": "Ops · tenants"
+     }
+    ],
+    "state": "passed",
+    "request": {
+     "service": "nocp",
+     "method": "POST",
+     "url": "http://nocp.demo/api/v1/tenants",
+     "headers": {
+      "Authorization": "Bearer …(redacted)",
+      "Content-Type": "application/json"
+     },
+     "body": {
+      "name": "demo-c-xid",
+      "isolation_tier": "bare_metal_dedicated"
+     }
+    },
+    "response": {
+     "status": 201,
+     "headers": {
+      "content-type": "application/json"
+     },
+     "body": {
+      "id": "tnt-demo-c-xid",
+      "name": "demo-c-xid",
+      "isolation_tier": "bare_metal_dedicated",
+      "sla_tier": "standard",
+      "notes": null,
+      "status": "active",
+      "sector": null
+     },
+     "summary": "HTTP 201 · {id, name, isolation_tier, sla_tier, notes, status, sector}"
+    },
+    "assertion": {
+     "ok": true,
+     "detail_ko": "테넌트 tnt-demo-c-xid 준비 (HTTP 201)",
+     "detail_en": "tenant tnt-demo-c-xid ready (HTTP 201)"
+    },
+    "started_at": "2026-11-10T22:58:15.526+00:00",
+    "duration_ms": 3.4,
+    "fallback": false
+   },
+   {
+    "id": "02-order",
+    "title_ko": "1랙 BMaaS 주문",
+    "title_en": "Order 1 BMaaS racks",
+    "narration_ko": "주문은 NICo 할당 → PXE·OS 설치 → 3-plane 격리 → VAST 뷰 연결까지 한 번에 간다.",
+    "narration_en": "An order runs NICo allocation → PXE/OS → 3-plane isolation → VAST view.",
+    "expect_ko": "",
+    "expect_en": "",
+    "feature": null,
+    "links": [
+     {
+      "console": "ops",
+      "route": "provisioning",
+      "label_ko": "운영 · 프로비저닝",
+      "label_en": "Ops · provisioning"
+     }
+    ],
+    "state": "passed",
+    "request": {
+     "service": "nocp",
+     "method": "POST",
+     "url": "http://nocp.demo/api/v1/orders",
+     "headers": {
+      "Authorization": "Bearer …(redacted)",
+      "Content-Type": "application/json"
+     },
+     "body": {
+      "tenant_id": "tnt-demo-c-xid",
+      "kind": "new",
+      "blueprint_key": "vr-nvl72",
+      "racks": 1
+     }
+    },
+    "response": {
+     "status": 201,
+     "headers": {
+      "content-type": "application/json"
+     },
+     "body": {
+      "_trimmed": "{\"id\": \"ord-2\", \"tenant_id\": \"tnt-demo-c-xid\", \"kind\": \"new\", \"blueprint_key\": \"vr-nvl72\", \"racks\": 1, \"allocation_id\": null, \"allocation_ids\": [\"alloc-2\"], \"approval_mode\": false, \"pending_stage\": null, \"storage_mode\": \"auto\", \"storage_tb\": 0.0, \"storage_gbps\": 0.0, \"managed_k8s\": false, \"k8s_versi"
+     },
+     "summary": "HTTP 201 · {id, tenant_id, kind, blueprint_key, racks, allocation_id, allocation_ids, approval_mode, …}"
+    },
+    "assertion": {
+     "ok": true,
+     "detail_ko": "주문 ord-2 → delivered · 노드 18대 (기대 18)",
+     "detail_en": "order ord-2 → delivered · 18 nodes (want 18)"
+    },
+    "started_at": "2026-11-10T22:58:15.530+00:00",
+    "duration_ms": 630.4,
+    "fallback": false
+   },
+   {
+    "id": "03-policy",
+    "title_ko": "자동 복구 정책 켜기",
+    "title_en": "Turn on auto remediation",
+    "narration_ko": "기본은 '모니터링만'. 덱 NOTE대로 운영자가 auto로 켠다(opt-in).",
+    "narration_en": "Default is monitor-only; the operator opts in to auto, as the deck notes.",
+    "expect_ko": "",
+    "expect_en": "",
+    "feature": "F10",
+    "links": [
+     {
+      "console": "ops",
+      "route": "dsx-rma",
+      "label_ko": "운영 · RMA·복구",
+      "label_en": "Ops · RMA & remediation"
+     }
+    ],
+    "state": "passed",
+    "request": {
+     "service": "nocp",
+     "method": "PUT",
+     "url": "http://nocp.demo/api/v1/remediation/policy",
+     "headers": {
+      "Authorization": "Bearer …(redacted)",
+      "Content-Type": "application/json"
+     },
+     "body": {
+      "mode": "auto",
+      "actions": {
+       "cordon": true,
+       "drain": true,
+       "gpu_reset": true,
+       "replace": true,
+       "rma": true
+      },
+      "max_parallel_per_rack": 1,
+      "kpi_replace_minutes": 60
+     }
+    },
+    "response": {
+     "status": 200,
+     "headers": {
+      "content-type": "application/json"
+     },
+     "body": {
+      "mode": "auto",
+      "actions": {
+       "cordon": true,
+       "drain": true,
+       "gpu_reset": true,
+       "replace": true,
+       "rma": true
+      },
+      "max_parallel_per_rack": 1,
+      "kpi_replace_minutes": 60
+     },
+     "summary": "HTTP 200 · {mode, actions, max_parallel_per_rack, kpi_replace_minutes}"
+    },
+    "assertion": {
+     "ok": true,
+     "detail_ko": "자동 복구 정책 auto (cordon·drain·reset·replace·rma, 랙당 동시 1건)",
+     "detail_en": "remediation policy auto (cordon, drain, reset, replace, rma; 1 per rack)"
+    },
+    "started_at": "2026-11-10T22:58:16.160+00:00",
+    "duration_ms": 3.8,
+    "fallback": false
+   },
+   {
+    "id": "04-inject-xid",
+    "title_ko": "XID 79 장애 주입",
+    "title_en": "Inject XID 79",
+    "narration_ko": "AI-Infra가 보내는 것과 같은 Redfish EventService 봉투로 XID 79(GPU fallen off the bus)를 넣는다.",
+    "narration_en": "XID 79 (GPU fallen off the bus) arrives in the same Redfish EventService envelope AI-Infra pushes.",
+    "expect_ko": "",
+    "expect_en": "",
+    "feature": null,
+    "links": [
+     {
+      "console": "ops",
+      "route": "dsx-oob",
+      "label_ko": "운영 · OOB 이벤트",
+      "label_en": "Ops · OOB events"
+     }
+    ],
+    "state": "passed",
+    "request": {
+     "service": "internal",
+     "method": "CALL",
+     "url": "_inject",
+     "body": null
+    },
+    "response": {
+     "status": 202,
+     "headers": {},
+     "body": {
+      "accepted": 1,
+      "ids": [
+       "oob-1"
+      ],
+      "machine": "nh-su-11-rack-00-tray-00",
+      "event": {
+       "Events": [
+        {
+         "EventType": "Alert",
+         "EventId": "xid-demo-run-0003",
+         "MessageId": "NvidiaGPU.1.0.XidError",
+         "Message": "GPU Xid 79: GPU has fallen off the bus (SEL)",
+         "Severity": "Critical",
+         "EventTimestamp": "2026-11-10T22:58:16+00:00",
+         "OriginOfCondition": {
+          "@odata.id": "/redfish/v1/Systems/nh-su-11-rack-00-tray-00"
+         }
+        }
+       ]
+      }
+     },
+     "summary": "HTTP 202 · {accepted, ids, machine, event}"
+    },
+    "assertion": {
+     "ok": true,
+     "detail_ko": "XID 79 Critical 이벤트 수신 · 대상 nh-su-11-rack-00-tray-00",
+     "detail_en": "XID 79 Critical event received · target nh-su-11-rack-00-tray-00"
+    },
+    "started_at": "2026-11-10T22:58:16.164+00:00",
+    "duration_ms": 26.1,
+    "fallback": false
+   },
+   {
+    "id": "05-remediation",
+    "title_ko": "자동 복구 실행 확인",
+    "title_en": "Automatic remediation run",
+    "narration_ko": "cordon → drain → GPU reset → 재검증 실패 → 예비 노드 교체 → RMA 순으로 진행, MTTR을 잰다.",
+    "narration_en": "cordon → drain → GPU reset → re-validate fails → spare swap → RMA, with MTTR measured.",
+    "expect_ko": "outcome recovered|replaced · MTTR ≤ 60분",
+    "expect_en": "outcome recovered|replaced · MTTR ≤ 60 min",
+    "feature": "F10",
+    "links": [],
+    "state": "passed",
+    "request": {
+     "service": "nocp",
+     "method": "GET",
+     "url": "http://nocp.demo/api/v1/remediation/runs?tenant_id=tnt-demo-c-xid",
+     "headers": {
+      "Authorization": "Bearer …(redacted)"
+     },
+     "body": null
+    },
+    "response": {
+     "status": 200,
+     "headers": {
+      "content-type": "application/json"
+     },
+     "body": {
+      "_trimmed": "[{\"id\": \"rem-0001\", \"trigger\": {\"event_id\": \"6e34431b-9421-4ccb-83b0-66949e32c0b9\", \"kind\": \"xid\"}, \"target\": {\"machine_id\": \"nh-su-11-rack-00-tray-00\", \"tenant_id\": \"tnt-demo-c-xid\", \"cluster_id\": null, \"rack_id\": \"su-11-rack-00\", \"instance_id\": null, \"product\": \"bmaas\"}, \"reason\": \"GPU Xid 79: GPU"
+     },
+     "summary": "HTTP 200 · [1 items]"
+    },
+    "assertion": {
+     "ok": true,
+     "detail_ko": "detect → quarantine → drain → gpu_reset → validate → uncordon · 결과 recovered · MTTR 13.0분 (≤60)",
+     "detail_en": "detect → quarantine → drain → gpu_reset → validate → uncordon · outcome recovered · MTTR 13.0 min (≤60)"
+    },
+    "started_at": "2026-11-10T22:58:16.190+00:00",
+    "duration_ms": 3.7,
+    "fallback": false
+   },
+   {
+    "id": "06-rma",
+    "title_ko": "RMA 케이스 연결",
+    "title_en": "Linked RMA case",
+    "narration_ko": "RMA 케이스 연결",
+    "narration_en": "Linked RMA case",
+    "expect_ko": "",
+    "expect_en": "",
+    "feature": null,
+    "links": [
+     {
+      "console": "ops",
+      "route": "dsx-rma",
+      "label_ko": "운영 · RMA",
+      "label_en": "Ops · RMA"
+     }
+    ],
+    "state": "failed",
+    "request": {
+     "service": "nocp",
+     "method": "GET",
+     "url": "http://nocp.demo/api/v1/rma",
+     "headers": {
+      "Authorization": "Bearer …(redacted)"
+     },
+     "body": null
+    },
+    "response": {
+     "status": 200,
+     "headers": {
+      "content-type": "application/json"
+     },
+     "body": {
+      "stages": [
+       "health_event",
+       "cordon_drain",
+       "isolate",
+       "replace",
+       "burn_in",
+       "pool_return"
+      ],
+      "cases": []
+     },
+     "summary": "HTTP 200 · {stages, cases}"
+    },
+    "assertion": {
+     "ok": false,
+     "detail_ko": "RMA - · 단계 -",
+     "detail_en": "RMA - · stage -"
+    },
+    "started_at": "2026-11-10T22:58:16.194+00:00",
+    "duration_ms": 2.9,
+    "fallback": false
+   },
+   {
+    "id": "07-downtime",
+    "title_ko": "SLA 다운타임 귀속",
+    "title_en": "SLA downtime attribution",
+    "narration_ko": "SLA 다운타임 귀속",
+    "narration_en": "SLA downtime attribution",
+    "expect_ko": "",
+    "expect_en": "",
+    "feature": "F09",
+    "links": [],
+    "state": "passed",
+    "request": {
+     "service": "nocp",
+     "method": "GET",
+     "url": "http://nocp.demo/api/v1/sla/downtime?tenant_id=tnt-demo-c-xid&period=2026-11",
+     "headers": {
+      "Authorization": "Bearer …(redacted)"
+     },
+     "body": null
+    },
+    "response": {
+     "status": 200,
+     "headers": {
+      "content-type": "application/json"
+     },
+     "body": [
+      {
+       "node_id": "nh-su-11-rack-00-tray-00",
+       "instance_id": null,
+       "rack_id": "su-11-rack-00",
+       "start": "2026-11-10T22:58:16+00:00",
+       "end": "2026-11-10T23:11:16+00:00",
+       "minutes": 13.0,
+       "counted_minutes": 13.0,
+       "excluded_minutes": 0.0,
+       "cause": "xid:79",
+       "ref": "rem-0001",
+       "exception_id": null
+      }
+     ],
+     "summary": "HTTP 200 · [1 items]"
+    },
+    "assertion": {
+     "ok": true,
+     "detail_ko": "다운타임 1건 · 합계 13.0분 (노드·분 단위 귀속)",
+     "detail_en": "1 downtime records · 13.0 min (per node-minute)"
+    },
+    "started_at": "2026-11-10T22:58:16.197+00:00",
+    "duration_ms": 4.6,
+    "fallback": false
+   },
+   {
+    "id": "08-sla-report",
+    "title_ko": "월 SLA 보고서 · 크레딧",
+    "title_en": "Monthly SLA report · credit",
+    "narration_ko": "교체 다운타임(약 22분)만으로는 99.9%를 넘으므로, F09 시연과 같게 52.6분 장애를 더해 위반을 만든다.",
+    "narration_en": "The ~22-min replace outage alone stays above 99.9%, so (as in the F09 demo) a 52.6-min incident is added.",
+    "expect_ko": "",
+    "expect_en": "",
+    "feature": "F09",
+    "links": [
+     {
+      "console": "customer",
+      "route": "status",
+      "label_ko": "고객 · 상태·SLA",
+      "label_en": "Customer · status & SLA"
+     }
+    ],
+    "state": "passed",
+    "request": {
+     "service": "nocp",
+     "method": "GET",
+     "url": "http://nocp.demo/api/v1/tenants/tnt-demo-c-xid/sla-report?synthesize_violation=true",
+     "headers": {
+      "Authorization": "Bearer …(redacted)"
+     },
+     "body": null
+    },
+    "response": {
+     "status": 200,
+     "headers": {
+      "content-type": "application/json"
+     },
+     "body": {
+      "_trimmed": "{\"tenant_id\": \"tnt-demo-c-xid\", \"month\": \"2026-11\", \"availability_pct\": 99.8481, \"target_pct\": 99.9, \"violated\": true, \"incidents\": [{\"id\": \"inc-3\", \"severity\": \"P1\", \"downtime_min\": 52.6, \"mttr_min\": 52.6}], \"credits\": [{\"credit_id\": \"crd-1\", \"tenant_id\": \"tnt-demo-c-xid\", \"month\": \"2026-11\", \"inci"
+     },
+     "summary": "HTTP 200 · {tenant_id, month, availability_pct, target_pct, violated, incidents, credits, credit_table, …}"
+    },
+    "assertion": {
+     "ok": true,
+     "detail_ko": "월 가용성 99.8481% (목표 99.9%) · 크레딧 1건",
+     "detail_en": "monthly availability 99.8481% (target 99.9%) · 1 credit(s)"
+    },
+    "started_at": "2026-11-10T22:58:16.201+00:00",
+    "duration_ms": 8.1,
+    "fallback": false
+   },
+   {
+    "id": "08b-metered-hours",
+    "title_ko": "노드 사용시간 계측 (하루치)",
+    "title_en": "Metered node hours (one day)",
+    "narration_ko": "방금 인수한 주문은 사용시간이 거의 0이라, NICo 계측 이벤트로 18노드 × 24시간을 넣어 청구 기반을 만든다.",
+    "narration_en": "The order was just delivered, so a NICo metering event adds 18 nodes × 24 h as the billing base.",
+    "expect_ko": "",
+    "expect_en": "",
+    "feature": "F04",
+    "links": [],
+    "state": "passed",
+    "request": {
+     "service": "nocp",
+     "method": "POST",
+     "url": "http://nocp.demo/api/v1/metering/events",
+     "headers": {
+      "Authorization": "Bearer …(redacted)",
+      "Content-Type": "application/json"
+     },
+     "body": {
+      "idempotency_key": "demo-c-tnt-demo-c-xid-2026-11-nodeh",
+      "source": "nico",
+      "tenant_id": "tnt-demo-c-xid",
+      "product": "bmaas",
+      "metric": "node_hour",
+      "quantity": 432,
+      "unit": "hour",
+      "ts": "2026-11-10T22:58:16+00:00"
+     }
+    },
+    "response": {
+     "status": 201,
+     "headers": {
+      "content-type": "application/json"
+     },
+     "body": {
+      "idempotency_key": "demo-c-tnt-demo-c-xid-2026-11-nodeh",
+      "source": "nico",
+      "tenant_id": "tnt-demo-c-xid",
+      "product": "bmaas",
+      "metric": "node_hour",
+      "quantity": 432,
+      "unit": "hour",
+      "ts": "2026-11-10T22:58:16+00:00",
+      "attrs": {},
+      "seq": 5,
+      "received_at": "2026-11-10T22:58:16+00:00"
+     },
+     "summary": "HTTP 201 · {idempotency_key, source, tenant_id, product, metric, quantity, unit, ts, …}"
+    },
+    "assertion": {
+     "ok": true,
+     "detail_ko": "HTTP 201",
+     "detail_en": "HTTP 201"
+    },
+    "started_at": "2026-11-10T22:58:16.210+00:00",
+    "duration_ms": 2.8,
+    "fallback": false
+   },
+   {
+    "id": "09-invoice-run",
+    "title_ko": "월 청구 실행",
+    "title_en": "Run monthly billing",
+    "narration_ko": "월 청구 실행",
+    "narration_en": "Run monthly billing",
+    "expect_ko": "",
+    "expect_en": "",
+    "feature": "F05",
+    "links": [],
+    "state": "passed",
+    "request": {
+     "service": "nocp",
+     "method": "POST",
+     "url": "http://nocp.demo/api/v1/billing/invoices:run",
+     "headers": {
+      "Authorization": "Bearer …(redacted)",
+      "Content-Type": "application/json"
+     },
+     "body": {
+      "period": "2026-11",
+      "tenant_id": "tnt-demo-c-xid"
+     }
+    },
+    "response": {
+     "status": 200,
+     "headers": {
+      "content-type": "application/json"
+     },
+     "body": {
+      "period": "2026-11",
+      "invoices": [
+       {
+        "id": "inv-202611-0003",
+        "tenant_id": "tnt-demo-c-xid",
+        "period": "2026-11",
+        "status": "draft",
+        "currency": "KRW",
+        "subtotal": 29548800,
+        "vat": 2954880,
+        "total": 32503680
+       }
+      ],
+      "created": [
+       "inv-202611-0003"
+      ],
+      "updated": [],
+      "skipped": []
+     },
+     "summary": "HTTP 200 · {period, invoices, created, updated, skipped}"
+    },
+    "assertion": {
+     "ok": true,
+     "detail_ko": "청구 초안 inv-202611-0003",
+     "detail_en": "draft inv-202611-0003"
+    },
+    "started_at": "2026-11-10T22:58:16.212+00:00",
+    "duration_ms": 2.6,
+    "fallback": false
+   },
+   {
+    "id": "10-credit-deducted",
+    "title_ko": "청구서에서 크레딧 차감",
+    "title_en": "Credit deducted on the invoice",
+    "narration_ko": "청구서에서 크레딧 차감",
+    "narration_en": "Credit deducted on the invoice",
+    "expect_ko": "",
+    "expect_en": "",
+    "feature": "F05",
+    "links": [
+     {
+      "console": "customer",
+      "route": "billing",
+      "label_ko": "고객 · 청구",
+      "label_en": "Customer · billing"
+     }
+    ],
+    "state": "passed",
+    "request": {
+     "service": "nocp",
+     "method": "GET",
+     "url": "http://nocp.demo/api/v1/billing/invoices/inv-202611-0003",
+     "headers": {
+      "Authorization": "Bearer …(redacted)"
+     },
+     "body": null
+    },
+    "response": {
+     "status": 200,
+     "headers": {
+      "content-type": "application/json"
+     },
+     "body": {
+      "_trimmed": "{\"id\": \"inv-202611-0003\", \"tenant_id\": \"tnt-demo-c-xid\", \"period\": \"2026-11\", \"currency\": \"KRW\", \"status\": \"draft\", \"created_at\": \"2026-11-10T22:58:16.214237+00:00\", \"finalized_at\": null, \"paid_at\": null, \"payment\": null, \"tax_invoice\": null, \"lines\": [{\"product\": \"bmaas\", \"metric\": \"node_hour\", \"qu"
+     },
+     "summary": "HTTP 200 · {id, tenant_id, period, currency, status, created_at, finalized_at, paid_at, …}"
+    },
+    "assertion": {
+     "ok": true,
+     "detail_ko": "SLA 크레딧 1건 ₩3,283,200 차감 → 합계 ₩32,503,680",
+     "detail_en": "1 SLA credit(s) ₩3,283,200 deducted → total ₩32,503,680"
+    },
+    "started_at": "2026-11-10T22:58:16.215+00:00",
+    "duration_ms": 2.3,
+    "fallback": false
+   }
+  ]
+ },
+ "links": {
+  "a-signup-to-invoice": [
+   [
+    "biz",
+    "contracts"
+   ],
+   [
+    "biz",
+    "revenue"
+   ],
+   [
+    "customer",
+    "billing"
+   ],
+   [
+    "customer",
+    "dashboard"
+   ],
+   [
+    "ops",
+    "provisioning"
+   ]
+  ],
+  "b-token-api": [
+   [
+    "customer",
+    "api"
+   ],
+   [
+    "customer",
+    "billing"
+   ],
+   [
+    "ops",
+    "dsx-metering"
+   ],
+   [
+    "ops",
+    "orchestration"
+   ],
+   [
+    "ops",
+    "performance"
+   ]
+  ],
+  "c-xid-remediation": [
+   [
+    "customer",
+    "billing"
+   ],
+   [
+    "customer",
+    "status"
+   ],
+   [
+    "ops",
+    "dsx-oob"
+   ],
+   [
+    "ops",
+    "dsx-rma"
+   ],
+   [
+    "ops",
+    "orchestration"
+   ],
+   [
+    "ops",
+    "provisioning"
+   ]
+  ],
+  "d-grid-curtailment": [
+   [
+    "biz",
+    "revenue"
+   ],
+   [
+    "customer",
+    "status"
+   ],
+   [
+    "ops",
+    "dsx-power"
+   ],
+   [
+    "ops",
+    "orchestration"
+   ],
+   [
+    "ops",
+    "provisioning"
+   ]
+  ],
+  "e-leak-workload-move": [
+   [
+    "customer",
+    "nvke"
+   ],
+   [
+    "ops",
+    "dsx-oob"
+   ],
+   [
+    "ops",
+    "dsx-rma"
+   ],
+   [
+    "ops",
+    "orchestration"
+   ]
+  ],
+  "f-rack-bringup": [
+   [
+    "ops",
+    "bringup"
+   ],
+   [
+    "ops",
+    "capacity"
+   ],
+   [
+    "ops",
+    "provisioning"
+   ]
+  ],
+  "g-nvke-clique": [
+   [
+    "customer",
+    "nvke"
+   ],
+   [
+    "ops",
+    "orchestration"
+   ]
+  ],
+  "h-bmaas-baseline": [
+   [
+    "customer",
+    "clusters"
+   ],
+   [
+    "ops",
+    "dsx-metering"
+   ],
+   [
+    "ops",
+    "orchestration"
+   ],
+   [
+    "ops",
+    "provisioning"
+   ]
+  ]
+ }
+}
