@@ -179,7 +179,7 @@
     ".ft-prog-bar>i{display:block;height:100%;background:var(--info);transition:width var(--dur) var(--ease)}" +
     ".ft-prog-bar.done>i{background:var(--ok)}.ft-prog-bar.fail>i{background:var(--crit)}" +
     /* 스윔레인 */
-    ".fsl-wrap{overflow-x:auto;max-width:100%}" +
+    ".fsl-wrap{position:relative;overflow-x:auto;max-width:100%}" +
     ".fsl{border-collapse:separate;border-spacing:0;font-size:var(--ft-fs,var(--fs-sm));min-width:100%}" +
     ".fsl caption{text-align:left;color:var(--text-2);padding:0 0 var(--sp-2)}" +
     ".fsl th,.fsl td{border-bottom:1px solid var(--border-soft);padding:var(--sp-1) var(--sp-2);vertical-align:middle}" +
