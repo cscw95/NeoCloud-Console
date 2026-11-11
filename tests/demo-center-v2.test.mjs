@@ -127,13 +127,15 @@ test("current step is emphasised (aria-current) while a run is in progress", () 
   assert.equal(DC.currentIndex(steps, { state: "running" }), 3);
 });
 
-test("scenario list puts the 8 showcase scenarios first, feature scenarios folded", () => {
-  const list = SHOWCASE.concat(["f23-rack-bringup", "f24-firmware-bundle"]).map(id => ({ id, title_ko: id, title_en: id, steps: 3 }));
+test("scenario list groups by Day 0/1/2 (DEMO-ORDER), unknown scenarios folded under Other", () => {
+  const list = SHOWCASE.concat(["f23-rack-bringup", "f24-firmware-bundle", "zz-unknown"]).map(id => ({ id, title_ko: id, title_en: id, steps: 3 }));
   const h = DC.renderList(list, "c-xid-remediation", "en");
-  assert.match(h, /Showcase 8/);
-  assert.ok(h.indexOf("h-bmaas-baseline") < h.indexOf("<details"));
+  assert.match(h, /Day 0 Build/); assert.match(h, /Day 1 Onboard/); assert.match(h, /Day 2 Operate/);
+  assert.ok(h.indexOf("Day 0 Build") < h.indexOf("f-rack-bringup") && h.indexOf("f-rack-bringup") < h.indexOf("Day 1 Onboard"));
+  assert.ok(h.indexOf("h-bmaas-baseline") < h.indexOf("Day 2 Operate") && h.indexOf("c-xid-remediation") > h.indexOf("Day 2 Operate"));
   assert.match(h, /<details class="dc-more">/);
-  assert.match(DC.renderList(list, "f24-firmware-bundle", "ko"), /<details class="dc-more" open>/);
+  assert.match(DC.renderList(list, "zz-unknown", "ko"), /<details class="dc-more" open>/);
+  assert.match(DC.renderList(list, "zz-unknown", "ko"), /Day 0 구축/);
 });
 
 test("every deep link of the 8 showcase scenarios points at a real console screen", () => {

@@ -1,5 +1,6 @@
 /* 데모 센터 — NOCP 데모 러너(/api/v1/demo/*)로 v2 기능을 끝까지 시연한다.
-   - 시나리오 목록(쇼케이스 8 · 기능 시나리오) · 전체 실행/단계 실행/다음 단계/나머지 실행 · 초기화(결정적 시드)
+   - 시나리오 목록(Day 0 구축 · Day 1 개통 · Day 2 운영, 순서 = DEMO-ORDER.md) · 전체 실행/단계 실행/다음 단계/나머지 실행 · 초기화(결정적 시드)
+   - Day 0→2 전체 실행: NOCP GET /api/v1/demo/playlist(없으면 내장 표) 순서대로 시나리오 실행과 화면 시연(콘솔 화면 + 자막 카드)을 이어 간다
    - 실시간 단계 타임라인: SSE(/runs/{id}/events) 우선, 실패 시 폴링(GET /runs/{id})
    - 단계마다 나레이션·기대값·검증 결과·요청/응답 요약·원문(펼침)·바뀐 화면 딥링크
    - 보기 전환: 타임라인 | 스윔레인(레인 = 업무 영역, 열 = 단계 순서) + 단계별 요청·응답 원문 뷰어(업스트림 형식 그대로)
@@ -36,6 +37,12 @@
       headers: "헤더", body: "본문", status: "상태", noMsg: "이 단계는 HTTP 메시지가 없습니다(내부 호출).",
       area: "영역", swimCap: "레인 = 업무 영역, 열 = 단계 순서. 칩을 누르면 아래에 원문이 열립니다.", prev: "이전", nextFocus: "다음",
       keys: "←/→ 단계 이동 · Esc 발표 모드 끄기", msgOf: "단계 메시지",
+      day: ["Day 0 구축", "Day 1 개통", "Day 2 운영"],
+      daySub: ["설치·검증, 판매 가능 재고가 되기까지", "고객 가입·주문·서비스 시작", "사용·과금·장애·전력망"],
+      other: "기타 시나리오", playAll: "Day 0→2 전체 실행", playStop: "플레이리스트 중지",
+      screenOnly: "화면 시연", openScreen: "화면 열기", nextItem: "다음 순서", prevItem: "이전 순서", backDc: "데모 센터로",
+      plOf: "순서", plDone: "Day 0→2 시연을 마쳤습니다", plNocp: "NOCP 플레이리스트", plLocal: "기본 순서(DEMO-ORDER)",
+      auto: "자동 진행", upNext: "다음", plMissing: "NOCP에 없는 시나리오라 건너뜁니다", plKeys: "→ 다음 순서 · ← 이전 순서 · Esc 중지",
     },
     en: {
       title: "Demo Center", sub: "v2 end-to-end demos · NOCP /api/v1/demo",
@@ -55,6 +62,12 @@
       headers: "Headers", body: "Body", status: "Status", noMsg: "This step has no HTTP message (internal call).",
       area: "Area", swimCap: "Lane = business area, column = step order. Pick a chip to open its raw messages below.", prev: "Previous", nextFocus: "Next",
       keys: "←/→ move between steps · Esc exits presenter", msgOf: "Step messages",
+      day: ["Day 0 Build", "Day 1 Onboard", "Day 2 Operate"],
+      daySub: ["Install and validate until the racks are sellable inventory", "Customer signup, order and service start", "Usage, billing, faults and the power grid"],
+      other: "Other scenarios", playAll: "Run Day 0→2", playStop: "Stop playlist",
+      screenOnly: "Screen walkthrough", openScreen: "Open screen", nextItem: "Next item", prevItem: "Previous item", backDc: "Back to Demo Center",
+      plOf: "Item", plDone: "Day 0→2 walkthrough finished", plNocp: "NOCP playlist", plLocal: "Default order (DEMO-ORDER)",
+      auto: "Auto-advance", upNext: "Up next", plMissing: "Scenario not on this NOCP, skipping", plKeys: "→ next item · ← previous item · Esc stops",
     },
   };
   var STATE_CLS = { waiting: "unknown", running: "warn", passed: "ok", failed: "crit", pending: "info", skipped: "unknown" };
@@ -82,6 +95,105 @@
       en: "The flow that predates v2: tenant → 1-rack order → isolation → acceptance → metering → reclaim." },
   };
   function isShowcase(id) { return /^[a-h]-/.test(String(id || "")); }
+
+  /* ── Day 0 → Day 1 → Day 2 시연 순서 ─────────────────────────────
+     기준: work/neocloud/DEMO-ORDER.md (god, 2026-11-11). NOCP GET /api/v1/demo/playlist 가 있으면 그것을 쓰고,
+     없으면(404·미연결) 아래 표를 쓴다. 항목 하나 = 시나리오 실행 하나 또는 화면 시연 하나(콘솔 화면 + 자막 카드).
+     n = DEMO-ORDER 번호, also = 같은 순서에 속하지만 전체 실행에서는 돌리지 않는 보조 시나리오(목록 묶음용). */
+  var PLAYLIST = [
+    { n: 1, day: 0, kind: "scenario", scenario: "f-rack-bringup", also: ["f23-rack-bringup"] },
+    { n: 2, day: 0, kind: "scenario", scenario: "f24-firmware-bundle" },
+    { n: 3, day: 0, kind: "scenario", scenario: "f25-attestation" },
+    { n: 4, day: 0, kind: "scenario", scenario: "f28-health-validation", also: ["f12-machine-events", "f35-capacity-scenarios"] },
+    { n: 5, day: 0, kind: "screen", console: "ops", route: "dsx-power",
+      title_ko: "MaxLPS 전력 도메인 예산 확인", title_en: "Check the MaxLPS power-domain budget",
+      caption_ko: "랙 MaxP 227 kW · MaxQ 187 kW, 전력 도메인 32.3 MW 안에서 새 랙의 전력 예산이 잡혔는지 확인합니다.",
+      caption_en: "Confirm the new racks fit the power budget: rack MaxP 227 kW, MaxQ 187 kW, inside the 32.3 MW power domain." },
+    { n: 6, day: 1, kind: "scenario", scenario: "f07-identity", also: ["a-signup-to-invoice"] },
+    { n: 7, day: 1, kind: "screen", console: "biz", route: "contracts",
+      title_ko: "약정 계약(예약 NVL72 랙)", title_en: "Commitment contract (reserved NVL72 racks)",
+      caption_ko: "영업이 예약 NVL72 랙 약정 계약을 등록하고 활성화합니다. 사업 콘솔 계약 화면에서 보여줍니다.",
+      caption_en: "Sales registers and activates a reserved NVL72 rack commitment. Shown on the business console contracts screen." },
+    { n: 8, day: 1, kind: "scenario", scenario: "h-bmaas-baseline" },
+    { n: 8, day: 1, kind: "scenario", scenario: "f08-nico-rest" },
+    { n: 9, day: 1, kind: "scenario", scenario: "g-nvke-clique", also: ["f11-nvke-capi"] },
+    { n: 10, day: 1, kind: "scenario", scenario: "f32-marketplace-deploy", also: ["f29-packaging"] },
+    { n: 11, day: 2, kind: "scenario", scenario: "b-token-api", also: ["f01-token-gateway", "f02-f04-quota-metering"] },
+    { n: 12, day: 2, kind: "scenario", scenario: "f33-kv-tiers" },
+    { n: 13, day: 2, kind: "scenario", scenario: "f30-kai-scheduling" },
+    { n: 13, day: 2, kind: "scenario", scenario: "f31-slurm" },
+    { n: 14, day: 2, kind: "scenario", scenario: "c-xid-remediation", also: ["f10-f09-recovery-sla"] },
+    { n: 15, day: 2, kind: "scenario", scenario: "e-leak-workload-move", also: ["f22-leak-response"] },
+    { n: 16, day: 2, kind: "scenario", scenario: "d-grid-curtailment", also: ["f20-dsx-flex", "f21-curtailment", "f13-status-notices"] },
+    { n: 17, day: 2, kind: "scenario", scenario: "f05-billing-lago-stripe" },
+    { n: 17, day: 2, kind: "scenario", scenario: "f27-finops" },
+    { n: 18, day: 2, kind: "scenario", scenario: "f26-metrics" },
+    { n: 18, day: 2, kind: "scenario", scenario: "f34-compliance-evidence" },
+  ];
+  function dayNum(v) {
+    if (typeof v === "number" && isFinite(v)) return v;
+    var m = String(v == null ? "" : v).match(/\d+/);
+    return m ? +m[0] : null;
+  }
+  /* 화면 경로 정규화: "dsx-power" · "#/dsx-power" · "/biz/index.html#/contracts" · "../biz/#/contracts" → {console, route} */
+  function screenRef(route, con) {
+    var r = String(route || ""), c = con || "";
+    var m = r.match(/(?:^|\/)(ops|customer|biz)\/(?:index\.html)?#\/?(.*)$/);
+    if (m) { c = c || m[1]; r = m[2]; }
+    r = r.replace(/^#?\/?/, "");
+    return { console: c || "ops", route: r };
+  }
+  /* NOCP 플레이리스트(모양이 조금 달라도 받는다) → {source, days:[{day,title_ko,title_en}], items:[...]} . 못 읽으면 null */
+  function normPlaylist(data) {
+    if (!data) return null;
+    var raw = [], days = [];
+    var src = Array.isArray(data) ? data : (data.items || data.playlist || data.entries || null);
+    if (Array.isArray(src)) raw = src.slice();
+    var groups = !Array.isArray(data) && (data.days || data.groups);
+    if (Array.isArray(groups)) groups.forEach(function (g) {
+      var d = dayNum(g.day != null ? g.day : g.id);
+      days.push({ day: d, title_ko: g.title_ko || g.label_ko || "", title_en: g.title_en || g.label_en || "" });
+      (g.items || g.entries || []).forEach(function (it) { raw.push(Object.assign({ day: d }, it)); });
+    });
+    var items = [];
+    raw.forEach(function (it, i) {
+      if (!it) return;
+      if (typeof it === "string") it = { scenario: it };
+      var kind = String(it.kind || it.type || "").toLowerCase();
+      var scn = it.scenario_id || it.scenario || null;
+      kind = /screen|navigate|route|page/.test(kind) ? "screen" : (kind === "scenario" || scn ? "scenario" : (it.route ? "screen" : "scenario"));
+      if (kind === "scenario" && !scn) scn = it.id || null;
+      var d = dayNum(it.day);
+      var o = { n: +(it.order || it.n || it.seq || i + 1), day: d == null ? 2 : d, kind: kind,
+        title_ko: it.title_ko || "", title_en: it.title_en || "",
+        caption_ko: it.caption_ko || it.narration_ko || it.note_ko || "", caption_en: it.caption_en || it.narration_en || it.note_en || "",
+        also: it.also || [] };
+      if (kind === "scenario") { if (!scn) return; o.scenario = String(scn); }
+      else { var sr = screenRef(it.route || it.path || it.href, it.console); if (!sr.route) return; o.console = sr.console; o.route = sr.route; }
+      items.push(o);
+    });
+    if (!items.length) return null;
+    return { source: "nocp", days: days, items: items };
+  }
+  function fallbackPlaylist() { return { source: "local", days: [], items: PLAYLIST.map(function (x) { return Object.assign({}, x); }) }; }
+  function dayLabel(pl, d, lang) {
+    var g = pl && (pl.days || []).filter(function (x) { return x.day === d; })[0];
+    var own = g && (g["title_" + lang] || g.title_ko);
+    if (own) return /day\s*\d/i.test(own) ? own : "Day " + d + " " + own;
+    return t(lang).day[d] || ("Day " + d);
+  }
+  /* 시나리오 id → 플레이리스트 위치 {day, n, item}. 실행 항목이 보조(also)보다 우선. */
+  function dayIndex(pl) {
+    var m = {};
+    (pl ? pl.items : []).forEach(function (it, i) { if (it.kind === "scenario" && !m[it.scenario]) m[it.scenario] = { day: it.day, n: it.n, i: i, run: true }; });
+    (pl ? pl.items : []).forEach(function (it, i) { (it.also || []).forEach(function (id) { if (!m[id]) m[id] = { day: it.day, n: it.n, i: i, run: false }; }); });
+    return m;
+  }
+  function itemTitle(it, scenarios, lang) {
+    if (it.kind === "screen") return L(it, "title", lang) || it.route;
+    var sc = (scenarios || []).filter(function (s) { return s.id === it.scenario; })[0];
+    return (sc && L(sc, "title", lang)) || L(it, "title", lang) || it.scenario;
+  }
 
   /* 스윔레인 레인 — 요청 경로로 업무 영역을 고른다(원문 URL 그대로, 순서 = 표시 우선순위) */
   var LANES = [
@@ -145,29 +257,85 @@
       links.map(function (l) { return linkA(l, lang); }).join("") + "</div>";
   }
 
-  function scnButton(s, selected, lang) {
+  function scnButton(s, selected, lang, pos) {
     var on = s.id === selected;
     var pend = (s.pending_features || []).length
       ? '<span class="nc-badge info">' + esc(t(lang).pendingF) + " " + esc(s.pending_features.join(" ")) + "</span>" : "";
+    var ord = pos ? '<span class="dc-ord mono' + (pos.run ? "" : " sub") + '">' + esc(pos.n) + "</span>" : "";
     return '<li><button type="button" class="dc-scn' + (on ? " on" : "") + '" data-dc-scn="' + esc(s.id) + '" aria-pressed="' + on + '">' +
-      '<span class="dc-scn-t">' + esc(L(s, "title", lang)) + "</span>" +
+      '<span class="dc-scn-t">' + ord + esc(L(s, "title", lang)) + "</span>" +
       '<span class="dc-scn-m"><span class="mono">' + esc(s.feature || "") + "</span> · " + esc(s.steps) + " " + esc(t(lang).steps) + " " + pend + "</span>" +
       "</button></li>";
   }
-  /* 목록: 쇼케이스 8(a–h) 먼저, 나머지는 기능 시나리오로 묶는다. 고른 것이 기능 시나리오면 그 묶음을 펼친다. */
-  function renderList(scenarios, selected, lang) {
+  function screenButton(it, lang) {
+    return '<li><div class="dc-scn dc-scr"><span class="dc-scn-t"><span class="dc-ord mono">' + esc(it.n) + "</span>" + esc(L(it, "title", lang)) + "</span>" +
+      '<span class="dc-scn-m"><span class="nc-badge unknown">' + esc(t(lang).screenOnly) + "</span>" +
+      '<a class="dc-link" href="' + esc(href(it)) + '"' + (it.console !== "ops" ? ' target="_blank" rel="noopener"' : "") + ">" +
+      esc(it.console + "/" + it.route) + " ↗</a></span></div></li>";
+  }
+  /* 목록: Day 0 구축 / Day 1 개통 / Day 2 운영 (플레이리스트 순서) — 각 Day 안에서 실행 항목 순서대로, 보조 시나리오는 그 뒤.
+     어느 Day에도 없는 시나리오는 "기타 시나리오"로 접어 둔다(고른 것이 거기 있으면 펼친다). */
+  function renderList(scenarios, selected, lang, pl) {
     if (!scenarios || !scenarios.length) return '<p class="dc-muted">—</p>';
-    var show = scenarios.filter(function (s) { return isShowcase(s.id); });
-    var rest = scenarios.filter(function (s) { return !isShowcase(s.id); });
-    if (!show.length || !rest.length) {
-      return '<ul class="dc-list" role="list">' + scenarios.map(function (s) { return scnButton(s, selected, lang); }).join("") + "</ul>";
+    pl = pl || fallbackPlaylist();
+    var idx = dayIndex(pl), byId = {}, used = {}, tx = t(lang);
+    scenarios.forEach(function (s) { byId[s.id] = s; });
+    var dayIds = [];
+    pl.items.forEach(function (it) { if (dayIds.indexOf(it.day) < 0) dayIds.push(it.day); });
+    dayIds.sort(function (a, b) { return a - b; });
+    var out = dayIds.map(function (d) {
+      var rows = [];
+      pl.items.forEach(function (it) {
+        if (it.day !== d) return;
+        if (it.kind === "screen") { rows.push(screenButton(it, lang)); return; }
+        if (byId[it.scenario] && !used[it.scenario]) { used[it.scenario] = 1; rows.push(scnButton(byId[it.scenario], selected, lang, idx[it.scenario])); }
+      });
+      pl.items.forEach(function (it) {
+        if (it.day !== d) return;
+        (it.also || []).forEach(function (id) { if (byId[id] && !used[id]) { used[id] = 1; rows.push(scnButton(byId[id], selected, lang, idx[id])); } });
+      });
+      if (!rows.length) return "";
+      return '<h3 class="dc-gh dc-day d' + esc(d) + '">' + esc(dayLabel(pl, d, lang)) +
+        (tx.daySub[d] ? ' <span class="dc-muted">' + esc(tx.daySub[d]) + "</span>" : "") + "</h3>" +
+        '<ul class="dc-list" role="list">' + rows.join("") + "</ul>";
+    }).join("");
+    var rest = scenarios.filter(function (s) { return !used[s.id]; });
+    if (!out) return '<ul class="dc-list" role="list">' + scenarios.map(function (s) { return scnButton(s, selected, lang); }).join("") + "</ul>";
+    if (rest.length) {
+      var openRest = rest.some(function (s) { return s.id === selected; });
+      out += '<details class="dc-more"' + (openRest ? " open" : "") + '><summary class="dc-gh">' + esc(tx.other) +
+        ' <span class="dc-muted">' + rest.length + "</span></summary>" +
+        '<ul class="dc-list" role="list">' + rest.map(function (s) { return scnButton(s, selected, lang); }).join("") + "</ul></details>";
     }
-    var openRest = rest.some(function (s) { return s.id === selected; });
-    return '<h3 class="dc-gh">' + esc(t(lang).showcase) + "</h3>" +
-      '<ul class="dc-list" role="list">' + show.map(function (s) { return scnButton(s, selected, lang); }).join("") + "</ul>" +
-      '<details class="dc-more"' + (openRest ? " open" : "") + '><summary class="dc-gh">' + esc(t(lang).featureScn) +
-      ' <span class="dc-muted">' + rest.length + "</span></summary>" +
-      '<ul class="dc-list" role="list">' + rest.map(function (s) { return scnButton(s, selected, lang); }).join("") + "</ul></details>";
+    return out;
+  }
+
+  /* 발표 모드 Day 띠: 지금 Day · 순서 n/전체 · 다음 항목 */
+  function dayBanner(pl, pos, lang, scenarios) {
+    if (!pl || pos == null || !pl.items[pos]) return "";
+    var tx = t(lang), it = pl.items[pos], nx = pl.items[pos + 1];
+    return '<div class="dc-dayband d' + esc(it.day) + '" role="status"><span class="dc-dayk">' + esc(dayLabel(pl, it.day, lang)) + "</span>" +
+      '<span class="mono">' + esc(tx.plOf) + " " + (pos + 1) + " / " + pl.items.length + " · #" + esc(it.n) + "</span>" +
+      (nx ? '<span class="dc-upnext">' + esc(tx.upNext) + ": " + (nx.day !== it.day ? esc(dayLabel(pl, nx.day, lang)) + " · " : "") + esc(itemTitle(nx, scenarios, lang)) + "</span>" : "") +
+      "</div>";
+  }
+  /* 화면 시연 자막 카드 — 콘솔 화면 위에 떠 있다 (본문 아래쪽 고정) */
+  function captionHtml(pl, pos, lang, o) {
+    o = o || {};
+    var tx = t(lang), it = pl && pl.items[pos];
+    if (!it) return "";
+    var other = it.console && it.console !== "ops";
+    return '<section class="dc-cap d' + esc(it.day) + '" role="region" aria-labelledby="dc-cap-h" lang="' + esc(lang) + '">' +
+      dayBanner(pl, pos, lang, o.scenarios) +
+      '<h3 id="dc-cap-h" class="dc-cap-t">' + esc(L(it, "title", lang) || it.route) + ' <span class="nc-badge unknown">' + esc(tx.screenOnly) + "</span></h3>" +
+      (L(it, "caption", lang) ? '<p class="dc-cap-p">' + esc(L(it, "caption", lang)) + "</p>" : "") +
+      '<div class="dc-cap-nav">' +
+      '<button type="button" class="btn-ghost" data-dc-pl="prev"' + (pos <= 0 ? " disabled" : "") + ">← " + esc(tx.prevItem) + "</button>" +
+      '<button type="button" class="btn" data-dc-pl="next">' + esc(pos >= pl.items.length - 1 ? tx.playStop : tx.nextItem) + " →</button>" +
+      (other ? '<a class="btn-ghost dc-cap-open" href="' + esc(href(it)) + '" target="_blank" rel="noopener">' + esc(tx.openScreen) + " ↗</a>" : "") +
+      '<button type="button" class="btn-ghost" data-dc-pl="home">' + esc(tx.backDc) + "</button>" +
+      '<button type="button" class="btn-ghost" data-dc-pl="stop">' + esc(tx.playStop) + "</button>" +
+      '<span class="dc-muted">' + esc(tx.plKeys) + "</span></div></section>";
   }
 
   function stepHtml(st, i, lang, cur) {
@@ -324,7 +492,8 @@
   }
 
   /* 시나리오 상세 + 실행 타임라인. run 이 없으면 시나리오 단계를 대기 상태로 보여준다.
-     o: {view:"timeline"|"swim", focus:index|null, presenter:boolean} */
+     o: {view:"timeline"|"swim", focus:index|null, presenter:boolean,
+         pl: 플레이리스트, plPos: 전체 실행 중인 항목 위치(없으면 null), scenarios: 목록(다음 항목 제목용)} */
   function stepsOf(sc, run) {
     return run ? run.steps : (sc.steps || []).map(function (s) {
       return { id: s.id, title_ko: s.title_ko, title_en: s.title_en, narration_ko: s.narration_ko,
@@ -345,9 +514,15 @@
       '<button type="button" class="btn-ghost" data-dc-act="step"' + dis + ">" + esc(tx.stepMode) + "</button>" +
       (stepMode ? '<button type="button" class="btn-ghost" data-dc-act="next"' + dis + ">" + esc(tx.next) + "</button>" +
         '<button type="button" class="btn-ghost" data-dc-act="cont"' + dis + ">" + esc(tx.cont) + "</button>" : "") +
+      (o.plPos != null && o.pl && run && run.state === "done" ? '<button type="button" class="btn" data-dc-pl="next">' +
+        esc(o.plPos >= o.pl.items.length - 1 ? tx.playStop : tx.nextItem) + " →</button>" : "") +
       "</div>";
+    var pl = o.pl || fallbackPlaylist(), pos = dayIndex(pl)[sc.id];
+    var chip = pos ? '<span class="dc-daychip d' + esc(pos.day) + '">' + esc(dayLabel(pl, pos.day, lang)) + " · #" + esc(pos.n) + "</span>" : "";
+    var band = !o.presenter ? "" : o.plPos != null ? dayBanner(pl, o.plPos, lang, o.scenarios)
+      : pos ? '<div class="dc-dayband d' + esc(pos.day) + '" role="status"><span class="dc-dayk">' + esc(dayLabel(pl, pos.day, lang)) + '</span><span class="mono">#' + esc(pos.n) + "</span></div>" : "";
     var talk = TALK[sc.id];
-    var head = '<div class="dc-head"><h2 class="dc-h">' + esc(L(sc, "title", lang)) + "</h2>" +
+    var head = '<div class="dc-head">' + band + '<h2 class="dc-h">' + (o.presenter ? "" : chip) + esc(L(sc, "title", lang)) + "</h2>" +
       '<p class="dc-sum">' + esc(L(sc, "summary", lang)) + (sc.story ? ' <span class="mono dc-muted">' + esc(sc.story) + "</span>" : "") + "</p>" +
       (talk && (talk[lang] || talk.ko) !== L(sc, "summary", lang) ? '<p class="dc-shows"><span class="dc-k">' + esc(tx.shows) + "</span>" + esc(talk[lang] || talk.ko) + "</p>" : "") +
       btns + (run ? countsHtml(run, lang) + '<div class="dc-muted mono">run ' + esc(run.id) + "</div>" : "") +
@@ -395,6 +570,7 @@
     return {
       base: base,
       scenarios: function () { return req("GET", "/scenarios"); },
+      playlist: function () { return req("GET", "/playlist"); },
       scenario: function (id) { return req("GET", "/scenarios/" + encodeURIComponent(id)); },
       run: function (id, mode, pace) { return req("POST", "/scenarios/" + encodeURIComponent(id) + "/run", { mode: mode, pace_ms: pace || 0 }); },
       step: function (rid) { return req("POST", "/runs/" + encodeURIComponent(rid) + "/step"); },
@@ -490,6 +666,22 @@
     ".dc-talk{font-size:calc(15px*var(--dc-scale));line-height:var(--lh-body);margin-bottom:10px}.dc-talk p{margin:4px 0 0}" +
     ".dc-spot-nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px}" +
     ".dc-muted{color:var(--muted);font-size:var(--fs-xs)}" +
+    /* Day 0/1/2 묶음 · 플레이리스트 */
+    ".dc-day{display:flex;flex-direction:column;gap:1px;margin-top:14px;padding:4px 0 4px 8px;border-left:3px solid var(--accent);color:var(--text);font-size:calc(12px*var(--dc-scale))}" +
+    ".dc-day:first-child{margin-top:4px}.dc-day.d1{border-left-color:var(--info)}.dc-day.d2{border-left-color:var(--ok)}.dc-day .dc-muted{font-weight:var(--fw-reg)}" +
+    ".dc-ord{display:inline-block;min-width:22px;margin-right:6px;padding:0 5px;border-radius:var(--radius-pill);background:var(--accent);color:var(--on-accent);font-size:var(--fs-2xs);text-align:center;vertical-align:1px}" +
+    ".dc-ord.sub{background:var(--surface-2);color:var(--text-2);border:1px solid var(--line)}" +
+    ".dc-scr{cursor:default;border-style:dashed}.dc-scr .dc-link{font-size:var(--fs-2xs)}" +
+    ".dc-daychip{display:inline-block;margin-right:8px;padding:1px 8px;border-radius:var(--radius-pill);border:1px solid var(--accent-line);color:var(--accent-text);font-size:var(--fs-2xs);font-weight:var(--fw-semi);vertical-align:2px}" +
+    ".dc-dayband{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0 0 10px;padding:8px 12px;border-radius:var(--radius);background:var(--accent-soft);border-left:5px solid var(--accent);font-size:calc(12px*var(--dc-scale))}" +
+    ".dc-dayband.d1{border-left-color:var(--info)}.dc-dayband.d2{border-left-color:var(--ok)}" +
+    ".dc-dayk{font-size:calc(15px*var(--dc-scale));font-weight:var(--fw-bold);color:var(--text)}.dc-upnext{color:var(--text-2);margin-left:auto;overflow-wrap:anywhere}" +
+    ".dc-cap{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:90;width:min(880px,calc(100vw - 32px));max-height:60vh;overflow:auto;" +
+    "padding:14px 18px;border:2px solid var(--accent);border-radius:var(--radius-lg);background:var(--card);color:var(--text);box-shadow:var(--elev-modal)}" +
+    ".dc-cap .dc-dayband{--dc-scale:1.2}.dc-cap-t{margin:0 0 6px;font-size:20px;line-height:var(--lh-tight)}.dc-cap-p{margin:0 0 10px;font-size:15px;line-height:var(--lh-body)}" +
+    ".dc-cap-nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}a.dc-cap-open{text-decoration:none}" +
+    ".dc-plbtn[aria-pressed=true]{box-shadow:0 0 0 2px var(--accent-soft)}" +
+    "@media (max-width:560px){.dc-cap{bottom:8px;padding:10px 12px}.dc-cap-t{font-size:16px}.dc-cap-p{font-size:13px}.dc-upnext{margin-left:0}}" +
     "@media (max-width:560px){.dc-spot{padding:12px}.dc-k{min-width:0;display:block}.dc-ms{margin-left:0}}" +
     "body.demo-presenter #nc-sidebar,body.demo-presenter .sb-toggle,body.demo-presenter .sb-scrim,body.demo-presenter .topbar .search{display:none!important}" +
     "body.demo-presenter #demo-center-root{--dc-scale:1.45}body.demo-presenter .content{padding:22px 34px}" +
@@ -507,8 +699,10 @@
       catch (e) { return "http://127.0.0.1:8000"; }
     } });
     var st = { scenarios: [], sel: null, detail: null, run: null, live: null, busy: false, es: null, poll: null,
-      pace: "normal", presenter: false, err: "", view: "timeline", focus: null };
+      pace: "normal", presenter: false, err: "", view: "timeline", focus: null,
+      playlist: null, plPos: null, plAuto: true, plTimer: null, route: String(win.location && win.location.hash || "").replace(/^#\/?/, "") };
     NC.demoCenter = { state: st, client: client };
+    NC.demoCenter.go = function (i) { return plGo(i); }; /* 발표·자동 점검용: 플레이리스트 i번 항목으로 */
 
     function lang() { return (win.NC_I18N && win.NC_I18N.lang) ? win.NC_I18N.lang() : "ko"; }
     function $(id) { return doc.getElementById(id); }
@@ -546,16 +740,36 @@
         '<button type="button" class="btn-warn" data-dc-act="reset">' + esc(tx.reset) + "</button>" +
         '<button type="button" class="btn-warn" data-dc-act="reset-all">' + esc(tx.resetAll) + "</button>" +
         '<button type="button" class="btn-ghost" data-dc-act="presenter" aria-pressed="' + st.presenter + '">' +
-        esc(st.presenter ? tx.presenterOff : tx.presenter) + "</button></span></div>" +
+        esc(st.presenter ? tx.presenterOff : tx.presenter) + "</button>" +
+        '<label class="dc-auto"><input type="checkbox" id="dc-auto"' + (st.plAuto ? " checked" : "") + "> " + esc(tx.auto) + "</label>" +
+        '<button type="button" class="btn dc-plbtn" data-dc-act="playlist" aria-pressed="' + (st.plPos != null) + '" title="' +
+        esc(st.playlist && st.playlist.source === "nocp" ? tx.plNocp : tx.plLocal) + '">' + esc(st.plPos != null ? tx.playStop : tx.playAll) + "</button></span></div>" +
         '<div class="dc-grid"><div class="panel dc-listcol"><div class="ph"><span class="tick"></span><span class="t">' + esc(tx.scenarios) +
-        '</span><span class="c">' + esc(st.scenarios.length) + "</span></div>" + renderList(st.scenarios, st.sel, lg) + "</div>" +
+        '</span><span class="c">' + esc(st.scenarios.length) + "</span></div>" + renderList(st.scenarios, st.sel, lg, st.playlist) + "</div>" +
         '<div class="panel" aria-busy="' + st.busy + '">' +
-        renderDetail(st.detail, st.run, lg, st.busy, { view: st.view, focus: st.focus, presenter: st.presenter }) + "</div></div>";
+        renderDetail(st.detail, st.run, lg, st.busy, { view: st.view, focus: st.focus, presenter: st.presenter,
+          pl: st.playlist, plPos: st.plPos, scenarios: st.scenarios }) + "</div></div>";
       if (keep) { var el = root.querySelector(keep); if (el && !el.disabled) try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); } }
+      renderCaption();
+    }
+    /* 화면 시연 자막 카드: 본문 밖(body)에 붙여 다른 콘솔 화면 위에 띄운다 */
+    function renderCaption() {
+      var host = $("dc-cap-host");
+      var it = st.plPos != null && st.playlist ? st.playlist.items[st.plPos] : null;
+      if (!it || it.kind !== "screen") { if (host) host.innerHTML = ""; return; }
+      if (!host) { host = doc.createElement("div"); host.id = "dc-cap-host"; doc.body.appendChild(host); }
+      var ae = doc.activeElement, keep = ae && host.contains(ae) && ae.getAttribute("data-dc-pl");
+      host.innerHTML = captionHtml(st.playlist, st.plPos, lang(), { scenarios: st.scenarios });
+      var b = host.querySelector(keep ? '[data-dc-pl="' + keep + '"]' : '[data-dc-pl="next"]');
+      if (b) try { b.focus({ preventScroll: true }); } catch (e) { b.focus(); }
     }
 
     async function load() {
       try {
+        if (!st.playlist) {
+          try { st.playlist = normPlaylist(await client.playlist()); } catch (e) { st.playlist = null; }
+          if (!st.playlist) st.playlist = fallbackPlaylist();
+        }
         var d = await client.scenarios();
         st.scenarios = d.scenarios || [];
         st.live = true; st.err = "";
@@ -577,7 +791,70 @@
     }
     function finish() {
       stopLive(); st.busy = false;
-      client.get(st.run.id).then(function (r) { st.run = r; render(); announce(t(lang()).done); }).catch(render);
+      client.get(st.run.id).then(function (r) { st.run = r; render(); announce(t(lang()).done); plAfterRun(r); }).catch(render);
+    }
+
+    /* ── Day 0→2 플레이리스트 ── */
+    var DWELL = { fast: 4000, normal: 9000, slow: 15000 }, GAP = { fast: 1200, normal: 3000, slow: 5000 };
+    function plItem() { return st.plPos != null && st.playlist ? st.playlist.items[st.plPos] : null; }
+    function plClear() { if (st.plTimer) { clearTimeout(st.plTimer); st.plTimer = null; } }
+    function plLater(ms) { plClear(); if (st.plAuto) st.plTimer = setTimeout(function () { st.plTimer = null; plGo(st.plPos + 1); }, ms); }
+    function plAfterRun(r) {
+      var it = plItem();
+      if (it && it.kind === "scenario" && r && r.scenario_id === it.scenario) plLater(GAP[st.pace] || 3000);
+    }
+    function goRoute(id) { if (st.route !== id && NC.nav) NC.nav(id); }
+    /* 전체 실행은 결정적 시드에서 시작한다(시나리오가 같은 NOCP 상태를 공유하므로): 전체 초기화 → 0번 항목 */
+    async function plStart() {
+      if (!st.playlist) st.playlist = fallbackPlaylist();
+      if (!st.presenter) { st.presenter = true; doc.body.classList.add("demo-presenter"); }
+      stopLive(); st.busy = true; st.plPos = 0; render();
+      try { await client.reset("all"); announce(t(lang()).resetDone); } catch (e) { /* 초기화 실패해도 진행 */ }
+      st.busy = false; st.run = null;
+      if (st.plPos === 0) plGo(0);
+    }
+    function plStop(home) {
+      plClear(); st.plPos = null;
+      if (home) goRoute("demo-center");
+      render();
+    }
+    async function plGo(i) {
+      plClear();
+      var items = st.playlist ? st.playlist.items : [];
+      if (i < 0) return;
+      if (i >= items.length) { announce(t(lang()).plDone); return plStop(true); }
+      st.plPos = i;
+      var it = items[i];
+      if (it.kind === "screen") {
+        stopLive(); st.busy = false;
+        if (it.console === "ops") goRoute(it.route);
+        render();
+        return plLater(DWELL[st.pace] || 9000);
+      }
+      var known = st.scenarios.some(function (x) { return x.id === it.scenario; });
+      if (!known) {
+        announce(t(lang()).plMissing + ": " + it.scenario);
+        st.plTimer = setTimeout(function () { st.plTimer = null; plGo(i + 1); }, 400);
+        return;
+      }
+      goRoute("demo-center");
+      try {
+        await select(it.scenario, true);
+        if (st.plPos !== i) return; /* 그 사이 중지·이동됨 */
+        st.run = await client.run(it.scenario, "all", PACE[st.pace]);
+        announce(t(lang()).started); render(); follow();
+      } catch (e) {
+        st.busy = false;
+        if (NC.toast) NC.toast(esc(t(lang()).loadErr + ": " + e.message), "warn");
+        render(); plLater(GAP[st.pace] || 3000);
+      }
+    }
+    function plAct(a) {
+      if (st.plPos == null) return;
+      if (a === "next") return plGo(st.plPos + 1);
+      if (a === "prev") return plGo(Math.max(0, st.plPos - 1));
+      if (a === "home") { plClear(); goRoute("demo-center"); return render(); }
+      if (a === "stop") return plStop(true);
     }
     function poll() {
       if (st.poll) return;
@@ -621,8 +898,10 @@
         if (a === "presenter") {
           st.presenter = !st.presenter;
           doc.body.classList.toggle("demo-presenter", st.presenter);
+          if (!st.presenter && st.plPos != null) return plStop(true);
           return render();
         }
+        if (a === "playlist") return st.plPos != null ? plStop(true) : plStart();
         if (a === "prev") return moveFocus(-1);
         if (a === "fnext") return moveFocus(1);
         if (a === "reset" || a === "reset-all") {
@@ -655,6 +934,8 @@
     }
 
     doc.addEventListener("click", function (e) {
+      var p = e.target.closest && e.target.closest("[data-dc-pl]");
+      if (p && (p.closest("#demo-center-root") || p.closest("#dc-cap-host"))) return plAct(p.dataset.dcPl);
       var b = e.target.closest && e.target.closest("[data-dc-act],[data-dc-scn],[data-dc-view],[data-dc-focus],[data-ft-step]");
       if (!b || !b.closest("#demo-center-root")) return;
       if (b.dataset.dcScn) return select(b.dataset.dcScn);
@@ -670,12 +951,22 @@
     });
     doc.addEventListener("change", function (e) {
       if (e.target && e.target.id === "dc-pace") { st.pace = e.target.value; }
+      if (e.target && e.target.id === "dc-auto") { st.plAuto = !!e.target.checked; if (!st.plAuto) plClear(); else if (st.plPos != null && !st.busy) plLater(GAP[st.pace] || 3000); }
     });
     doc.addEventListener("keydown", function (e) {
       if (!st.presenter || !$("demo-center-root")) return;
       var tg = e.target && e.target.tagName;
       if (tg === "SELECT" || tg === "INPUT" || tg === "TEXTAREA") return;
       var stepping = st.run && st.run.mode === "step" && st.run.state !== "done";
+      var pit = plItem();
+      if (pit && pit.kind === "screen") {
+        if (e.key === "Escape") { e.preventDefault(); act("presenter"); }
+        else if (e.key === "ArrowRight" || e.key === "PageDown") { e.preventDefault(); plAct("next"); }
+        else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); plAct("prev"); }
+        return;
+      }
+      var runDone = st.run && st.run.state === "done";
+      if (pit && runDone && (e.key === "ArrowRight" || e.key === "PageDown") && focusNow() >= stepCount() - 1) { e.preventDefault(); return plAct("next"); }
       if (e.key === "Escape") act("presenter");
       else if ((e.key === "ArrowRight" || e.key === "PageDown") && stepping && st.focus == null && !st.busy) { e.preventDefault(); act("next"); }
       else if (e.key === "ArrowRight" || e.key === "PageDown") { e.preventDefault(); moveFocus(1); }
@@ -690,7 +981,9 @@
     } catch (e) { /* old browsers */ }
 
     if (NC.bus) NC.bus.on("route", function (id) {
+      st.route = id;
       if (id === "demo-center") load();
+      else if (st.plPos != null) renderCaption(); /* 플레이리스트 화면 시연 중: 발표 모드·자막 유지 */
       else { stopLive(); if (st.presenter) { st.presenter = false; doc.body.classList.remove("demo-presenter"); } }
     });
   }
@@ -698,5 +991,7 @@
   return { T: T, TALK: TALK, LANES: LANES, badge: badge, verdictBadge: verdictBadge, href: href, renderList: renderList,
     renderDetail: renderDetail, stepHtml: stepHtml, msgHtml: msgHtml, swimHtml: swimHtml, laneOf: laneOf, lanesFor: lanesFor,
     summaryCard: summaryCard, spotlight: spotlight, progressHtml: progressHtml, currentIndex: currentIndex, isShowcase: isShowcase,
+    PLAYLIST: PLAYLIST, normPlaylist: normPlaylist, fallbackPlaylist: fallbackPlaylist, dayIndex: dayIndex, dayLabel: dayLabel,
+    dayBanner: dayBanner, captionHtml: captionHtml, screenRef: screenRef,
     createClient: createClient, mount: mount, CSS: CSS };
 });
