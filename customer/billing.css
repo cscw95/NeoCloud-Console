@@ -1,0 +1,158 @@
+/* 계정·계약·청구 v2 쇼케이스 — customer/billing-viz.js 의 그림 + 청구 화면 레이아웃.
+   shared/tokens.css semantic·차트 토큰만 사용(hex 없음). 주간/야간은 토큰이 따라간다.
+   최소 글자 11px, 상태는 색 + 글리프/텍스트(WCAG 1.4.1), 모바일 390px 에서 페이지 가로 스크롤 없음. */
+
+.bv-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.bv-muted{color:var(--text-2);font-weight:var(--fw-reg)}
+
+/* ── 히어로 띠: 금액·게이지 요약 ─────────────────────── */
+.bv-hero{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:var(--sp-3);margin-bottom:var(--sp-3)}
+.bv-hero>.panel{margin:0}
+.bv-amount{display:flex;flex-direction:column;gap:2px}
+.bv-amount .k{font-size:var(--fs-xs);color:var(--text-2)}
+.bv-amount .v{font-size:32px;font-weight:var(--fw-bold);color:var(--text-strong);font-variant-numeric:tabular-nums;line-height:1.15;overflow-wrap:anywhere}
+.bv-amount .s{font-size:var(--fs-sm);color:var(--text-2)}
+.bv-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--sp-3);margin-top:var(--sp-3)}
+.bv-pair>div{border-top:1px solid var(--border);padding-top:var(--sp-2)}
+.bv-pair .k{font-size:var(--fs-xs);color:var(--text-2)}
+.bv-pair .v{font-size:var(--fs-lg);font-weight:var(--fw-semi);font-variant-numeric:tabular-nums;color:var(--text-1)}
+.bv-pair .v.credit{color:var(--ok)}
+.bv-pair .v.crit{color:var(--crit)}
+.bv-pair .v.warn{color:var(--warn)}
+
+/* ── 가용성 게이지 ─────────────────────────────────── */
+.bv-gauge{margin:0;display:flex;flex-direction:column;align-items:center;gap:var(--sp-1)}
+.bv-gauge svg{width:100%;max-width:280px;height:auto;display:block}
+.bv-g-track{fill:none;stroke:var(--border-soft);stroke-width:16;stroke-linecap:round}
+.bv-g-val{fill:none;stroke:var(--ok);stroke-width:16;stroke-linecap:round}
+.bv-gauge.is-bad .bv-g-val{stroke:var(--crit)}
+.bv-g-tgt{stroke:var(--text-1);stroke-width:3}
+.bv-g-num{font-size:30px;font-weight:var(--fw-bold);fill:var(--text-strong);font-variant-numeric:tabular-nums}
+.bv-g-pct{font-size:15px;fill:var(--text-2)}
+.bv-g-ax{font-size:11px;fill:var(--text-2)}
+.bv-gauge figcaption{font-size:var(--fs-sm);color:var(--text-2);text-align:center}
+.bv-g-cap{font-weight:var(--fw-semi);color:var(--ok)}
+.bv-gauge.is-bad .bv-g-cap{color:var(--crit)}
+
+/* ── 다운타임 예산 · 계측 막대 ───────────────────────── */
+.bv-budget{display:flex;flex-direction:column;gap:6px}
+.bv-budget-h{font-size:var(--fs-sm);color:var(--text-1);font-variant-numeric:tabular-nums}
+.bv-meter{display:block;height:10px;border-radius:5px;background:var(--border-soft);overflow:hidden}
+.bv-meter>i{display:block;height:100%;border-radius:5px;background:var(--ok)}
+.bv-meter.warn>i{background:var(--warn)}
+.bv-meter.crit>i{background:var(--crit)}
+
+/* ── 크레딧 사다리 ─────────────────────────────────── */
+.bv-ladder{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.bv-ladder li{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius,6px);font-size:var(--fs-sm);color:var(--text-2)}
+.bv-ladder li.on{border-color:var(--crit-line);background:var(--crit-bg);color:var(--text-1)}
+.bv-ladder li.on:first-child{border-color:var(--ok-line);background:var(--ok-bg)}
+.bv-lad-r{min-width:92px;font-variant-numeric:tabular-nums;font-weight:var(--fw-semi);color:var(--text-1)}
+.bv-lad-now{margin-left:auto;font-weight:var(--fw-semi);color:var(--crit)}
+.bv-ladder li.on:first-child .bv-lad-now{color:var(--ok)}
+
+/* ── 체인 (장애 → 다운타임 → 크레딧 → 청구서) ─────────── */
+.bv-chain{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--sp-2);counter-reset:bvc}
+.bv-chain li{position:relative;border:1px solid var(--border);border-radius:var(--radius,6px);padding:8px 10px 8px 12px;background:var(--surface-2);font-size:var(--fs-sm);color:var(--text-2)}
+.bv-chain li b{display:block;color:var(--text-1);font-size:var(--fs-md)}
+.bv-chain li .id{font-size:var(--fs-xs)}
+.bv-chain li.hit{border-color:var(--crit-line)}
+.bv-chain li.good{border-color:var(--ok-line)}
+.bv-chain li::before{counter-increment:bvc;content:counter(bvc);position:absolute;top:-8px;left:8px;font-size:11px;line-height:16px;min-width:16px;text-align:center;border-radius:8px;background:var(--surface-1);border:1px solid var(--border);color:var(--text-2)}
+
+/* ── 워터폴 ─────────────────────────────────────────── */
+.bv-wf{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.bv-wf li{display:grid;grid-template-columns:minmax(110px,180px) minmax(0,1fr) minmax(110px,max-content);gap:var(--sp-3);align-items:center;font-size:var(--fs-sm);color:var(--text-1)}
+.bv-wf-t{position:relative;height:16px;background:var(--surface-2);border-radius:3px}
+.bv-wf-t>i{position:absolute;top:0;bottom:0;border-radius:3px;background:var(--chart-1)}
+.bv-wf-down .bv-wf-t>i{background:var(--ok)}
+.bv-wf-sum .bv-wf-t>i{background:var(--text-2)}
+.bv-wf-sum.total .bv-wf-t>i{background:var(--accent)}
+.bv-wf-v{text-align:right;font-variant-numeric:tabular-nums}
+.bv-wf-sum .bv-wf-l,.bv-wf-sum .bv-wf-v{font-weight:var(--fw-semi)}
+.bv-wf-sum.total .bv-wf-l,.bv-wf-sum.total .bv-wf-v{font-weight:var(--fw-bold);font-size:var(--fs-md)}
+.bv-wf-down .bv-wf-v{color:var(--ok)}
+
+/* ── 단계 표시 ──────────────────────────────────────── */
+.bv-steps{list-style:none;margin:0 0 var(--sp-3);padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:var(--sp-2)}
+.bv-steps li{display:flex;gap:8px;align-items:flex-start;padding-top:8px;border-top:4px solid var(--border-soft);color:var(--text-2);font-size:var(--fs-sm)}
+.bv-steps li.done{border-color:var(--ok)}
+.bv-steps li.current{border-color:var(--info)}
+.bv-steps li.failed{border-color:var(--crit)}
+.bv-st-n{flex:0 0 auto;width:20px;height:20px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;border:1px solid var(--border-strong);color:var(--text-2)}
+.bv-steps li.done .bv-st-n{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
+.bv-steps li.current .bv-st-n{background:var(--info-bg);border-color:var(--info-line);color:var(--info-text)}
+.bv-steps li.failed .bv-st-n{background:var(--crit-bg);border-color:var(--crit-line);color:var(--crit)}
+.bv-st-t b{display:block;color:var(--text-1);font-weight:var(--fw-semi)}
+.bv-st-t small{display:block;font-size:var(--fs-xs);color:var(--text-2);font-variant-numeric:tabular-nums}
+
+/* ── 누적 막대 · 범례 ─────────────────────────────────── */
+.bv-c1{background:var(--chart-1)} .bv-c2{background:var(--chart-2)} .bv-c3{background:var(--chart-3)}
+.bv-c4{background:var(--chart-4)} .bv-c5{background:var(--chart-5)} .bv-c6{background:var(--chart-6)}
+.bv-legend{list-style:none;margin:0 0 var(--sp-2);padding:0;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:var(--fs-xs);color:var(--text-2)}
+.bv-legend li{display:flex;flex:0 0 auto;justify-content:flex-start;align-items:center;gap:6px;padding:0;margin:0;border:0;width:auto}
+.bv-sw{width:10px;height:10px;border-radius:2px;display:inline-block}
+.bv-stack ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.bv-stack ol>li{padding:0;border:0;display:grid;grid-template-columns:minmax(64px,max-content) minmax(0,1fr) minmax(100px,max-content);gap:var(--sp-3);align-items:center;font-size:var(--fs-sm)}
+.bv-sb-l{font-variant-numeric:tabular-nums;color:var(--text-1)}
+.bv-sb-t{display:flex;height:18px;background:var(--surface-2);border-radius:3px;overflow:hidden}
+.bv-sb-t>i{display:block;height:100%}
+.bv-sb-t>i+i{box-shadow:inset 1px 0 0 var(--surface-1)}
+.bv-sb-v{text-align:right;font-variant-numeric:tabular-nums;font-weight:var(--fw-semi);color:var(--text-1)}
+
+/* ── 전자세금계산서 양식 ─────────────────────────────── */
+.bv-tax{border:2px solid var(--crit-line);border-radius:var(--radius,6px);padding:var(--sp-3);margin-top:var(--sp-3);background:var(--surface-1)}
+.bv-tx-h{display:flex;flex-wrap:wrap;justify-content:space-between;gap:var(--sp-2);align-items:baseline;border-bottom:1px solid var(--crit-line);padding-bottom:var(--sp-2);margin-bottom:var(--sp-3)}
+.bv-tx-h h3{margin:0;font-size:var(--fs-lg);color:var(--crit);letter-spacing:.08em}
+.bv-tx-h h3 small{font-size:var(--fs-xs);color:var(--text-2);letter-spacing:0;font-weight:var(--fw-reg)}
+.bv-tx-meta,.bv-tx-party dl,.bv-tx-f dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:3px 12px;margin:0;font-size:var(--fs-sm)}
+.bv-tx-meta dt,.bv-tx-party dt,.bv-tx-f dt{color:var(--text-2)}
+.bv-tx-meta dd,.bv-tx-party dd,.bv-tx-f dd{margin:0;color:var(--text-1);overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.bv-tx-parties{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:var(--sp-3);margin-bottom:var(--sp-3)}
+.bv-tx-party{border:1px solid var(--border);border-radius:var(--radius,6px);padding:var(--sp-2) var(--sp-3)}
+.bv-tx-party.sup{border-left:4px solid var(--crit-line)}
+.bv-tx-party.buy{border-left:4px solid var(--info-line)}
+.bv-tx-pt{font-size:var(--fs-xs);font-weight:var(--fw-semi);color:var(--text-2);margin-bottom:4px;letter-spacing:.06em}
+.bv-tx-f{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:var(--sp-3);margin-top:var(--sp-3);padding-top:var(--sp-2);border-top:1px solid var(--border)}
+.bv-tx-f p{margin:0;font-size:var(--fs-md);color:var(--text-1)}
+.bv-tx-warn{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--warn)}
+
+/* ── 결제 수단 카드 ─────────────────────────────────── */
+.bv-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--sp-2);margin-bottom:var(--sp-3)}
+.bv-pm{border:1px solid var(--border);border-radius:var(--radius-lg,8px);padding:var(--sp-3);background:var(--surface-2);display:flex;flex-direction:column;gap:4px;font-size:var(--fs-sm);color:var(--text-2)}
+.bv-pm.def{border-color:var(--accent-line)}
+.bv-pm b{font-size:var(--fs-lg);color:var(--text-1);font-variant-numeric:tabular-nums;letter-spacing:.06em}
+.bv-pm .bv-pm-k{font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.08em}
+
+/* ── 계약 카드 (사업 콘솔) ─────────────────────────────── */
+.bv-ctr{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:var(--sp-3);margin-bottom:var(--sp-3)}
+.bv-ctr-c{border:1px solid var(--border);border-radius:var(--radius-lg,8px);padding:var(--sp-3);background:var(--surface-1);display:flex;flex-direction:column;gap:var(--sp-2)}
+.bv-ctr-c.draft{border-style:dashed}
+.bv-ctr-h{display:flex;justify-content:space-between;gap:var(--sp-2);align-items:flex-start}
+.bv-ctr-h h3{margin:0;font-size:var(--fs-md);color:var(--text-1)}
+.bv-ctr-h small{display:block;font-size:var(--fs-xs);color:var(--text-2);font-weight:var(--fw-reg)}
+.bv-ctr-c .v2-kv{font-size:var(--fs-sm)}
+
+/* ── 역할 권한표 ────────────────────────────────────── */
+.bv-rm th[scope=row]{font-weight:var(--fw-reg);color:var(--text-1);text-align:left}
+.bv-rm .c{text-align:center}
+.bv-rm .me{background:var(--accent-soft)}
+.bv-yes{color:var(--ok);font-weight:var(--fw-bold)}
+.bv-no{color:var(--text-2)}
+
+/* ── 반응형 ─────────────────────────────────────────── */
+@media (max-width:1100px){ .bv-hero{grid-template-columns:1fr} }
+@media (max-width:767px){
+  .bv-amount .v{font-size:26px}
+  .bv-wf li{grid-template-columns:minmax(0,1fr) minmax(96px,max-content);gap:4px 10px}
+  .bv-wf-t{grid-column:1 / -1;grid-row:2}
+  .bv-stack ol>li{grid-template-columns:minmax(0,1fr) minmax(96px,max-content);gap:4px 10px}
+  .bv-sb-t{grid-column:1 / -1;grid-row:2}
+  .bv-lad-now{margin-left:0}
+}
+@media (prefers-reduced-motion:no-preference){
+  .bv-meter>i,.bv-wf-t>i,.bv-sb-t>i{transition:width var(--dur) var(--ease)}
+}
+.bv-sub{font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--text-2);margin:0 0 var(--sp-2)}
+.bv-g-note{margin:var(--sp-1) 0 0;font-size:var(--fs-xs);color:var(--text-2);text-align:center}
+.bv-raw>summary{cursor:pointer;font-size:var(--fs-sm);color:var(--text-2)}
