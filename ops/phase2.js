@@ -176,6 +176,7 @@
 
   /* ── 화면 ──────────────────────────────────────────────────── */
   async function grid() {
+    if (NC.opsViz) return NC.opsViz.grid();   /* design-ops 화면 (ops/ops-viz.js) */
     var c = await api("GET", "/api/v1/power/curtailments");
     var f = await api("GET", "/api/v1/power/flex-events");
     var n = await api("GET", "/api/v1/status/notices?kind=grid_curtailment");
@@ -289,6 +290,7 @@
   }
 
   async function notices() {
+    if (NC.opsViz) return NC.opsViz.notices();   /* design-ops 화면 (ops/ops-viz.js) */
     var r = await api("GET", "/api/v1/status/notices");
     var live = ok(r), items = live ? r.data.items : MOCK.notices.items;
     var form = '<div class="p2-row"><label for="p2-n-kind">종류</label><select id="p2-n-kind">' +
