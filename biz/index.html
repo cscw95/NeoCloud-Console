@@ -7,7 +7,7 @@
 <title>NeoCloud Biz — Business Portal</title>
 <link rel="stylesheet" href="../shared/tokens.css">
 <link rel="stylesheet" href="../shared/shell.css">
-<link rel="stylesheet" href="../shared/blueprint.css"><!-- 주간(Blueprint) 디자인 레이어 -->
+<link rel="stylesheet" href="../shared/v2-design.css"><link rel="stylesheet" href="../shared/blueprint.css"><!-- 주간(Blueprint) 디자인 레이어 -->
 <style>
 /* ── 비즈 콘솔 화면 고유 스타일 (공통 셸: ../shared/shell.css) ── */
 .content section{max-width:1340px}
@@ -112,6 +112,7 @@
 <script src="../shared/design-mode.js"></script>
 <script src="../shared/i18n-dict.js"></script>
 <script src="../shared/i18n-biz.js"></script>
+<script src="../shared/i18n-design.js"></script>
 <script src="../shared/i18n.js"></script><!-- 주간/야간 디자인 모드 -->
 <a class="skip-link" href="#nc-main">본문으로 건너뛰기</a>
 <div class="app">
@@ -125,14 +126,14 @@
         <div class="s">BUSINESS PORTAL · 영업 / 경영</div>
       </div>
     </div>
-    <nav>
+    <nav aria-label="주 메뉴">
       <a class="mi" data-route="dashboard" href="#/dashboard"><span class="dot"></span>임원 대시보드</a>
       <div class="sb-grp">영업</div>
       <a class="mi" data-route="pipeline" href="#/pipeline"><span class="dot"></span>파이프라인 · CRM<span class="bd amber" id="bd-pipeline">2</span></a>
       <a class="mi" data-route="rfq" href="#/rfq"><span class="dot"></span>견적 · RFQ</a>
-      <a class="mi" data-route="contracts" href="#/contracts"><span class="dot"></span>계약 관리<span class="bd amber">1</span></a>
-      <div class="sb-grp">재무</div>
-      <a class="mi" data-route="revenue" href="#/revenue"><span class="dot"></span>매출 · 수익 분석</a>
+      <div class="sb-grp">계정 · 계약 · 청구</div>
+      <a class="mi" data-route="contracts" href="#/contracts"><span class="dot"></span>계약 관리<span class="bd amber">1</span> <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <a class="mi" data-route="revenue" href="#/revenue"><span class="dot"></span>매출 · 수익 분석 <span class="bd new" title="v2 신규 기능">NEW</span></a>
       <a class="mi" data-route="pricing" href="#/pricing"><span class="dot"></span>가격 정책</a>
       <div class="sb-grp">계획</div>
       <a class="mi" data-route="planning" href="#/planning"><span class="dot"></span>수요 · 공급 계획</a>
@@ -167,6 +168,15 @@
 
       <!-- ═══ 임원 대시보드 ═══ -->
       <section data-screen="dashboard">
+        <!-- v2 하이라이트 (design-core · shared/v2-design.css) -->
+        <section class="v2hl" id="v2hl-biz" aria-labelledby="v2hl-biz-h">
+          <div class="v2hl-h"><span class="v2hl-tag">NEW · v2</span><h2 id="v2hl-biz-h">v2 하이라이트</h2><p>새 v2 기능 — 약정 계약과 실제 청구 매출이 라이브로 이어집니다.</p></div>
+          <ul class="v2hl-grid">
+          <li><a class="v2hl-card" href="#/contracts"><span class="v2hl-top"><span class="v2hl-t">약정 계약</span><span class="v2hl-f">F06</span></span><span class="v2hl-d">예약 랙 · 약정 단가 · 계약 상태 (NOCP 라이브)</span><span class="v2hl-go">열기 →</span></a></li>
+          <li><a class="v2hl-card" href="#/revenue"><span class="v2hl-top"><span class="v2hl-t">청구 매출</span><span class="v2hl-f">F05</span></span><span class="v2hl-d">Lago 청구서 기준 KRW 매출 · VAT · 토큰/KV 행 구성</span><span class="v2hl-go">열기 →</span></a></li>
+          <li><a class="v2hl-card" href="#/pricing"><span class="v2hl-top"><span class="v2hl-t">가격 정책</span><span class="v2hl-f">F02 · F33</span></span><span class="v2hl-d">토큰 단가 · cached_tokens 할인 · 쿼터 등급</span><span class="v2hl-go">열기 →</span></a></li>
+          </ul>
+        </section>
         <div class="kpi-band">
           <div class="kpi"><div class="k js-mrr-k">MRR</div><div class="v js-mrr">$36.7<small>M</small></div><div class="s js-psub" data-m="▲ 12.4% MoM" data-q="▲ 9.8% QoQ" data-y="▲ 41.2% YoY" style="color:var(--green-text)">▲ 12.4% MoM</div></div>
           <div class="kpi"><div class="k">ARR (run-rate)</div><div class="v" id="kpi-arr">$440<small>M</small></div><div class="s" id="kpi-arr-sub">목표 $520M의 85%</div></div>
@@ -788,6 +798,7 @@
 <script src="../shared/nocp-api.js"></script>
 <script src="../shared/palette.js"></script>
 <script src="../shared/v2-api.js"></script><script src="../shared/v2-ui.js"></script>
+<script src="../shared/flow-timeline.js"></script><script src="../shared/kpi-gauge.js"></script><script src="../shared/msg-viewer.js"></script><!-- v2 공유 컴포넌트 (V2-DESIGN-COMPONENTS.md) -->
 <script src="../shared/v2-scenarios.js"></script><script src="../shared/v2-demo.js"></script>
 <script src="v2.js"></script>
 <script src="app.js"></script>

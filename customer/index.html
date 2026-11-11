@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://127.0.0.1:* http://localhost:* https:; frame-src 'self' https://grafana.neocloud.skt.com; object-src 'none'; base-uri 'self'; form-action 'self'"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NeoCloud 고객 콘솔</title>
 <link rel="stylesheet" href="../shared/tokens.css"><link rel="stylesheet" href="../shared/shell.css">
-<link rel="stylesheet" href="../shared/blueprint.css"><!-- 주간(Blueprint) 디자인 레이어 -->
+<link rel="stylesheet" href="../shared/v2-design.css"><link rel="stylesheet" href="../shared/blueprint.css"><!-- 주간(Blueprint) 디자인 레이어 -->
 <style>
 /* ── 고객 콘솔 고유 스타일 (공통 셸은 shared/shell.css) ───────── */
 [data-screen]{display:block;max-width:1340px}
@@ -203,6 +203,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
 <script src="../shared/design-mode.js"></script>
 <script src="../shared/i18n-dict.js"></script>
 <script src="../shared/i18n-customer.js"></script>
+<script src="../shared/i18n-design.js"></script>
 <script src="../shared/i18n.js"></script><!-- 주간/야간 디자인 모드 -->
 <a class="skip-link" href="#nc-main">본문으로 건너뛰기</a>
 <div class="app">
@@ -219,31 +220,33 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
         <div style="min-width:0;flex:1">
           <div id="scope-tenant" title="로그인 테넌트 (고정)" style="color:var(--strong);font-size:11.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">불러오는 중…</div>
         <div id="scope-scale" style="color:var(--muted2);font-size:11px;margin-top:2px">로그인 테넌트 고정</div></div></div></div>
-    <nav>
+    <nav aria-label="주 메뉴">
       <a class="mi" data-route="dashboard" href="#/dashboard"><span class="dot"></span>대시보드</a>
-      <div class="sb-grp">컴퓨트</div>
+      <div class="sb-grp">BMaaS · 컴퓨트</div>
       <a class="mi" data-route="clusters" href="#/clusters"><span class="dot"></span>클러스터 <span class="bd cnt" id="mi-clusters-bd">2</span></a>
-      <a class="mi" data-route="nvke" href="#/nvke"><span class="dot"></span>Managed K8s (NVKE)</a>
       <a class="mi" data-route="nodes" href="#/nodes"><span class="dot"></span>노드 · 인스턴스</a>
       <a class="mi" data-route="images" href="#/images"><span class="dot"></span>이미지 · 부트 설정</a>
-      <div class="sb-grp">데이터 · 네트워크</div>
       <a class="mi" data-route="storage" href="#/storage"><span class="dot"></span>스토리지</a>
       <a class="mi" data-route="network" href="#/network"><span class="dot"></span>네트워크 · VPC</a>
-      <div class="sb-grp">가시성</div>
+      <div class="sb-grp">Managed K8s (NVKE)</div>
+      <a class="mi" data-route="nvke" href="#/nvke"><span class="dot"></span>Managed K8s (NVKE) <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <a class="mi" data-route="marketplace" href="#/marketplace"><span class="dot"></span>마켓플레이스 <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <div class="sb-grp">Token API</div>
+      <a class="mi" data-route="token" href="#/token"><span class="dot"></span>토큰 API <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <a class="mi" data-route="api" href="#/api"><span class="dot"></span>API · CLI · SDK</a>
+      <div class="sb-grp">계정 · 계약 · 청구</div>
+      <a class="mi" data-route="billing" href="#/billing"><span class="dot"></span>빌링 · 비용</a>
+      <a class="mi" data-route="invoices" href="#/invoices"><span class="dot"></span>청구서 · 결제 <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <a class="mi" data-route="sla" href="#/sla"><span class="dot"></span>SLA · 크레딧 <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <a class="mi" data-route="settings" href="#/settings"><span class="dot"></span>설정 — 조직 · 멤버 · 키</a>
+      <a class="mi" data-route="iam" href="#/iam"><span class="dot"></span>조직 · IAM · SSO <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <div class="sb-grp">운영 · 가시성</div>
       <a class="mi" data-route="monitoring" href="#/monitoring"><span class="dot"></span>모니터링</a>
       <a class="mi" data-route="alerts" href="#/alerts"><span class="dot"></span>알림 · 이벤트 <span class="bd amber" id="mi-alerts-bd">3</span></a>
       <a class="mi" data-route="status" href="#/status"><span class="dot"></span>서비스 상태</a>
-      <a class="mi" data-route="sla" href="#/sla"><span class="dot"></span>SLA · 크레딧</a>
-      <a class="mi" data-route="billing" href="#/billing"><span class="dot"></span>빌링 · 비용</a>
-      <a class="mi" data-route="invoices" href="#/invoices"><span class="dot"></span>청구서 · 결제</a>
       <div class="sb-grp">지원 · 보안</div>
       <a class="mi" data-route="support" href="#/support"><span class="dot"></span>지원 티켓 <span class="bd amber" id="mi-support-bd">1</span></a>
       <a class="mi" data-route="security" href="#/security"><span class="dot"></span>보안 · 감사</a>
-      <a class="mi" data-route="api" href="#/api"><span class="dot"></span>API · CLI · SDK</a>
-      <a class="mi" data-route="token" href="#/token"><span class="dot"></span>토큰 API</a>
-      <a class="mi" data-route="marketplace" href="#/marketplace"><span class="dot"></span>마켓플레이스 <span class="bd p2">P2</span></a>
-      <a class="mi" data-route="settings" href="#/settings"><span class="dot"></span>설정 — 조직 · 멤버 · 키</a>
-      <a class="mi" data-route="iam" href="#/iam"><span class="dot"></span>조직 · IAM · SSO</a>
     </nav>
     <div class="sb-user" id="user-card" data-open="demo_login" title="데모 로그인 전환 — 사용자·역할 변경 (클릭)" style="cursor:pointer">
       <span class="av" id="user-av" style="background:var(--ok-bg);color:var(--green-text)">JH</span>
@@ -271,6 +274,18 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
         <div class="hero"><span class="hi" id="hero-hi">안녕하세요, 김지현 님</span>
           <span class="sub" id="hero-sub">prod-training 클러스터가 정상 가동 중입니다 · 마지막 갱신 방금 전</span></div>
 
+        <!-- v2 하이라이트 (design-core · shared/v2-design.css) -->
+        <section class="v2hl" id="v2hl-cust" aria-labelledby="v2hl-cust-h">
+          <div class="v2hl-h"><span class="v2hl-tag">NEW · v2</span><h2 id="v2hl-cust-h">v2 하이라이트</h2><p>새 v2 기능 — 토큰 API부터 청구서·SLA 크레딧까지 한 콘솔에서 확인합니다.</p></div>
+          <ul class="v2hl-grid">
+          <li><a class="v2hl-card" href="#/token"><span class="v2hl-top"><span class="v2hl-t">토큰 API</span><span class="v2hl-f">F01–F04</span></span><span class="v2hl-d">OpenAI 호환 엔드포인트 · API 키 · 쿼터 · 스트리밍 시험</span><span class="v2hl-go">열기 →</span></a></li>
+          <li><a class="v2hl-card" href="#/invoices"><span class="v2hl-top"><span class="v2hl-t">청구서 · 결제</span><span class="v2hl-f">F05–F06</span></span><span class="v2hl-d">KRW+VAT 청구서 · 토큰·KV 캐시 별도 행 · Stripe 결제</span><span class="v2hl-go">열기 →</span></a></li>
+          <li><a class="v2hl-card" href="#/sla"><span class="v2hl-top"><span class="v2hl-t">SLA · 크레딧</span><span class="v2hl-f">F09</span></span><span class="v2hl-d">가용성 99.9% 게이지 · 장애별 자동 크레딧</span><span class="v2hl-go">열기 →</span></a></li>
+          <li><a class="v2hl-card" href="#/nvke"><span class="v2hl-top"><span class="v2hl-t">Managed K8s (NVKE)</span><span class="v2hl-f">F11</span></span><span class="v2hl-d">클리크 인식 노드풀 · 토폴로지 · kubeconfig</span><span class="v2hl-go">열기 →</span></a></li>
+          <li><a class="v2hl-card" href="#/marketplace"><span class="v2hl-top"><span class="v2hl-t">마켓플레이스</span><span class="v2hl-f">F32</span></span><span class="v2hl-d">모델 원클릭 배포 → 토큰 API로 바로 호출</span><span class="v2hl-go">열기 →</span></a></li>
+          <li><a class="v2hl-card" href="#/iam"><span class="v2hl-top"><span class="v2hl-t">조직 · IAM · SSO</span><span class="v2hl-f">F07</span></span><span class="v2hl-d">셀프 가입 · OIDC/JWT · SSO · 멤버 초대</span><span class="v2hl-go">열기 →</span></a></li>
+          </ul>
+        </section>
         <!-- CP-004 인수 검증 대기 액션 카드 — 해당 주문 존재 시 렌더 -->
         <div data-accept-wrap style="display:none"></div>
 
@@ -1200,6 +1215,7 @@ button.rbac-off,button.rbac-off:hover{color:var(--muted2)!important;
 <script src="../shared/nvke-scheduler.js"></script>
 <script src="marketplace.js"></script>
 <script src="../shared/v2-api.js"></script><script src="../shared/v2-ui.js"></script>
+<script src="../shared/flow-timeline.js"></script><script src="../shared/kpi-gauge.js"></script><script src="../shared/msg-viewer.js"></script><!-- v2 공유 컴포넌트 (V2-DESIGN-COMPONENTS.md) -->
 <script src="../shared/v2-scenarios.js"></script><script src="../shared/v2-demo.js"></script>
 <script src="v2.js"></script><script src="nvke-topo.js"></script>
 <script>/* ⌘K 팔레트 엔티티 → 고객 콘솔 라우트 매핑 (palette.js 로드 전 정의 필수 —

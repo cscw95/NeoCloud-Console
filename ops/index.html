@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="../shared/tokens.css">
 <link rel="stylesheet" href="../shared/shell.css">
 <link rel="stylesheet" href="mk8s.css"><!-- Managed K8S 인라인 통합 (#mk8s-root 스코프) -->
-<link rel="stylesheet" href="../shared/blueprint.css"><!-- 주간(Blueprint) 디자인 레이어 — body[data-design="blueprint"] 스코프 -->
+<link rel="stylesheet" href="../shared/v2-design.css"><link rel="stylesheet" href="../shared/blueprint.css"><!-- 주간(Blueprint) 디자인 레이어 — body[data-design="blueprint"] 스코프 -->
 <style>
 /* Ops 파생 토큰(--ready --fault --teal --fabA-* …)은 shared/tokens.css 로 이동 (두 테마) */
 [data-screen]{max-width:1340px}
@@ -246,6 +246,7 @@ section[data-screen="mk8s"]{margin:0}
 <script src="../shared/design-mode.js"></script>
 <script src="../shared/i18n-dict.js"></script>
 <script src="../shared/i18n-ops.js"></script>
+<script src="../shared/i18n-design.js"></script>
 <script src="../shared/i18n.js"></script><!-- 주간/야간 디자인 모드 — 첫 페인트 전 적용 -->
 <a class="skip-link" href="#nc-main">본문으로 건너뛰기</a>
 <div class="app">
@@ -268,61 +269,26 @@ section[data-screen="mk8s"]{margin:0}
       </div>
       <div style="color:var(--muted2);font-size:11px;margin-top:6px" class="tabnum">가산 36랙 · 안산 104랙 — 140랙 · 10,080 GPU</div>
     </div>
-    <nav>
+    <nav aria-label="주 메뉴">
       <a class="mi" href="#/overview" data-route="overview"><span class="dot"></span>관제 Overview</a>
-      <div class="sb-grp">인프라</div>
+      <a class="mi" href="#/demo-center" data-route="demo-center"><span class="dot"></span>데모 센터 <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <div class="sb-grp">BMaaS · 인프라</div>
       <a class="mi" href="#/assets" data-route="assets"><span class="dot"></span>자산 인벤토리 (CMDB)</a>
       <a class="mi" href="#/capacity" data-route="capacity"><span class="dot"></span>용량 관리</a>
       <a class="mi" href="#/provisioning" data-route="provisioning"><span class="dot"></span>프로비저닝 <span class="bd amber" id="bd-prov">1</span></a>
-      <a class="mi" href="#/bringup" data-route="bringup"><span class="dot"></span>랙 bring-up (15단계)</a>
       <a class="mi" href="#/network" data-route="network"><span class="dot"></span>네트워크 — IB · NVLink</a>
-      <a class="mi" href="#/power" data-route="power"><span class="dot"></span>전력 · 환경 (DCIM)</a>
-      <div class="sb-grp">관측 · 대응</div>
-      <a class="mi" href="#/telemetry" data-route="telemetry"><span class="dot"></span>텔레메트리</a>
-      <a class="mi" href="#/incidents" data-route="incidents"><span class="dot"></span>인시던트 <span class="bd red" id="bd-inc">1</span></a>
-      <a class="mi" href="#/performance" data-route="performance"><span class="dot"></span>성능 — SLA · MFU</a>
-      <div class="sb-grp">거버넌스</div>
-      <a class="mi" href="#/security" data-route="security"><span class="dot"></span>보안 운영 · Sanitization <span class="bd amber">2</span></a>
-      <a class="mi" href="#/change" data-route="change"><span class="dot"></span>변경 · 유지보수 (CAB)</a>
-      <a class="mi" href="#/orchestration" data-route="orchestration"><span class="dot"></span>오케스트레이션 <span class="bd p2">P2</span></a>
-      <div class="sb-grp">통합 OBSERVABILITY</div>
-      <a class="mi" href="#/obs-overview" data-route="obs-overview"><span class="dot"></span>종합 상황판</a>
-      <a class="mi" href="#/obs-gpu" data-route="obs-gpu"><span class="dot"></span>GPU · 컴퓨트 (DCGM)</a>
-      <a class="mi" href="#/obs-fabtopo" data-route="obs-fabtopo"><span class="dot"></span>GPU 패브릭 (UFM)</a>
-      <a class="mi" href="#/obs-rack" data-route="obs-rack"><span class="dot"></span>랙 · 전력 (DCIM)</a>
-      <a class="mi" href="#/obs-dlc" data-route="obs-dlc"><span class="dot"></span>냉각 · DLC (Dell PowerCool CDU)</a>
-      <a class="mi" href="#/obs-fabric" data-route="obs-fabric"><span class="dot"></span>크로스 상관 (RCA)</a>
-      <a class="mi" href="#/obs-slo" data-route="obs-slo"><span class="dot"></span>SLA · Error Budget</a>
-      <a class="mi" href="#/obs-alerts" data-route="obs-alerts"><span class="dot"></span>알림 · 이벤트 <span class="bd amber" id="bd-obs-alerts" style="display:none">0</span></a>
-      <a class="mi" href="#/obs-trayops" data-route="obs-trayops"><span class="dot"></span>트레이 수명주기</a>
-      <div class="sb-grp">DSX OS</div>
-      <a class="mi" href="#/dsx-oob" data-route="dsx-oob"><span class="dot"></span>OOB 모니터링</a>
-      <a class="mi" href="#/dsx-power" data-route="dsx-power"><span class="dot"></span>MaxLPS 전력</a>
-      <a class="mi" href="#/dsx-rma" data-route="dsx-rma"><span class="dot"></span>RMA · 펌웨어</a>
-      <a class="mi" href="#/dsx-metering" data-route="dsx-metering"><span class="dot"></span>미터링 · 격리</a>
-      <a class="mi" href="#/v2-recovery" data-route="v2-recovery"><span class="dot"></span>자동 복구</a>
-      <a class="mi" href="#/v2-token" data-route="v2-token"><span class="dot"></span>토큰 · 쿼터 · SLO</a>
-      <a class="mi" href="#/v2-billing" data-route="v2-billing"><span class="dot"></span>청구 실행</a>
-      <a class="mi" href="#/v2-accounts" data-route="v2-accounts"><span class="dot"></span>가입 · SLA 예외</a>
       <a class="mi" href="#/dsx-versions" data-route="dsx-versions"><span class="dot"></span>DSX OS 버전 매트릭스</a>
-      <a class="mi" href="#/nvke-capi" data-route="nvke-capi"><span class="dot"></span>NVKE CAPI · 토폴로지</a>
-      <a class="mi" href="#/nvke-sched" data-route="nvke-sched"><span class="dot"></span>KAI 스케줄러 · 큐</a>
-      <a class="mi" href="#/demo-center" data-route="demo-center"><span class="dot"></span>데모 센터</a>
-      <!-- Phase 2 운영 견고화 · 그리드 — ops/phase2.js -->
-      <div class="sb-grp">운영 견고화 · 그리드</div>
-      <a class="mi" href="#/p2-grid" data-route="p2-grid"><span class="dot"></span>그리드 이벤트 · 감축</a>
-      <a class="mi" href="#/p2-pipeline" data-route="p2-pipeline"><span class="dot"></span>bring-up 파이프라인</a>
-      <a class="mi" href="#/p2-firmware" data-route="p2-firmware"><span class="dot"></span>펌웨어 번들</a>
-      <a class="mi" href="#/p2-attest" data-route="p2-attest"><span class="dot"></span>증명 (measured boot)</a>
-      <a class="mi" href="#/p2-finops" data-route="p2-finops"><span class="dot"></span>FinOps 원가 · 정산</a>
-      <a class="mi" href="#/p2-notices" data-route="p2-notices"><span class="dot"></span>상태 페이지 공지</a>
-      <a class="mi" href="#/p2-metrics" data-route="p2-metrics"><span class="dot"></span>관측 지표 (Prometheus)</a>
+      <a class="mi" href="#/dsx-rma" data-route="dsx-rma"><span class="dot"></span>RMA · 펌웨어</a>
+      <a class="mi" href="#/p2-firmware" data-route="p2-firmware"><span class="dot"></span>펌웨어 번들 <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <a class="mi" href="#/p2-attest" data-route="p2-attest"><span class="dot"></span>증명 (measured boot) <span class="bd new" title="v2 신규 기능">NEW</span></a>
       <!-- Managed K8S — portal-mockup 통합 (독립 그룹 · 목업 프리뷰) -->
-      <div class="sb-grp" style="display:flex;align-items:center;gap:6px">Managed K8S
+      <div class="sb-grp" style="display:flex;align-items:center;gap:6px">Managed K8s (NVKE)
         <button id="mk8s-mode-btn" class="mk8s-mode" type="button"
           title="Managed K8S 데이터 소스 — 라이브 우선(NOCP :8000) · 실패 시에만 MOCK 표시 · 클릭으로 수동 전환">
           <span class="sw"><span class="knob"></span></span><span class="bd-txt">…</span>
         </button></div>
+      <a class="mi" href="#/nvke-capi" data-route="nvke-capi"><span class="dot"></span>NVKE CAPI · 토폴로지 <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <a class="mi" href="#/nvke-sched" data-route="nvke-sched"><span class="dot"></span>KAI 스케줄러 · 큐 <span class="bd new" title="v2 신규 기능">NEW</span></a>
       <div id="mk8s-sub" class="mk8s-sub">
         <a class="mi" href="#/mk8s?v=overview"   data-mk8s-v="overview"><span class="dot"></span>Overview</a>
         <a class="mi" href="#/mk8s?v=workflow"   data-mk8s-v="workflow"><span class="dot"></span>요청 · 작업 <span class="bd amber">2</span></a>
@@ -335,6 +301,41 @@ section[data-screen="mk8s"]{margin:0}
         <a class="mi" href="#/mk8s?v=monitoring" data-mk8s-v="monitoring"><span class="dot"></span>모니터링 (K8s · GPU/랙)</a>
         <a class="mi" href="#/mk8s?v=settings"   data-mk8s-v="settings"><span class="dot"></span>설정 (Day0)</a>
       </div>
+      <div class="sb-grp">Token API</div>
+      <a class="mi" href="#/v2-token" data-route="v2-token"><span class="dot"></span>토큰 · 쿼터 · SLO <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <div class="sb-grp">계정 · 계약 · 청구</div>
+      <a class="mi" href="#/v2-accounts" data-route="v2-accounts"><span class="dot"></span>가입 · SLA 예외 <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <a class="mi" href="#/v2-billing" data-route="v2-billing"><span class="dot"></span>청구 실행 <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <a class="mi" href="#/dsx-metering" data-route="dsx-metering"><span class="dot"></span>미터링 · 격리</a>
+      <a class="mi" href="#/p2-finops" data-route="p2-finops"><span class="dot"></span>FinOps 원가 · 정산 <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <div class="sb-grp">운영 — OOB · 전력 · 전력망 · 복구 · bring-up</div>
+      <a class="mi" href="#/dsx-oob" data-route="dsx-oob"><span class="dot"></span>OOB 모니터링</a>
+      <a class="mi" href="#/power" data-route="power"><span class="dot"></span>전력 · 환경 (DCIM)</a>
+      <a class="mi" href="#/dsx-power" data-route="dsx-power"><span class="dot"></span>MaxLPS 전력</a>
+      <a class="mi" href="#/p2-grid" data-route="p2-grid"><span class="dot"></span>그리드 이벤트 · 감축 <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <a class="mi" href="#/v2-recovery" data-route="v2-recovery"><span class="dot"></span>자동 복구 <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <a class="mi" href="#/bringup" data-route="bringup"><span class="dot"></span>랙 bring-up (15단계) <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <a class="mi" href="#/p2-pipeline" data-route="p2-pipeline"><span class="dot"></span>bring-up 파이프라인 <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <div class="sb-grp">관측 · 대응</div>
+      <a class="mi" href="#/telemetry" data-route="telemetry"><span class="dot"></span>텔레메트리</a>
+      <a class="mi" href="#/incidents" data-route="incidents"><span class="dot"></span>인시던트 <span class="bd red" id="bd-inc">1</span></a>
+      <a class="mi" href="#/performance" data-route="performance"><span class="dot"></span>성능 — SLA · MFU</a>
+      <a class="mi" href="#/p2-notices" data-route="p2-notices"><span class="dot"></span>상태 페이지 공지 <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <div class="sb-grp">통합 OBSERVABILITY</div>
+      <a class="mi" href="#/obs-overview" data-route="obs-overview"><span class="dot"></span>종합 상황판</a>
+      <a class="mi" href="#/obs-gpu" data-route="obs-gpu"><span class="dot"></span>GPU · 컴퓨트 (DCGM)</a>
+      <a class="mi" href="#/obs-fabtopo" data-route="obs-fabtopo"><span class="dot"></span>GPU 패브릭 (UFM)</a>
+      <a class="mi" href="#/obs-rack" data-route="obs-rack"><span class="dot"></span>랙 · 전력 (DCIM)</a>
+      <a class="mi" href="#/obs-dlc" data-route="obs-dlc"><span class="dot"></span>냉각 · DLC (Dell PowerCool CDU)</a>
+      <a class="mi" href="#/obs-fabric" data-route="obs-fabric"><span class="dot"></span>크로스 상관 (RCA)</a>
+      <a class="mi" href="#/obs-slo" data-route="obs-slo"><span class="dot"></span>SLA · Error Budget</a>
+      <a class="mi" href="#/obs-alerts" data-route="obs-alerts"><span class="dot"></span>알림 · 이벤트 <span class="bd amber" id="bd-obs-alerts" style="display:none">0</span></a>
+      <a class="mi" href="#/obs-trayops" data-route="obs-trayops"><span class="dot"></span>트레이 수명주기</a>
+      <a class="mi" href="#/p2-metrics" data-route="p2-metrics"><span class="dot"></span>관측 지표 (Prometheus) <span class="bd new" title="v2 신규 기능">NEW</span></a>
+      <div class="sb-grp">거버넌스</div>
+      <a class="mi" href="#/security" data-route="security"><span class="dot"></span>보안 운영 · Sanitization <span class="bd amber">2</span></a>
+      <a class="mi" href="#/change" data-route="change"><span class="dot"></span>변경 · 유지보수 (CAB)</a>
+      <a class="mi" href="#/orchestration" data-route="orchestration"><span class="dot"></span>오케스트레이션 <span class="bd p2">P2</span></a>
     </nav>
     <div style="margin-top:auto">
       <div style="display:flex;align-items:center;gap:8px;padding:8px 6px">
@@ -387,6 +388,21 @@ section[data-screen="mk8s"]{margin:0}
 
       <!-- ════════ ① 관제 Overview ════════ -->
       <section data-screen="overview">
+        <!-- v2 하이라이트 (design-core · shared/v2-design.css) -->
+        <section class="v2hl" id="v2hl-ops" aria-labelledby="v2hl-ops-h">
+          <div class="v2hl-h"><span class="v2hl-tag">NEW · v2</span><h2 id="v2hl-ops-h">v2 하이라이트</h2><p>새 v2 기능 — 카드를 누르면 해당 화면으로 이동합니다. 시연은 데모 센터에서 시나리오를 끝까지 실행합니다.</p><a class="v2hl-cta" href="#/demo-center">데모 센터 열기 →</a></div>
+          <ul class="v2hl-grid">
+          <li><a class="v2hl-card" href="#/demo-center"><span class="v2hl-top"><span class="v2hl-t">데모 센터</span><span class="v2hl-f">a–h</span></span><span class="v2hl-d">시나리오 8종을 단계별로 실행하고 각 단계의 요청·응답 원문을 확인</span><span class="v2hl-go">열기 →</span></a></li>
+          <li><a class="v2hl-card" href="#/v2-token"><span class="v2hl-top"><span class="v2hl-t">토큰 API · SLO</span><span class="v2hl-f">F01–F04</span></span><span class="v2hl-d">OpenAI 호환 게이트웨이 · TTFT/TPOT p99 vs SLO · 쿼터 · 429</span><span class="v2hl-go">열기 →</span></a></li>
+          <li><a class="v2hl-card" href="#/v2-billing"><span class="v2hl-top"><span class="v2hl-t">가입 → 청구서</span><span class="v2hl-f">F05–F07</span></span><span class="v2hl-d">약정 · Lago 이벤트 · 청구서(KRW+VAT) · Stripe 결제</span><span class="v2hl-go">열기 →</span></a></li>
+          <li><a class="v2hl-card" href="#/v2-recovery"><span class="v2hl-top"><span class="v2hl-t">자동 복구 · SLA 크레딧</span><span class="v2hl-f">F09–F10</span></span><span class="v2hl-d">XID 장애 → cordon/drain/교체 → 가용성 99.9% → 크레딧 차감</span><span class="v2hl-go">열기 →</span></a></li>
+          <li><a class="v2hl-card" href="#/p2-grid"><span class="v2hl-top"><span class="v2hl-t">전력망 감축 · 누수</span><span class="v2hl-f">F20–F22</span></span><span class="v2hl-d">DSX Flex 1.7.0 · 예약 보호 · Batch 축소 · 원복 · 정산</span><span class="v2hl-go">열기 →</span></a></li>
+          <li><a class="v2hl-card" href="#/bringup"><span class="v2hl-top"><span class="v2hl-t">랙 bring-up 15단계</span><span class="v2hl-f">F23</span></span><span class="v2hl-d">케이블 불일치로 04단계 실패 → 조치 → 판매 가능</span><span class="v2hl-go">열기 →</span></a></li>
+          <li><a class="v2hl-card" href="#/nvke-capi"><span class="v2hl-top"><span class="v2hl-t">NVKE 심화</span><span class="v2hl-f">F11</span></span><span class="v2hl-d">CAPI · IMEX ComputeDomain · 클리크 인식 노드풀 · 교체 · 업그레이드</span><span class="v2hl-go">열기 →</span></a></li>
+          <li><a class="v2hl-card" href="#/nvke-sched"><span class="v2hl-top"><span class="v2hl-t">스케줄링 · 마켓플레이스</span><span class="v2hl-f">F30–F32</span></span><span class="v2hl-d">KAI 큐 · 갱 · 선점 · Slurm · 모델 원클릭 배포</span><span class="v2hl-go">열기 →</span></a></li>
+          <li><a class="v2hl-card" href="#/p2-finops"><span class="v2hl-top"><span class="v2hl-t">KV 캐시 · FinOps</span><span class="v2hl-f">F27 · F33</span></span><span class="v2hl-d">KV 계층 G1–G4 → cached_tokens → 청구서 별도 행 · 원가 정산</span><span class="v2hl-go">열기 →</span></a></li>
+          </ul>
+        </section>
         <div class="kpi-band" id="ov-kpi"></div>
         <div id="ov-reconcile" style="display:none"></div>
         <div class="grid">
@@ -1630,6 +1646,7 @@ section[data-screen="mk8s"]{margin:0}
 <script src="phase2.js"></script>
 <script src="demo.js"></script>
 <script src="../shared/v2-api.js"></script><script src="../shared/v2-ui.js"></script>
+<script src="../shared/flow-timeline.js"></script><script src="../shared/kpi-gauge.js"></script><script src="../shared/msg-viewer.js"></script><!-- v2 공유 컴포넌트 (V2-DESIGN-COMPONENTS.md) -->
 <script src="../shared/v2-scenarios.js"></script><script src="../shared/v2-demo.js"></script>
 <script src="v2.js"></script>
 <script src="app.js"></script>
