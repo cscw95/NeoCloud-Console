@@ -1068,7 +1068,7 @@ section[data-screen="mk8s"]{margin:0}
       <!-- F11 NVKE CAPI·CAPNICo 상태 · 클리크 · IMEX (shared/nvke-topology.js) -->
       <section data-screen="nvke-capi"><div id="nvke-capi-root"></div></section>
       <!-- F30 KAI 스케줄러 큐·갱·클리크 배치 (shared/nvke-scheduler.js) -->
-      <section data-screen="nvke-sched"><div id="nvke-sched-ops-root"></div></section>
+      <section data-screen="nvke-sched"><div id="nvke-sched-ops-root"></div><!-- F31 Slurm 잡 (ops/infra-v2.js) --><div id="slurm-ops-root"></div></section>
 
       <!-- ════════ ⑬ OBS — 종합 상황판 ════════ -->
       <section data-screen="obs-overview">
@@ -1235,7 +1235,7 @@ section[data-screen="mk8s"]{margin:0}
       <section data-screen="p2-grid"><div id="p2-grid-root"></div></section>
       <section data-screen="p2-pipeline"><div id="p2-pipeline-root"></div></section>
       <section data-screen="p2-firmware"><div id="p2-firmware-root"></div></section>
-      <section data-screen="p2-attest"><div id="p2-attest-root"></div></section>
+      <section data-screen="p2-attest"><div id="p2-attest-root"></div><!-- F28 헬스 검증 게이트 (ops/infra-v2.js) --><div id="hv-gate-root"></div></section>
       <section data-screen="p2-finops"><div id="p2-finops-root"></div></section>
       <section data-screen="p2-notices"><div id="p2-notices-root"></div></section>
       <section data-screen="p2-metrics"><div id="p2-metrics-root"></div></section>
@@ -1655,6 +1655,7 @@ section[data-screen="mk8s"]{margin:0}
 <script src="../shared/nvke-topology.js"></script>
 <script src="../shared/sched-market-api.js"></script>
 <script src="../shared/nvke-scheduler.js"></script>
+<script src="infra-v2.js"></script><!-- v2 design-infra: F28 헬스 게이트 · F31 Slurm -->
 <script src="mk8s.js"></script><!-- Managed K8S 목업 (인라인 · iframe 없음 · 내부 라우터) -->
 <script>
 /* ── Managed K8S — portal-mockup 인라인 통합 (iframe 제거) ──

@@ -1537,3 +1537,55 @@ window.NC_I18N.patterns = [
 
 /* integration/v2 — F11 NVKE CAPI 메뉴 (ops #/nvke-capi) */
 Object.assign(window.NC_I18N.dict, { "NVKE CAPI · 토폴로지": "NVKE CAPI · topology" });
+
+/* v2 design-infra — 인프라 화면 (ops/bringup.js · ops/phase2.js 펌웨어·증명·파이프라인) */
+Object.assign(window.NC_I18N.dict, {
+  "이 단계는 외부 호출 없이 NOCP 안에서 처리됩니다.": "This step runs inside NOCP with no upstream call.",
+  "15단계 모두 통과 — 판매 가능 재고에 투입됨": "All 15 steps passed — added to sellable inventory",
+  "케이블 불일치": "Cable mismatch",
+  "트레이 포트": "Tray port",
+  "계획 (cable plan)": "Plan (cable plan)",
+  "실제 (LLDP)": "Actual (LLDP)",
+  "조치: 계획대로 재결선한 뒤 재시도하세요. 시연에서는 주입을 해제하고 다시 시작합니다.":
+    "Fix: re-cable to the plan, then retry. In the demo this clears the injection and restarts.",
+  "재결선 완료 → 재시도": "Re-cabled → retry",
+  "헬스 검증 게이트 보기 →": "Open health validation gate →",
+  "증명 상태 보기 →": "Open attestation status →",
+  "펌웨어 번들 보기 →": "Open firmware bundles →",
+  "구성요소별 bring-up 흐름": "Bring-up flow by component",
+  "시연 단계": "Demo steps",
+  "시연 원본 요청/응답": "Demo raw requests / responses",
+  "시연 진행": "Demo progress",
+  "15단계 파이프라인": "15-step pipeline",
+  "단계를 누르면 원본 요청/응답": "select a step for raw request / response",
+  "구성요소별 흐름 (스윔레인)": "Flow by component (swimlane)",
+  "요청 실패 — HTTP": "Request failed — HTTP",
+  "검증": "Validating",
+  "랙 상태 흐름": "Rack state flow",
+  "기본 번들": "Default bundle",
+  "적용 순서 (nvfwupd형 · Redfish SimpleUpdate)": "Apply order (nvfwupd-style · Redfish SimpleUpdate)",
+  "롤아웃 계획": "Rollout plans",
+  "테넌트 사용 중 호스트는 자동 제외": "Hosts in tenant use are skipped automatically",
+  "작업 창": "Window",
+  "증명됨": "Attested",
+  "증명 통과율": "Attestation pass rate",
+  "격리 — 판매 재고 제외": "Quarantined — out of sellable stock",
+  "모두 통과": "All passed",
+  "NICo measured-boot · SPDM · 트레이 18개": "NICo measured-boot · SPDM · 18 trays",
+  "트레이별 증명 상태": "Attestation by tray",
+  "PCR · 출처 상세 표": "PCR · source detail table",
+  "케이블 검증 등 — 15단계 보기": "e.g. cable validation — open the 15 steps",
+  "DCIM 등록": "DCIM registration",
+  "헬스 검증": "Health validation",
+  "실패 단계": "Failed step"
+});
+window.NC_I18N.patterns.unshift([/^원본 요청\/응답 (\d+)건$/, "Raw request / response · $1"]);
+window.NC_I18N.patterns.push(
+  [/^실패 — 이후 (\d+|\{n\})단계 차단$/, "failed — next $1 steps blocked"],
+  [/^담당 (.+)$/, "Owner $1"],
+  [/^랙 (\d+|\{n\})$/, "$1 racks"],
+  [/^적용 순서 (\S+|\{v\})$/, "Apply order $1"],
+  [/^대상 (\d+|\{n\})대 · 제외 (\d+|\{s\})대$/, "$1 targets · $2 skipped"],
+  /* "04 LLDP 케이블 검증" — 번호 + 사전에 있는 단계 이름 (다른 패턴이 모두 안 맞을 때만) */
+  [/^(\d{2}) (.+)$/, function (m, n, t) { var d = window.NC_I18N.dict; return d[t] ? n + " " + d[t] : m; }]
+);

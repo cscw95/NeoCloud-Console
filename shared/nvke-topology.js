@@ -40,6 +40,14 @@
     ".nvt-cl h4{margin:0 0 6px;font-size:12.5px;word-break:break-all}.nvt-cl dl{display:grid;grid-template-columns:110px 1fr;gap:3px 8px;margin:0;font-size:11.5px}" +
     ".nvt-cl dt{color:var(--muted)}.nvt-cl dd{margin:0;word-break:break-all}" +
     ".nvt-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}.nvt-chips span{font-size:10.5px;border:1px solid var(--line);border-radius:8px;padding:1px 6px;color:var(--muted)}" +
+    ".nvt-tiles{margin-bottom:12px}.nvt-cl.warn{border-color:var(--warn-line)}.nvt-k{font-weight:400;color:var(--text-2);font-size:var(--fs-xs)}" +
+    ".nvt-cells{list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:3px}" +
+    ".nvt-cells li{font-size:var(--fs-2xs);font-family:var(--font-mono);border:1px solid var(--ok-line);background:var(--ok-bg);color:var(--text-1);border-radius:var(--radius-sm);padding:2px 5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
+    ".nvt-cells li span{color:var(--ok);font-weight:var(--fw-bold)}.nvt-cells li.bad{border-color:var(--warn);background:var(--warn-bg)}.nvt-cells li.bad span{color:var(--warn)}" +
+    ".nvt-cd{list-style:none;margin:0 0 10px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:10px}" +
+    ".nvt-cd li{border:1px solid var(--border);border-left:4px solid var(--info);border-radius:var(--radius-lg);padding:8px 10px;background:var(--surface-2);font-size:var(--fs-sm)}" +
+    ".nvt-cd b{display:block;font-size:var(--fs-md);word-break:break-all}.nvt-cd .r{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}" +
+    ".nvt-cd .r span{font-size:var(--fs-2xs);border:1px solid var(--info-line);background:var(--info-bg);color:var(--info-text);border-radius:var(--radius-pill);padding:1px 7px}" +
     ".nvt-hist{font-size:11px;color:var(--muted);max-height:220px;overflow:auto;margin:8px 0 0;padding-left:16px}";
   document.head.appendChild(css);
 
@@ -90,7 +98,12 @@
     }
     if (S.tab === "imex") {
       var cds = (await D.nvkeComputeDomains(cid)).data || [];
-      return '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>ComputeDomain</th><th>NodePool</th><th>' + L("랙", "Racks") +
+      var cards = '<ul class="nvt-cd" aria-label="' + L("IMEX ComputeDomain 요약", "IMEX ComputeDomain summary") + '">' + cds.map(function (d) {
+        return "<li><b>" + esc(d.name) + "</b>" + st(d.status) + " · " + d.num_nodes + L(" 노드 · 클리크 ", " nodes · cliques ") + d.cliques.length +
+          " · IMEX " + esc(((d.imex_channels || [])[0] || {}).count) + L(" 채널", " channels") +
+          '<div class="r">' + d.racks.map(function (r) { return "<span>" + esc(r) + "</span>"; }).join("") + "</div></li>";
+      }).join("") + "</ul>";
+      return cards + '<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>ComputeDomain</th><th>NodePool</th><th>' + L("랙", "Racks") +
         "</th><th>" + L("노드", "Nodes") + "</th><th>Clique</th><th>IMEX " + L("채널", "channels") + "</th><th>" + L("상태", "Status") + "</th></tr></thead><tbody>" +
         (cds.map(function (d) {
           return "<tr><td class='id'>" + esc(d.name) + (d.auto ? ' <span class="st blue">auto</span>' : "") + "</td><td>" + esc(d.nodepool) +
@@ -101,19 +114,32 @@
     var nodes = (await D.nvkeNodes(cid)).data || [];
     var by = {};
     nodes.forEach(function (n) { var k = n.labels[CLIQUE] || ("cpu · " + n.labels[ZONE]); (by[k] = by[k] || []).push(n); });
-    return '<div class="nvt-grid">' + (Object.keys(by).sort().map(function (k) {
+    var keys = Object.keys(by).sort();
+    var joinedAll = nodes.filter(function (n) { return n.join.state === "Joined"; }).length;
+    var tpmAll = nodes.filter(function (n) { return n.attestation.tpm === "verified"; }).length;
+    var K = NC.kpi;
+    var tiles = K ? K.grid([
+      K.stat({ label: L("NVL72 클리크", "NVL72 cliques"), value: keys.filter(function (k) { return k.indexOf("cpu · ") !== 0; }).length,
+        sub: L("nvidia.com/gpu.clique 라벨 기준", "by nvidia.com/gpu.clique label") }),
+      K.stat({ label: L("노드", "Nodes"), value: nodes.length, sub: L("Joined ", "Joined ") + joinedAll + "/" + nodes.length }),
+      K.stat({ label: L("TPM 증명", "TPM attested"), value: tpmAll + "/" + nodes.length, sub: "SPIFFE/SPIRE" })
+    ], { min: 170 }) : "";
+    return '<div class="nvt-tiles">' + tiles + '</div><div class="nvt-grid">' + (keys.map(function (k) {
       var ns = by[k], n0 = ns[0], joined = ns.filter(function (n) { return n.join.state === "Joined"; }).length;
       var tpm = ns.filter(function (n) { return n.attestation.tpm === "verified"; }).length;
-      return '<div class="nvt-cl"><h4>gpu.clique ' + esc(k) + "</h4><dl>" +
+      var good = joined === ns.length && tpm === ns.length;
+      return '<div class="nvt-cl' + (good ? "" : " warn") + '"><h4><span class="nvt-k">gpu.clique</span> ' + esc(k) + "</h4><dl>" +
         "<dt>" + L("랙 (zone)", "Rack (zone)") + "</dt><dd>" + esc(n0.labels[ZONE]) + "</dd>" +
         "<dt>NodePool</dt><dd>" + esc(n0.nodepool) + "</dd>" +
         "<dt>" + L("노드", "Nodes") + "</dt><dd>" + ns.length + "</dd>" +
         "<dt>IB leaf / spine</dt><dd>" + esc(n0.labels[LEAF] || "—") + " / " + esc(n0.labels[SPINE] || "—") + "</dd>" +
         "<dt>nvke-agent</dt><dd>" + st(joined + "/" + ns.length + " Joined") + "</dd>" +
         "<dt>TPM</dt><dd>" + st(tpm + "/" + ns.length + " verified") + "</dd></dl>" +
-        '<div class="nvt-chips">' + ns.map(function (n) {
-          return '<span title="' + esc(n.provider_id + " · " + n.machine_phase) + '">' + esc(n.name) + "</span>";
-        }).join("") + "</div></div>";
+        '<ul class="nvt-cells" aria-label="' + esc(L("클리크 노드 ", "Clique nodes ") + ns.length) + '">' + ns.map(function (n) {
+          var okN = n.join.state === "Joined" && n.attestation.tpm === "verified";
+          return '<li class="' + (okN ? "ok" : "bad") + '" title="' + esc(n.provider_id + " · " + n.machine_phase + " · " + n.join.state + " · TPM " + n.attestation.tpm) + '">' +
+            '<span aria-hidden="true">' + (okN ? "✓" : "!") + "</span> " + esc(n.name) + "</li>";
+        }).join("") + "</ul></div>";
     }).join("") || '<div style="color:var(--muted)">—</div>') + "</div>";
   }
 
